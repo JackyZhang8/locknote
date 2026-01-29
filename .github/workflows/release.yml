@@ -1,9 +1,13 @@
 name: Build & Release
 
+permissions:
+  contents: write
+
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,13 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.22"
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
 
@@ -36,27 +38,33 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Install frontend deps
-        run: npm ci
         working-directory: frontend
+        run: npm ci
 
       - name: Build
-        run: |
-          wails build
+        run: wails build -clean
 
-      - name: Package
-        shell: bash
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir dist
+          Compress-Archive -Path build/bin/* -DestinationPath dist/locknote-windows.zip
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
         run: |
           mkdir -p dist
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            powershell -NoProfile -Command "Compress-Archive -Path build/bin/* -DestinationPath dist/locknote-windows.zip"
-          elif [ "$RUNNER_OS" = "macOS" ]; then
-            (cd build/bin && zip -r ../../dist/locknote-darwin.zip .)
-          else
-            (cd build/bin && zip -r ../../dist/locknote-linux.zip .)
-          fi
+          cd build/bin
+          zip -r ../../dist/locknote-darwin.zip .
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist
+          cd build/bin
+          zip -r ../../dist/locknote-linux.zip .
+
+      - uses: actions/upload-artifact@v4
         with:
           name: locknote-${{ matrix.os }}
           path: dist/*.zip
@@ -68,11 +76,6 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
 
-      - name: List downloaded artifacts
-        run: ls -R
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
-          files: |
-            **/*.zip
+          files: "**/*.zip"
