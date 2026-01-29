@@ -1,0 +1,116 @@
+// https://github.com/JackyZhang8/locknote
+// 一个简单、可靠、离线优先的桌面加密笔记软件。
+// A simple, reliable, offline-first encrypted note-taking desktop app.
+package notebooks
+
+import (
+	"locknote/internal/database"
+
+	"github.com/google/uuid"
+)
+
+type Service struct {
+	db *database.DB
+}
+
+type Notebook struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Icon      string `json:"icon"`
+	SortOrder int    `json:"sortOrder"`
+	Pinned    bool   `json:"pinned"`
+}
+
+func NewService(db *database.DB) *Service {
+	return &Service{db: db}
+}
+
+func (s *Service) Create(name, icon string) (*Notebook, error) {
+	if icon == "" {
+		icon = "📓"
+	}
+
+	sortOrder, err := s.db.GetNextNotebookSortOrder()
+	if err != nil {
+		sortOrder = 0
+	}
+
+	notebook := &database.Notebook{
+		ID:        uuid.New().String(),
+		Name:      name,
+		Icon:      icon,
+		SortOrder: sortOrder,
+	}
+
+	if err := s.db.CreateNotebook(notebook); err != nil {
+		return nil, err
+	}
+
+	return &Notebook{
+		ID:        notebook.ID,
+		Name:      notebook.Name,
+		Icon:      notebook.Icon,
+		SortOrder: notebook.SortOrder,
+		Pinned:    notebook.Pinned,
+	}, nil
+}
+
+func (s *Service) Update(id, name, icon string) (*Notebook, error) {
+	notebook, err := s.db.GetNotebook(id)
+	if err != nil {
+		return nil, err
+	}
+
+	notebook.Name = name
+	if icon != "" {
+		notebook.Icon = icon
+	}
+
+	if err := s.db.UpdateNotebook(notebook); err != nil {
+		return nil, err
+	}
+
+	return &Notebook{
+		ID:        notebook.ID,
+		Name:      notebook.Name,
+		Icon:      notebook.Icon,
+		SortOrder: notebook.SortOrder,
+		Pinned:    notebook.Pinned,
+	}, nil
+}
+
+func (s *Service) Delete(id string) error {
+	return s.db.DeleteNotebook(id)
+}
+
+func (s *Service) List() ([]*Notebook, error) {
+	dbNotebooks, err := s.db.ListNotebooks()
+	if err != nil {
+		return nil, err
+	}
+
+	notebooks := make([]*Notebook, len(dbNotebooks))
+	for i, n := range dbNotebooks {
+		notebooks[i] = &Notebook{
+			ID:        n.ID,
+			Name:      n.Name,
+			Icon:      n.Icon,
+			SortOrder: n.SortOrder,
+			Pinned:    n.Pinned,
+		}
+	}
+
+	return notebooks, nil
+}
+
+func (s *Service) SetPinned(id string, pinned bool) error {
+	return s.db.SetNotebookPinned(id, pinned)
+}
+
+func (s *Service) UpdateSortOrder(id string, sortOrder int) error {
+	return s.db.UpdateNotebookSortOrder(id, sortOrder)
+}
+
+func (s *Service) ReorderNotebooks(ids []string) error {
+	return s.db.ReorderNotebooks(ids)
+}

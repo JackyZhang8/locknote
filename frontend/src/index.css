@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background-color: #f4fbf6;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.markdown-preview h1 {
+  @apply text-2xl font-bold mb-4 text-gray-800;
+}
+
+.markdown-preview h2 {
+  @apply text-xl font-semibold mb-3 text-gray-800;
+}
+
+.markdown-preview h3 {
+  @apply text-lg font-medium mb-2 text-gray-800;
+}
+
+.markdown-preview p {
+  @apply mb-3 text-gray-700 leading-relaxed;
+}
+
+.markdown-preview ul, .markdown-preview ol {
+  @apply mb-3 pl-6;
+}
+
+.markdown-preview li {
+  @apply mb-1 text-gray-700;
+}
+
+.markdown-preview ul li {
+  @apply list-disc;
+}
+
+.markdown-preview ol li {
+  @apply list-decimal;
+}
+
+.markdown-preview code {
+  @apply bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-emerald-700;
+}
+
+.markdown-preview pre {
+  @apply bg-gray-100 p-4 rounded-lg mb-3 overflow-x-auto;
+}
+
+.markdown-preview pre code {
+  @apply bg-transparent p-0;
+}
+
+.markdown-preview blockquote {
+  @apply border-l-4 border-emerald-400 pl-4 italic text-gray-600 my-3;
+}
+
+.markdown-preview a {
+  @apply text-emerald-600 hover:text-emerald-700 underline;
+}
+
+.markdown-preview table {
+  @apply w-full border-collapse mb-3;
+}
+
+.markdown-preview th, .markdown-preview td {
+  @apply border border-gray-300 px-3 py-2 text-left;
+}
+
+.markdown-preview th {
+  @apply bg-gray-100 font-semibold;
+}
+
+.markdown-preview hr {
+  @apply my-4 border-gray-300;
+}

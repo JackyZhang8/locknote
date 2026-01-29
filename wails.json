@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "locknote",
+  "outputfilename": "LockNote",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "LockNote.app",
+    "email": "support@locknote.app"
+  },
+  "info": {
+    "companyName": "LockNote.app",
+    "productName": "LockNote.app",
+    "productVersion": "1.0.1",
+    "copyright": "Copyright (c) 2026 LockNote.app"
+  }
+}
