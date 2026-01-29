@@ -8,6 +8,10 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.0.2 or v1.0.2)"
+        required: true
 
 jobs:
   build:
@@ -79,12 +83,52 @@ jobs:
 
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine release tag
+        id: reltag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            v="${{ inputs.version }}"
+            if [[ "$v" == v* ]]; then
+              echo "tag=$v" >> "$GITHUB_OUTPUT"
+            else
+              echo "tag=v$v" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push tag (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          TAG="${{ steps.reltag.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists locally."
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists on origin."
+          else
+            git push origin "refs/tags/$TAG"
+          fi
+
       - uses: actions/download-artifact@v4
 
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.reltag.outputs.tag }}
           files: "**/*.zip"
