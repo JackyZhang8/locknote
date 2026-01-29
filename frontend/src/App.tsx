@@ -26,7 +26,10 @@ function AppRoot() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const init = async () => {
+    const init = async (retryCount = 0): Promise<void> => {
+      const maxRetries = 5;
+      const retryDelay = 500; // ms
+
       try {
         const firstRun = await App.IsFirstRun();
         setFirstRun(firstRun);
@@ -39,9 +42,17 @@ function AppRoot() {
 
         const dataDir = await App.GetDataDir();
         setDataDir(dataDir);
+
+        setLoading(false);
       } catch (error) {
         console.error('Init error:', error);
-      } finally {
+        // Retry on failure - WebView2 may still be initializing on Windows first run
+        if (retryCount < maxRetries) {
+          console.log(`Retrying initialization (${retryCount + 1}/${maxRetries})...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          return init(retryCount + 1);
+        }
+        // After max retries, still set loading to false to show error state
         setLoading(false);
       }
     };
