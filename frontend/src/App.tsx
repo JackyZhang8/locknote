@@ -7,8 +7,7 @@ import { LockScreen } from './components/LockScreen';
 import { MainLayout } from './components/MainLayout';
 import { SetupScreen } from './components/SetupScreen';
 import * as App from './wailsjs/go/main/App';
-import { EventsEmit } from './wailsjs/runtime/runtime';
-import { EventsOn } from './wailsjs/runtime/runtime';
+import { EventsEmit, EventsOn } from '../wailsjs/runtime/runtime';
 
 // Throttle function to limit how often UpdateActivity is called
 function throttle<T extends (...args: unknown[]) => void>(func: T, limit: number): T {
