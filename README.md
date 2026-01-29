@@ -1,70 +1,76 @@
 # LockNote.app
 
- 一个简单、可靠、离线优先的桌面加密笔记软件。
+一个简单、可靠、离线优先的桌面加密笔记软件。
  
- A simple, reliable, offline-first encrypted note-taking desktop app.
+A simple, reliable, offline-first encrypted note-taking desktop app.
+
+ Official Website: https://locknote.app
+
+ Author: LockNote.app <support@locknote.app>
+
+ ![LockNote.app Screenshot](./screenshot/screen.png)
  
- ## 功能特性
+## 功能特性
  
- - **加密存储** - 所有笔记内容使用 AES-256-GCM 加密，密钥由 Argon2id 派生
- - **离线优先** - 数据存储在本地，无需网络连接
- - **Markdown 编辑** - 支持 Markdown 语法，实时预览
- - **标签管理** - 为笔记添加标签，方便分类和筛选
- - **全文搜索** - 搜索标题、内容和标签
- - **历史版本** - 自动保存历史版本，支持回滚
- - **备份恢复** - 支持手动备份和恢复数据
+- **加密存储** - 所有笔记内容使用 AES-256-GCM 加密，密钥由 Argon2id 派生
+- **离线优先** - 数据存储在本地，无需网络连接
+- **Markdown 编辑** - 支持 Markdown 语法，实时预览
+- **标签管理** - 为笔记添加标签，方便分类和筛选
+- **全文搜索** - 搜索标题、内容和标签
+- **历史版本** - 自动保存历史版本，支持回滚
+- **备份恢复** - 支持手动备份和恢复数据
  
- ## Features
+## Features
  
- - **Encrypted storage** - All note content is encrypted with AES-256-GCM; keys are derived via Argon2id
- - **Offline-first** - Data is stored locally; no network connection required
- - **Markdown editing** - Markdown support with live preview
- - **Tag management** - Add tags for classification and filtering
- - **Full-text search** - Search titles, content, and tags
- - **History versions** - Automatic history snapshots with rollback
- - **Backup & restore** - Manual backup and restore supported
+- **Encrypted storage** - All note content is encrypted with AES-256-GCM; keys are derived via Argon2id
+- **Offline-first** - Data is stored locally; no network connection required
+- **Markdown editing** - Markdown support with live preview
+- **Tag management** - Add tags for classification and filtering
+- **Full-text search** - Search titles, content, and tags
+- **History versions** - Automatic history snapshots with rollback
+- **Backup & restore** - Manual backup and restore supported
  
- ## 技术栈
+## 技术栈
  
- - **后端**: Go + Wails v2
- - **前端**: React + TypeScript + TailwindCSS
- - **数据库**: SQLite (元数据)
- - **加密**: AES-256-GCM + Argon2id
+- **后端**: Go + Wails v2
+- **前端**: React + TypeScript + TailwindCSS
+- **数据库**: SQLite (元数据)
+- **加密**: AES-256-GCM + Argon2id
  
- ## Tech Stack
+## Tech Stack
  
- - **Backend**: Go + Wails v2
- - **Frontend**: React + TypeScript + TailwindCSS
- - **Database**: SQLite (metadata)
- - **Crypto**: AES-256-GCM + Argon2id
+- **Backend**: Go + Wails v2
+- **Frontend**: React + TypeScript + TailwindCSS
+- **Database**: SQLite (metadata)
+- **Crypto**: AES-256-GCM + Argon2id
  
- ## 开发环境要求
+## 开发环境要求
  
- - Go 1.21+
- - Node.js 18+
- - Wails CLI v2
+- Go 1.21+
+- Node.js 18+
+- Wails CLI v2
  
- ## Development Requirements
+## Development Requirements
  
- - Go 1.21+
- - Node.js 18+
- - Wails CLI v2
+- Go 1.21+
+- Node.js 18+
+- Wails CLI v2
  
- ## 安装 Wails CLI
+## 安装 Wails CLI
  
- ```bash
+```bash
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
 ```
  
- ## Install Wails CLI
+## Install Wails CLI
  
- ```bash
+```bash
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
 ```
  
- ## 开发
+## 开发
  
- ```bash
+```bash
 # 安装前端依赖
 cd frontend && npm install && cd ..
  
@@ -72,9 +78,9 @@ cd frontend && npm install && cd ..
 wails dev
 ```
  
- ## Development
+## Development
  
- ```bash
+```bash
 # Install frontend dependencies
 cd frontend && npm install && cd ..
  
@@ -82,21 +88,21 @@ cd frontend && npm install && cd ..
 wails dev
 ```
  
- ## 构建
+## 构建
  
- ```bash
+```bash
 # 构建生产版本
 wails build
 ```
  
- ## Build
+## Build
  
- ```bash
+```bash
 # Build production bundle
 wails build
 ```
  
- ## 项目结构
+## 项目结构
  
 ```
 locknote/
@@ -119,7 +125,7 @@ locknote/
     └── 功能.md            # 需求文档
 ```
  
- ## Project Structure
+## Project Structure
  
 ```
 locknote/
@@ -142,24 +148,28 @@ locknote/
     └── 功能.md             # Requirements
 ```
  
- ## 安全说明
+## 安全说明
  
- - 主密钥仅在解锁后驻留内存
- - 每篇笔记使用独立随机 nonce
- - 密文文件采用原子写入
- - 支持恢复密钥重置密码
+- 主密钥仅在解锁后驻留内存
+- 每篇笔记使用独立随机 nonce
+- 密文文件采用原子写入
+- 支持恢复密钥重置密码
  
- ## Security Notes
+## Security Notes
  
- - Master key only resides in memory after unlocking
- - Each note uses an independent random nonce
- - Ciphertext files use atomic write
- - Password reset supported via recovery key
+- Master key only resides in memory after unlocking
+- Each note uses an independent random nonce
+- Ciphertext files use atomic write
+- Password reset supported via recovery key
  
- ## 版本
+## 版本
  
- v1.0.1
+v1.0.1
  
- ## Version
+## Version
  
- v1.0.1
+v1.0.1
+
+## License
+
+MIT. See [LICENSE](./LICENSE).
