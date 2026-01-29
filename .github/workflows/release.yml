@@ -18,10 +18,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-15
             platform: darwin
             arch: arm64
-          - os: macos-13
+          - os: macos-15-intel
             platform: darwin
             arch: amd64
           - os: windows-latest
