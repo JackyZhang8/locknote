@@ -8,12 +8,28 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.0.2 or v1.0.2)"
+        required: true
 
 jobs:
   build:
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - os: macos-15
+            platform: darwin
+            arch: arm64
+          - os: macos-15-intel
+            platform: darwin
+            arch: amd64
+          - os: windows-latest
+            platform: windows
+            arch: amd64
+          - os: ubuntu-22.04
+            platform: linux
+            arch: amd64
 
     runs-on: ${{ matrix.os }}
 
@@ -34,7 +50,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y zip
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev || sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
 
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
@@ -56,34 +72,75 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           mkdir dist
-          Compress-Archive -Path build/bin/* -DestinationPath dist/locknote-windows.zip
+          Compress-Archive -Path build/bin/* -DestinationPath dist/locknote-${{ matrix.platform }}-${{ matrix.arch }}.zip
 
       - name: Package (macOS)
         if: runner.os == 'macOS'
         run: |
           mkdir -p dist
           cd build/bin
-          zip -r ../../dist/locknote-darwin.zip .
+          zip -r ../../dist/locknote-${{ matrix.platform }}-${{ matrix.arch }}.zip .
 
       - name: Package (Linux)
         if: runner.os == 'Linux'
         run: |
           mkdir -p dist
           cd build/bin
-          zip -r ../../dist/locknote-linux.zip .
+          zip -r ../../dist/locknote-${{ matrix.platform }}-${{ matrix.arch }}.zip .
 
       - uses: actions/upload-artifact@v4
         with:
-          name: locknote-${{ matrix.os }}
+          name: locknote-${{ matrix.platform }}-${{ matrix.arch }}
           path: dist/*.zip
 
   release:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine release tag
+        id: reltag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            v="${{ inputs.version }}"
+            if [[ "$v" == v* ]]; then
+              echo "tag=$v" >> "$GITHUB_OUTPUT"
+            else
+              echo "tag=v$v" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push tag (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          TAG="${{ steps.reltag.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists locally."
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists on origin."
+          else
+            git push origin "refs/tags/$TAG"
+          fi
+
       - uses: actions/download-artifact@v4
 
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.reltag.outputs.tag }}
           files: "**/*.zip"
