@@ -25,22 +25,23 @@ import (
 const dataKeyVerifierPlaintext = "LOCKNOTE_DATAKEY_VERIFY_V1"
 
 type App struct {
-	ctx              context.Context
-	db               *database.DB
-	cryptoService    *crypto.Service
-	noteService      *notes.Service
-	tagService       *tags.Service
-	notebookService  *notebooks.Service
-	smartViewService *smartviews.Service
-	dataDir          string
-	isUnlocked       bool
-	dataKey          []byte
-	mu               sync.RWMutex
-	lastActivity     time.Time
-	lockTimer        *time.Timer
-	windowWatcher    *time.Ticker
-	watcherStop      chan struct{}
-	lastMinimized    bool
+	ctx               context.Context
+	db                *database.DB
+	cryptoService     *crypto.Service
+	noteService       *notes.Service
+	tagService        *tags.Service
+	notebookService   *notebooks.Service
+	smartViewService  *smartviews.Service
+	dataDir           string
+	isUnlocked        bool
+	dataKey           []byte
+	mu                sync.RWMutex
+	lastActivity      time.Time
+	lockTimer         *time.Timer
+	windowWatcher     *time.Ticker
+	windowWatcherOnce sync.Once
+	watcherStop       chan struct{}
+	lastMinimized     bool
 }
 
 func NewApp() *App {
@@ -90,7 +91,19 @@ func (a *App) startup(ctx context.Context) {
 	a.notebookService = notebooks.NewService(db)
 	a.smartViewService = smartviews.NewService(db)
 
-	a.startWindowWatcher()
+	runtime.EventsOn(a.ctx, "frontend:ready", func(optionalData ...interface{}) {
+		a.startWindowWatcherOnce()
+	})
+
+	time.AfterFunc(3*time.Second, func() {
+		a.startWindowWatcherOnce()
+	})
+}
+
+func (a *App) startWindowWatcherOnce() {
+	a.windowWatcherOnce.Do(func() {
+		a.startWindowWatcher()
+	})
 }
 
 func (a *App) shutdown(ctx context.Context) {

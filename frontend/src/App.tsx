@@ -4,10 +4,11 @@
 import { useEffect, useState } from 'react';
 import { useStore } from './store';
 import { LockScreen } from './components/LockScreen';
-import { SetupScreen } from './components/SetupScreen';
 import { MainLayout } from './components/MainLayout';
+import { SetupScreen } from './components/SetupScreen';
 import * as App from './wailsjs/go/main/App';
-import { EventsOn } from '../wailsjs/runtime/runtime';
+import { EventsEmit } from './wailsjs/runtime/runtime';
+import { EventsOn } from './wailsjs/runtime/runtime';
 
 // Throttle function to limit how often UpdateActivity is called
 function throttle<T extends (...args: unknown[]) => void>(func: T, limit: number): T {
@@ -24,6 +25,10 @@ function throttle<T extends (...args: unknown[]) => void>(func: T, limit: number
 function AppRoot() {
   const { isUnlocked, isFirstRun, setUnlocked, setFirstRun, setVersion, setDataDir } = useStore();
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    EventsEmit('frontend:ready');
+  }, []);
 
   useEffect(() => {
     const init = async (retryCount = 0): Promise<void> => {
