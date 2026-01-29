@@ -9,6 +9,54 @@ import { SetupScreen } from './components/SetupScreen';
 import * as App from './wailsjs/go/main/App';
 import { EventsEmit, EventsOn } from '../wailsjs/runtime/runtime';
 
+// Extend Window interface for Wails runtime
+declare global {
+  interface Window {
+    go?: {
+      main?: {
+        App?: {
+          IsFirstRun?: () => Promise<boolean>;
+          [key: string]: unknown;
+        };
+        [key: string]: unknown;
+      };
+      [key: string]: unknown;
+    };
+    runtime?: {
+      EventsEmit?: (...args: unknown[]) => void;
+      EventsOnMultiple?: (...args: unknown[]) => () => void;
+      [key: string]: unknown;
+    };
+  }
+}
+
+// Helper function to check if Wails runtime is ready
+function isWailsRuntimeReady(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    window.go !== undefined &&
+    window.go.main !== undefined &&
+    window.go.main.App !== undefined &&
+    typeof window.go.main.App.IsFirstRun === 'function' &&
+    window.runtime !== undefined &&
+    typeof window.runtime.EventsEmit === 'function'
+  );
+}
+
+// Wait for Wails runtime to be ready
+async function waitForWailsRuntime(maxWaitTime = 10000): Promise<boolean> {
+  const checkInterval = 100; // Check every 100ms
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < maxWaitTime) {
+    if (isWailsRuntimeReady()) {
+      return true;
+    }
+    await new Promise(resolve => setTimeout(resolve, checkInterval));
+  }
+  return false;
+}
+
 // Throttle function to limit how often UpdateActivity is called
 function throttle<T extends (...args: unknown[]) => void>(func: T, limit: number): T {
   let lastCall = 0;
@@ -26,7 +74,14 @@ function AppRoot() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    EventsEmit('frontend:ready');
+    // Only emit frontend:ready after runtime is ready
+    const emitReady = async () => {
+      const ready = await waitForWailsRuntime();
+      if (ready) {
+        EventsEmit('frontend:ready');
+      }
+    };
+    emitReady();
   }, []);
 
   useEffect(() => {
@@ -35,6 +90,14 @@ function AppRoot() {
       const retryDelay = 500; // ms
 
       try {
+        // First, wait for Wails runtime to be ready
+        const runtimeReady = await waitForWailsRuntime();
+        if (!runtimeReady) {
+          console.error('Wails runtime not ready after timeout');
+          setLoading(false);
+          return;
+        }
+
         const firstRun = await App.IsFirstRun();
         setFirstRun(firstRun);
 
