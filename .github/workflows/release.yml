@@ -40,6 +40,7 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Install frontend deps
+        shell: bash
         working-directory: frontend
         run: |
           if [ -f package-lock.json ]; then
