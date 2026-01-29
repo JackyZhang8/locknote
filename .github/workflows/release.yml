@@ -17,7 +17,19 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-22.04]
+        include:
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+          - os: macos-13
+            platform: darwin
+            arch: amd64
+          - os: windows-latest
+            platform: windows
+            arch: amd64
+          - os: ubuntu-22.04
+            platform: linux
+            arch: amd64
 
     runs-on: ${{ matrix.os }}
 
@@ -60,25 +72,25 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           mkdir dist
-          Compress-Archive -Path build/bin/* -DestinationPath dist/locknote-windows.zip
+          Compress-Archive -Path build/bin/* -DestinationPath dist/locknote-${{ matrix.platform }}-${{ matrix.arch }}.zip
 
       - name: Package (macOS)
         if: runner.os == 'macOS'
         run: |
           mkdir -p dist
           cd build/bin
-          zip -r ../../dist/locknote-darwin.zip .
+          zip -r ../../dist/locknote-${{ matrix.platform }}-${{ matrix.arch }}.zip .
 
       - name: Package (Linux)
         if: runner.os == 'Linux'
         run: |
           mkdir -p dist
           cd build/bin
-          zip -r ../../dist/locknote-linux.zip .
+          zip -r ../../dist/locknote-${{ matrix.platform }}-${{ matrix.arch }}.zip .
 
       - uses: actions/upload-artifact@v4
         with:
-          name: locknote-${{ matrix.os }}
+          name: locknote-${{ matrix.platform }}-${{ matrix.arch }}
           path: dist/*.zip
 
   release:
