@@ -10,11 +10,11 @@
         <key>CFBundleIdentifier</key>
         <string>com.wails.locknote</string>
         <key>CFBundleVersion</key>
-        <string>1.0.1</string>
+        <string>1.0.2</string>
         <key>CFBundleGetInfoString</key>
         <string>Built using Wails (https://wails.io)</string>
         <key>CFBundleShortVersionString</key>
-        <string>1.0.1</string>
+        <string>1.0.2</string>
         <key>CFBundleIconFile</key>
         <string>iconfile</string>
         <key>LSMinimumSystemVersion</key>
@@ -25,5 +25,10 @@
         <string>Copyright (c) 2026 LockNote.app</string>
         
         
+        <key>NSAppTransportSecurity</key>
+        <dict>
+            <key>NSAllowsLocalNetworking</key>
+            <true/>
+        </dict>
     </dict>
 </plist>

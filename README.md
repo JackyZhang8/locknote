@@ -214,11 +214,11 @@ locknote/
  
 ## 版本
  
-v1.0.1
+v1.0.2
  
 ## Version
  
-v1.0.1
+v1.0.2
 
 ## License
 
