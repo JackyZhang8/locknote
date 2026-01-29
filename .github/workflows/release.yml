@@ -78,7 +78,28 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           mkdir dist
-          Compress-Archive -Path build/bin/* -DestinationPath dist/locknote-${{ matrix.platform }}-${{ matrix.arch }}.zip
+          @'
+          Windows 下载/运行说明（重要）
+
+          你从 GitHub Release 下载的 .zip/.exe 可能会被 Windows 标记为“来自互联网”(MOTW)，导致：
+          - 弹出“Windows 已保护你的电脑”(SmartScreen)
+          - 第一次启动较慢/卡住（安全扫描 + WebView2 初始化）
+
+          解决办法（任选其一）：
+
+          1) 推荐：先对 zip 解除锁定，再解压
+             - 右键 zip -> 属性 -> 勾选/点击“解除锁定(Unblock)” -> 应用
+
+          2) 或者：解压后对 exe 解除锁定
+             - 右键 exe -> 属性 -> “解除锁定(Unblock)” -> 应用
+
+          3) PowerShell（可选）：
+             Unblock-File .\LockNote.exe
+             或对整个文件夹：
+             Get-ChildItem -Recurse | Unblock-File
+          '@ | Out-File -Encoding utf8 dist/README-WINDOWS.txt
+
+          Compress-Archive -Path build/bin/*,dist/README-WINDOWS.txt -DestinationPath dist/locknote-${{ matrix.platform }}-${{ matrix.arch }}.zip
 
       - name: Package (macOS)
         if: runner.os == 'macOS'

@@ -94,12 +94,62 @@ wails dev
 # 构建生产版本
 wails build
 ```
+
+## Windows 下载与运行（重要）
+
+从 GitHub Release 下载的 .zip/.exe 可能会被 Windows 标记为“来自互联网”(MOTW)，导致：
+
+- 弹出“Windows 已保护你的电脑”(SmartScreen)
+- 第一次启动较慢/卡住（安全扫描 + WebView2 初始化）
+
+解决办法（任选其一）：
+
+1) 推荐：先对 zip 解除锁定，再解压
+
+- 右键 zip -> 属性 -> 勾选/点击“解除锁定(Unblock)” -> 应用
+
+2) 或者：解压后对 exe 解除锁定
+
+- 右键 exe -> 属性 -> “解除锁定(Unblock)” -> 应用
+
+3) PowerShell（可选）：
+
+```powershell
+Unblock-File .\LockNote.exe
+# 或对整个解压目录：
+Get-ChildItem -Recurse | Unblock-File
+```
  
 ## Build
  
 ```bash
 # Build production bundle
 wails build
+```
+
+## Windows Download & Run (Important)
+
+The .zip/.exe downloaded from GitHub Releases may be marked as “from the Internet” (MOTW), which can cause:
+
+- “Windows protected your PC” (SmartScreen)
+- Slow or stuck first launch (security scan + WebView2 initialization)
+
+Workarounds (choose one):
+
+1) Recommended: Unblock the zip first, then extract
+
+- Right click zip -> Properties -> Unblock -> Apply
+
+2) Or: Unblock the exe after extraction
+
+- Right click exe -> Properties -> Unblock -> Apply
+
+3) PowerShell (optional):
+
+```powershell
+Unblock-File .\LockNote.exe
+# Or unblock everything in the extracted folder:
+Get-ChildItem -Recurse | Unblock-File
 ```
  
 ## 项目结构
