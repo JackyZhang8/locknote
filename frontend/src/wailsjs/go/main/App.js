@@ -114,8 +114,8 @@ export function SetNotePinned(arg1, arg2) {
   return window['go']['main']['App']['SetNotePinned'](arg1, arg2);
 }
 
-export function SetupPassword(arg1, arg2) {
-  return window['go']['main']['App']['SetupPassword'](arg1, arg2);
+export function SetupPassword(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetupPassword'](arg1, arg2, arg3);
 }
 
 export function SoftDeleteNote(arg1) {

@@ -7,9 +7,10 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"io"
-	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -30,45 +31,32 @@ func (s *Service) DeriveKey(password string, salt []byte) []byte {
 	return argon2.IDKey([]byte(password), salt, 3, 64*1024, 4, 32)
 }
 
-func (s *Service) GenerateDataKey() ([]byte, error) {
+func (s *Service) GenerateDataKey() (string, error) {
 	const charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	key := make([]byte, 32)
-	rnd := make([]byte, 32)
+	const length = 16
+	key := make([]byte, length)
+	rnd := make([]byte, length)
 	_, err := io.ReadFull(rand.Reader, rnd)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	for i, b := range rnd {
 		key[i] = charset[int(b)%len(charset)]
 	}
-	return key, nil
+	return string(key), nil
 }
 
-func (s *Service) FormatDataKeyForDisplay(key []byte) string {
-	if len(key) != 32 {
-		return ""
-	}
-	result := strings.ToUpper(string(key))
-	return result[:8] + "-" + result[8:16] + "-" + result[16:24] + "-" + result[24:32]
+func (s *Service) DeriveDataKey(displayKey string) []byte {
+	hash := sha256.Sum256([]byte(displayKey))
+	return hash[:]
 }
 
 func (s *Service) ParseDisplayKey(displayKey string) ([]byte, error) {
-	const charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	allowed := make(map[byte]struct{}, len(charset))
-	for i := 0; i < len(charset); i++ {
-		allowed[charset[i]] = struct{}{}
+	runeCount := utf8.RuneCountInString(displayKey)
+	if runeCount < 5 || runeCount > 32 {
+		return nil, errors.New("invalid key length")
 	}
-
-	clean := strings.ToUpper(strings.ReplaceAll(displayKey, "-", ""))
-	if len(clean) != 32 {
-		return nil, errors.New("invalid key format")
-	}
-	for i := 0; i < len(clean); i++ {
-		if _, ok := allowed[clean[i]]; !ok {
-			return nil, errors.New("invalid key format")
-		}
-	}
-	return []byte(clean), nil
+	return s.DeriveDataKey(displayKey), nil
 }
 
 func (s *Service) Encrypt(key, plaintext []byte) ([]byte, error) {

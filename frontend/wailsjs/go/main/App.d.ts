@@ -95,7 +95,7 @@ export function SetNotebookPinned(arg1:string,arg2:boolean):Promise<void>;
 
 export function SetNotesNotebook(arg1:Array<string>,arg2:any):Promise<void>;
 
-export function SetupPassword(arg1:string,arg2:string):Promise<main.SetupResult>;
+export function SetupPassword(arg1:string,arg2:string,arg3:string):Promise<main.SetupResult>;
 
 export function SoftDeleteNote(arg1:string):Promise<void>;
 

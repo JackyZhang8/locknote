@@ -192,10 +192,10 @@ export function LockScreen() {
               <input
                 type="text"
                 value={dataKey}
-                onChange={(e) => setDataKey(e.target.value.toUpperCase())}
+                onChange={(e) => setDataKey(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent font-mono tracking-wider"
                 placeholder={t.auth.dataKeyFormatPlaceholder}
-                maxLength={35}
+                maxLength={32}
               />
             </div>
 
@@ -241,7 +241,7 @@ export function LockScreen() {
 
             <button
               onClick={handleResetPassword}
-              disabled={loading || dataKey.replace(/-/g, '').length !== 32 || !newPassword || !confirmPassword}
+              disabled={loading || [...dataKey].length < 5 || [...dataKey].length > 32 || !newPassword || !confirmPassword}
               className="w-full py-3 bg-accent text-white rounded-lg font-medium hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? t.common.loading : t.auth.resetPassword}

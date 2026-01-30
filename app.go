@@ -193,7 +193,7 @@ func (a *App) verifyDataKeyWithFile(dataKey []byte) (bool, error) {
 	return string(plaintext) == dataKeyVerifierPlaintext, nil
 }
 
-func (a *App) SetupPassword(password, hint string) (*SetupResult, error) {
+func (a *App) SetupPassword(password, hint, displayKey string) (*SetupResult, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -204,10 +204,7 @@ func (a *App) SetupPassword(password, hint string) (*SetupResult, error) {
 
 	passwordKey := a.cryptoService.DeriveKey(password, salt)
 
-	dataKey, err := a.cryptoService.GenerateDataKey()
-	if err != nil {
-		return nil, err
-	}
+	dataKey := a.cryptoService.DeriveDataKey(displayKey)
 
 	encryptedDataKey, err := a.cryptoService.Encrypt(passwordKey, dataKey)
 	if err != nil {
@@ -226,8 +223,6 @@ func (a *App) SetupPassword(password, hint string) (*SetupResult, error) {
 	if err := a.writeDataKeyVerifierFile(dataKey); err != nil {
 		return nil, err
 	}
-
-	displayKey := a.cryptoService.FormatDataKeyForDisplay(dataKey)
 
 	a.dataKey = dataKey
 	a.isUnlocked = true

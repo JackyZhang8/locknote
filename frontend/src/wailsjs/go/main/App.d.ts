@@ -1,7 +1,7 @@
 import { notes, tags, database, main, notebooks, smartviews } from './models';
 
 export function IsFirstRun(): Promise<boolean>;
-export function SetupPassword(password: string, hint: string): Promise<main.SetupResult>;
+export function SetupPassword(password: string, hint: string, displayKey: string): Promise<main.SetupResult>;
 export function VerifyDataKey(displayKey: string): Promise<boolean>;
 export function Unlock(password: string): Promise<boolean>;
 export function Lock(): Promise<void>;
