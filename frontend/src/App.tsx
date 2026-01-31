@@ -6,7 +6,7 @@ import { useStore } from './store';
 import { LockScreen } from './components/LockScreen';
 import { MainLayout } from './components/MainLayout';
 import { SetupScreen } from './components/SetupScreen';
-import * as App from './wailsjs/go/main/App';
+import * as App from '../wailsjs/go/main/App';
 import { EventsEmit, EventsOn } from '../wailsjs/runtime/runtime';
 
 // Extend Window interface for Wails runtime

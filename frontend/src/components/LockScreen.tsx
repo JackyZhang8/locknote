@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Lock, Eye, EyeOff, AlertCircle, HelpCircle, Key } from 'lucide-react';
 import { useStore } from '../store';
 import { useI18n } from '../i18n';
-import * as App from '../wailsjs/go/main/App';
+import * as App from '../../wailsjs/go/main/App';
 
 type Mode = 'unlock' | 'forgot' | 'reset';
 

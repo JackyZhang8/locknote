@@ -1,3 +1,20 @@
+export namespace core {
+	
+	export class SetupResult {
+	    dataKey: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SetupResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.dataKey = source["dataKey"];
+	    }
+	}
+
+}
+
 export namespace database {
 	
 	export class Settings {
@@ -19,23 +36,6 @@ export namespace database {
 
 }
 
-export namespace main {
-	
-	export class SetupResult {
-	    dataKey: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new SetupResult(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.dataKey = source["dataKey"];
-	    }
-	}
-
-}
-
 export namespace notebooks {
 	
 	export class Notebook {
@@ -44,6 +44,8 @@ export namespace notebooks {
 	    icon: string;
 	    sortOrder: number;
 	    pinned: boolean;
+	    createdAt: string;
+	    updatedAt: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Notebook(source);
@@ -56,6 +58,8 @@ export namespace notebooks {
 	        this.icon = source["icon"];
 	        this.sortOrder = source["sortOrder"];
 	        this.pinned = source["pinned"];
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
 	    }
 	}
 

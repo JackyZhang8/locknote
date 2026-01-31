@@ -58,6 +58,10 @@ export function ExportNoteAsMarkdown(arg1) {
   return window['go']['main']['App']['ExportNoteAsMarkdown'](arg1);
 }
 
+export function GenerateDataKey() {
+  return window['go']['main']['App']['GenerateDataKey']();
+}
+
 export function GetDataDir() {
   return window['go']['main']['App']['GetDataDir']();
 }

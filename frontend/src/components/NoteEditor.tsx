@@ -4,8 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useStore, EditorMode } from '../store';
 import { useI18n } from '../i18n';
-import { notes, tags } from '../wailsjs/go/main/models';
-import * as App from '../wailsjs/go/main/App';
+import { notes, tags } from '../../wailsjs/go/models';
+import * as App from '../../wailsjs/go/main/App';
 
 export function NoteEditor() {
   const {

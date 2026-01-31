@@ -5,7 +5,7 @@ import {notebooks} from '../models';
 import {smartviews} from '../models';
 import {tags} from '../models';
 import {database} from '../models';
-import {main} from '../models';
+import {core} from '../models';
 
 export function AddTagToNote(arg1:string,arg2:string):Promise<void>;
 
@@ -34,6 +34,8 @@ export function DeleteSmartView(arg1:string):Promise<void>;
 export function DeleteTag(arg1:string):Promise<void>;
 
 export function ExportNoteAsMarkdown(arg1:string):Promise<string>;
+
+export function GenerateDataKey():Promise<string>;
 
 export function GetDataDir():Promise<string>;
 
@@ -95,7 +97,7 @@ export function SetNotebookPinned(arg1:string,arg2:boolean):Promise<void>;
 
 export function SetNotesNotebook(arg1:Array<string>,arg2:any):Promise<void>;
 
-export function SetupPassword(arg1:string,arg2:string,arg3:string):Promise<main.SetupResult>;
+export function SetupPassword(arg1:string,arg2:string,arg3:string):Promise<core.SetupResult>;
 
 export function SoftDeleteNote(arg1:string):Promise<void>;
 

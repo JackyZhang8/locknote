@@ -3,7 +3,7 @@ import { Search, X, Loader2, Folder } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useStore } from '../store';
 import { formatMessage, useI18n } from '../i18n';
-import { notes as notesModel } from '../wailsjs/go/main/models';
+import { notes as notesModel } from '../../wailsjs/go/models';
 
 export function SearchView() {
   const {

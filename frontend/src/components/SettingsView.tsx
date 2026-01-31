@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Settings, Key, Clock, Monitor, Moon, Folder, Info, Check, AlertCircle, Globe } from 'lucide-react';
 import { useStore } from '../store';
 import { formatMessage, useI18n } from '../i18n';
-import * as App from '../wailsjs/go/main/App';
+import * as App from '../../wailsjs/go/main/App';
 import { BrowserOpenURL } from '../../wailsjs/runtime/runtime';
 
 export function SettingsView() {

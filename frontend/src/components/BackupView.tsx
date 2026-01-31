@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Download, Upload, FileText, AlertCircle, Check, Key } from 'lucide-react';
 import { useStore } from '../store';
 import { formatMessage, useI18n } from '../i18n';
-import * as App from '../wailsjs/go/main/App';
+import * as App from '../../wailsjs/go/main/App';
 
 export function BackupView() {
   const { setNotes } = useStore();

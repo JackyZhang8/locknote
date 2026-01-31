@@ -1,7 +1,7 @@
 import { FileText, Search, Tag, Settings, Lock, Trash2, Clock, HardDrive } from 'lucide-react';
 import { useStore, ViewType } from '../store';
 import { useI18n } from '../i18n';
-import * as App from '../wailsjs/go/main/App';
+import * as App from '../../wailsjs/go/main/App';
 
 interface NavItem {
   id: ViewType;

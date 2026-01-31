@@ -9,7 +9,7 @@ import { BackupView } from './BackupView';
 import { SettingsView } from './SettingsView';
 import { TrashView } from './TrashView';
 import { CommandPalette } from './CommandPalette';
-import * as App from '../wailsjs/go/main/App';
+import * as App from '../../wailsjs/go/main/App';
 
 export function MainLayout() {
   const {

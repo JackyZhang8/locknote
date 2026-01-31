@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { notes, tags, database, notebooks } from '../wailsjs/go/main/models';
+import { notes, tags, database, notebooks } from '../../wailsjs/go/models';
 
 export type ViewType = 'notes' | 'search' | 'tags' | 'backup' | 'settings' | 'trash' | 'recent';
 export type EditorMode = 'edit' | 'preview' | 'split';

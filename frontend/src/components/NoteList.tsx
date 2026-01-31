@@ -3,8 +3,8 @@ import { Plus, Pin, MoreVertical, Trash2, X, ChevronDown, FolderInput, Folder, F
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useStore } from '../store';
 import { formatMessage, useI18n } from '../i18n';
-import { notes } from '../wailsjs/go/main/models';
-import * as App from '../wailsjs/go/main/App';
+import { notes } from '../../wailsjs/go/models';
+import * as App from '../../wailsjs/go/main/App';
 
 export function NoteList() {
   const {
@@ -621,7 +621,7 @@ export function NoteList() {
         onClick={(e) => handleNoteClick(note.id, e)}
         className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors relative border-b border-gray-100 ${
           indented ? 'pl-10' : ''
-        } ${selectedNoteId === note.id ? 'bg-primary-50 border-l-2 border-accent' : ''} ${isSelected ? 'bg-blue-50' : ''} ${isDragOver && dragOverPosition === 'before' ? 'border-t-2 border-t-accent' : ''} ${isDragOver && dragOverPosition === 'after' ? 'border-b-2 border-b-accent' : ''} ${isDragging ? 'opacity-50' : ''}`}
+        } ${selectedNoteId === note.id ? 'bg-primary-50 border-l-2 border-accent' : ''} ${isSelected ? 'bg-blue-50' : ''} ${isDragOver && dragOverPosition === 'before' ? 'border-t-2 border-t-accent' : ''} ${isDragOver && dragOverPosition === 'after' ? 'border-b-2 border-b-accent' : ''} ${isDragging ? 'opacity-50' : ''} ${menuOpen === note.id ? 'z-[200]' : ''}`}
       >
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-2 flex-1 min-w-0">
@@ -679,7 +679,7 @@ export function NoteList() {
             </button>
 
             {menuOpen === note.id && (
-              <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[100] min-w-[140px]">
+              <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[1000] min-w-[140px]">
                 <button
                   onClick={(e) => handleTogglePin(note, e)}
                   className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
@@ -695,7 +695,7 @@ export function NoteList() {
                     <FolderInput className="w-4 h-4" />
                     {t.noteList.moveTo}
                   </button>
-                  <div className="absolute right-full top-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[120px] hidden group-hover:block z-[100]">
+                  <div className="absolute right-full top-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[120px] hidden group-hover:block z-[1000]">
                     {showUncategorizedTarget && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleMoveToNotebook(note.id, null); }}
@@ -1005,7 +1005,7 @@ export function NoteList() {
                     onClick={(e) => handleNoteClick(note.id, e)}
                     className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors relative border-b border-gray-100 ${
                       selectedNoteId === note.id ? 'bg-primary-50 border-l-2 border-accent' : ''
-                    } ${isSelected ? 'bg-blue-50' : ''} ${isDragOver && dragOverPosition === 'before' ? 'border-t-2 border-t-accent' : ''} ${isDragOver && dragOverPosition === 'after' ? 'border-b-2 border-b-accent' : ''} ${isDragging ? 'opacity-50' : ''}`}
+                    } ${isSelected ? 'bg-blue-50' : ''} ${isDragOver && dragOverPosition === 'before' ? 'border-t-2 border-t-accent' : ''} ${isDragOver && dragOverPosition === 'after' ? 'border-b-2 border-b-accent' : ''} ${isDragging ? 'opacity-50' : ''} ${menuOpen === note.id ? 'z-[200]' : ''}`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-2 flex-1 min-w-0">
@@ -1065,7 +1065,7 @@ export function NoteList() {
                         </button>
 
                         {menuOpen === note.id && (
-                          <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[100] min-w-[140px]">
+                          <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[1000] min-w-[140px]">
                             <button
                               onClick={(e) => handleTogglePin(note, e)}
                               className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
@@ -1081,7 +1081,7 @@ export function NoteList() {
                                 <FolderInput className="w-4 h-4" />
                                 {t.noteList.moveTo}
                               </button>
-                              <div className="absolute right-full top-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[120px] hidden group-hover:block z-[100]">
+                              <div className="absolute right-full top-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[120px] hidden group-hover:block z-[1000]">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleMoveToNotebook(note.id, null); }}
                                   className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50"

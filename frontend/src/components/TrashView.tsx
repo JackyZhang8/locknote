@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useStore } from '../store';
 import { useI18n } from '../i18n';
-import { notes } from '../wailsjs/go/main/models';
-import * as App from '../wailsjs/go/main/App';
+import { notes } from '../../wailsjs/go/models';
+import * as App from '../../wailsjs/go/main/App';
 
 export function TrashView() {
   const { deletedNotes, setDeletedNotes, setNotes } = useStore();

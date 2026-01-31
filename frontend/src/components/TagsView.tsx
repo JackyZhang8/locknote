@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, X, Check } from 'lucide-react';
 import { useStore } from '../store';
 import { formatMessage, useI18n } from '../i18n';
-import * as App from '../wailsjs/go/main/App';
+import * as App from '../../wailsjs/go/main/App';
 
 const COLORS = [
   '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b',
@@ -150,6 +150,23 @@ export function TagsView() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (editingId) {
+                        handleUpdate(editingId);
+                      } else {
+                        handleCreate();
+                      }
+                    }
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      setShowCreate(false);
+                      setEditingId(null);
+                      setName('');
+                      setColor(COLORS[0]);
+                    }
+                  }}
                   className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                   placeholder={t.tags.tagNamePlaceholder}
                   autoFocus

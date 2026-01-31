@@ -5,7 +5,6 @@
 package main
 
 import (
-	"locknote/internal/backup"
 	"locknote/internal/database"
 	"locknote/internal/notebooks"
 	"locknote/internal/notes"
@@ -17,101 +16,101 @@ import (
 
 func (a *App) CreateNote(title, content string) (*notes.Note, error) {
 	a.UpdateActivity()
-	return a.noteService.Create(title, content)
+	return a.core.Notes().Create(title, content)
 }
 
 func (a *App) GetNote(id string) (*notes.Note, error) {
 	a.UpdateActivity()
-	return a.noteService.Get(id)
+	return a.core.Notes().Get(id)
 }
 
 func (a *App) UpdateNote(id, title, content string) (*notes.Note, error) {
 	a.UpdateActivity()
-	return a.noteService.Update(id, title, content)
+	return a.core.Notes().Update(id, title, content)
 }
 
 func (a *App) SetNotePinned(id string, pinned bool) error {
 	a.UpdateActivity()
-	return a.noteService.SetPinned(id, pinned)
+	return a.core.Notes().SetPinned(id, pinned)
 }
 
 func (a *App) SoftDeleteNote(id string) error {
 	a.UpdateActivity()
-	return a.noteService.SoftDelete(id)
+	return a.core.Notes().SoftDelete(id)
 }
 
 func (a *App) RestoreNote(id string) error {
 	a.UpdateActivity()
-	return a.noteService.Restore(id)
+	return a.core.Notes().Restore(id)
 }
 
 func (a *App) DeleteNote(id string) error {
 	a.UpdateActivity()
-	return a.noteService.Delete(id)
+	return a.core.Notes().Delete(id)
 }
 
 func (a *App) ListNotes() ([]*notes.Note, error) {
 	a.UpdateActivity()
-	return a.noteService.List()
+	return a.core.Notes().List()
 }
 
 func (a *App) ListNotesPaginated(limit, offset int) (*notes.ListResult, error) {
 	a.UpdateActivity()
-	return a.noteService.ListPaginated(limit, offset)
+	return a.core.Notes().ListPaginated(limit, offset)
 }
 
 func (a *App) MigrateOldNotes() (int, error) {
 	a.UpdateActivity()
-	return a.noteService.MigrateOldNotes()
+	return a.core.Notes().MigrateOldNotes()
 }
 
 func (a *App) ListDeletedNotes() ([]*notes.Note, error) {
 	a.UpdateActivity()
-	return a.noteService.ListDeleted()
+	return a.core.Notes().ListDeleted()
 }
 
 func (a *App) GetNoteHistory(noteID string) ([]*notes.Note, error) {
 	a.UpdateActivity()
-	return a.noteService.GetHistory(noteID)
+	return a.core.Notes().GetHistory(noteID)
 }
 
 func (a *App) RestoreNoteFromHistory(noteID, historyID string) (*notes.Note, error) {
 	a.UpdateActivity()
-	return a.noteService.RestoreFromHistory(noteID, historyID)
+	return a.core.Notes().RestoreFromHistory(noteID, historyID)
 }
 
 func (a *App) CreateTag(name, color string) (*tags.Tag, error) {
 	a.UpdateActivity()
-	return a.tagService.Create(name, color)
+	return a.core.Tags().Create(name, color)
 }
 
 func (a *App) UpdateTag(id, name, color string) (*tags.Tag, error) {
 	a.UpdateActivity()
-	return a.tagService.Update(id, name, color)
+	return a.core.Tags().Update(id, name, color)
 }
 
 func (a *App) DeleteTag(id string) error {
 	a.UpdateActivity()
-	return a.tagService.Delete(id)
+	return a.core.Tags().Delete(id)
 }
 
 func (a *App) ListTags() ([]*tags.Tag, error) {
 	a.UpdateActivity()
-	return a.tagService.List()
+	return a.core.Tags().List()
 }
 
 func (a *App) AddTagToNote(noteID, tagID string) error {
 	a.UpdateActivity()
-	return a.tagService.AddToNote(noteID, tagID)
+	return a.core.Tags().AddToNote(noteID, tagID)
 }
 
 func (a *App) RemoveTagFromNote(noteID, tagID string) error {
 	a.UpdateActivity()
-	return a.tagService.RemoveFromNote(noteID, tagID)
+	return a.core.Tags().RemoveFromNote(noteID, tagID)
 }
 
 func (a *App) GetSettings() (*database.Settings, error) {
-	return a.db.GetSettings()
+	return a.core.GetSettings()
 }
 
 func (a *App) UpdateSettings(autoLockMinutes int, lockOnMinimize, lockOnSleep bool) error {
@@ -120,11 +119,7 @@ func (a *App) UpdateSettings(autoLockMinutes int, lockOnMinimize, lockOnSleep bo
 		LockOnMinimize:  lockOnMinimize,
 		LockOnSleep:     lockOnSleep,
 	}
-	err := a.db.UpdateSettings(settings)
-	if err == nil {
-		a.startLockTimer()
-	}
-	return err
+	return a.core.UpdateSettings(settings)
 }
 
 func (a *App) CreateBackup() (string, error) {
@@ -144,8 +139,7 @@ func (a *App) CreateBackup() (string, error) {
 		return "", nil
 	}
 
-	backupService := backup.NewService(a.dataDir)
-	err = backupService.CreateBackup(savePath)
+	err = a.core.Backup().CreateBackup(savePath)
 	if err != nil {
 		return "", err
 	}
@@ -169,8 +163,7 @@ func (a *App) RestoreBackup() error {
 		return nil
 	}
 
-	backupService := backup.NewService(a.dataDir)
-	return backupService.RestoreBackup(openPath)
+	return a.core.Backup().RestoreBackup(openPath)
 }
 
 func (a *App) ImportBackupWithKey(dataKey string) (int, error) {
@@ -189,13 +182,13 @@ func (a *App) ImportBackupWithKey(dataKey string) (int, error) {
 		return 0, nil
 	}
 
-	return a.noteService.ImportFromBackup(openPath, dataKey)
+	return a.core.Notes().ImportFromBackup(openPath, dataKey)
 }
 
 func (a *App) ExportNoteAsMarkdown(noteID string) (string, error) {
 	a.UpdateActivity()
 
-	note, err := a.noteService.Get(noteID)
+	note, err := a.core.Notes().Get(noteID)
 	if err != nil {
 		return "", err
 	}
@@ -245,7 +238,7 @@ func (a *App) ImportMarkdown() (*notes.Note, error) {
 	}
 
 	title := extractTitle(openPath, string(content))
-	return a.noteService.Create(title, string(content))
+	return a.core.Notes().Create(title, string(content))
 }
 
 func writeFileAtomic(path string, data []byte) error {
@@ -272,48 +265,48 @@ func renameFile(oldPath, newPath string) error {
 
 func (a *App) CreateNotebook(name, icon string) (*notebooks.Notebook, error) {
 	a.UpdateActivity()
-	return a.notebookService.Create(name, icon)
+	return a.core.Notebooks().Create(name, icon)
 }
 
 func (a *App) UpdateNotebook(id, name, icon string) (*notebooks.Notebook, error) {
 	a.UpdateActivity()
-	return a.notebookService.Update(id, name, icon)
+	return a.core.Notebooks().Update(id, name, icon)
 }
 
 func (a *App) DeleteNotebook(id string) error {
 	a.UpdateActivity()
-	return a.notebookService.Delete(id)
+	return a.core.Notebooks().Delete(id)
 }
 
 func (a *App) ListNotebooks() ([]*notebooks.Notebook, error) {
 	a.UpdateActivity()
-	return a.notebookService.List()
+	return a.core.Notebooks().List()
 }
 
 func (a *App) ReorderNotebooks(ids []string) error {
 	a.UpdateActivity()
-	return a.notebookService.ReorderNotebooks(ids)
+	return a.core.Notebooks().ReorderNotebooks(ids)
 }
 
 func (a *App) SetNotebookPinned(id string, pinned bool) error {
 	a.UpdateActivity()
-	return a.notebookService.SetPinned(id, pinned)
+	return a.core.Notebooks().SetPinned(id, pinned)
 }
 
 func (a *App) SetNoteNotebook(noteID string, notebookID *string) error {
 	a.UpdateActivity()
-	return a.noteService.SetNotebook(noteID, notebookID)
+	return a.core.Notes().SetNotebook(noteID, notebookID)
 }
 
 func (a *App) SetNotesNotebook(noteIDs []string, notebookID *string) error {
 	a.UpdateActivity()
-	return a.noteService.SetNotesNotebook(noteIDs, notebookID)
+	return a.core.Notes().SetNotesNotebook(noteIDs, notebookID)
 }
 
 func (a *App) BatchDeleteNotes(noteIDs []string) error {
 	a.UpdateActivity()
 	for _, id := range noteIDs {
-		if err := a.noteService.SoftDelete(id); err != nil {
+		if err := a.core.Notes().SoftDelete(id); err != nil {
 			return err
 		}
 	}
@@ -323,7 +316,7 @@ func (a *App) BatchDeleteNotes(noteIDs []string) error {
 func (a *App) BatchAddTagToNotes(noteIDs []string, tagID string) error {
 	a.UpdateActivity()
 	for _, noteID := range noteIDs {
-		if err := a.tagService.AddToNote(noteID, tagID); err != nil {
+		if err := a.core.Tags().AddToNote(noteID, tagID); err != nil {
 			return err
 		}
 	}
@@ -332,32 +325,32 @@ func (a *App) BatchAddTagToNotes(noteIDs []string, tagID string) error {
 
 func (a *App) ReorderNotes(ids []string) error {
 	a.UpdateActivity()
-	return a.noteService.ReorderNotes(ids)
+	return a.core.Notes().ReorderNotes(ids)
 }
 
 // SmartView APIs
 
 func (a *App) CreateSmartView(name, icon string, filter smartviews.Filter) (*smartviews.SmartView, error) {
 	a.UpdateActivity()
-	return a.smartViewService.Create(name, icon, filter)
+	return a.core.SmartViews().Create(name, icon, filter)
 }
 
 func (a *App) UpdateSmartView(id, name, icon string, filter smartviews.Filter) (*smartviews.SmartView, error) {
 	a.UpdateActivity()
-	return a.smartViewService.Update(id, name, icon, filter)
+	return a.core.SmartViews().Update(id, name, icon, filter)
 }
 
 func (a *App) DeleteSmartView(id string) error {
 	a.UpdateActivity()
-	return a.smartViewService.Delete(id)
+	return a.core.SmartViews().Delete(id)
 }
 
 func (a *App) ListSmartViews() ([]*smartviews.SmartView, error) {
 	a.UpdateActivity()
-	return a.smartViewService.List()
+	return a.core.SmartViews().List()
 }
 
 func (a *App) GetSmartView(id string) (*smartviews.SmartView, error) {
 	a.UpdateActivity()
-	return a.smartViewService.Get(id)
+	return a.core.SmartViews().Get(id)
 }

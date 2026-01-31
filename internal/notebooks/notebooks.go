@@ -5,6 +5,7 @@ package notebooks
 
 import (
 	"locknote/internal/database"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -19,6 +20,12 @@ type Notebook struct {
 	Icon      string `json:"icon"`
 	SortOrder int    `json:"sortOrder"`
 	Pinned    bool   `json:"pinned"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func formatTime(t time.Time) string {
+	return t.Format(time.RFC3339Nano)
 }
 
 func NewService(db *database.DB) *Service {
@@ -35,11 +42,14 @@ func (s *Service) Create(name, icon string) (*Notebook, error) {
 		sortOrder = 0
 	}
 
+	now := time.Now()
 	notebook := &database.Notebook{
 		ID:        uuid.New().String(),
 		Name:      name,
 		Icon:      icon,
 		SortOrder: sortOrder,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 
 	if err := s.db.CreateNotebook(notebook); err != nil {
@@ -52,6 +62,8 @@ func (s *Service) Create(name, icon string) (*Notebook, error) {
 		Icon:      notebook.Icon,
 		SortOrder: notebook.SortOrder,
 		Pinned:    notebook.Pinned,
+		CreatedAt: formatTime(notebook.CreatedAt),
+		UpdatedAt: formatTime(notebook.UpdatedAt),
 	}, nil
 }
 
@@ -65,6 +77,7 @@ func (s *Service) Update(id, name, icon string) (*Notebook, error) {
 	if icon != "" {
 		notebook.Icon = icon
 	}
+	notebook.UpdatedAt = time.Now()
 
 	if err := s.db.UpdateNotebook(notebook); err != nil {
 		return nil, err
@@ -76,6 +89,8 @@ func (s *Service) Update(id, name, icon string) (*Notebook, error) {
 		Icon:      notebook.Icon,
 		SortOrder: notebook.SortOrder,
 		Pinned:    notebook.Pinned,
+		CreatedAt: formatTime(notebook.CreatedAt),
+		UpdatedAt: formatTime(notebook.UpdatedAt),
 	}, nil
 }
 
@@ -97,6 +112,8 @@ func (s *Service) List() ([]*Notebook, error) {
 			Icon:      n.Icon,
 			SortOrder: n.SortOrder,
 			Pinned:    n.Pinned,
+			CreatedAt: formatTime(n.CreatedAt),
+			UpdatedAt: formatTime(n.UpdatedAt),
 		}
 	}
 

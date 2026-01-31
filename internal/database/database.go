@@ -12,6 +12,54 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+func parseSQLiteTime(v any) (time.Time, error) {
+	switch t := v.(type) {
+	case time.Time:
+		return t, nil
+	case []byte:
+		return parseSQLiteTime(string(t))
+	case string:
+		// Some stored values may come from time.Time.String() and include monotonic clock:
+		// "2006-01-02 15:04:05.999999 -0700 MST m=+0.000000000"
+		if idx := strings.Index(t, " m=+"); idx >= 0 {
+			t = t[:idx]
+		}
+		t = strings.TrimSpace(t)
+
+		// SQLite CURRENT_TIMESTAMP returns "YYYY-MM-DD HH:MM:SS"
+		if tt, err := time.Parse("2006-01-02 15:04:05", t); err == nil {
+			return tt, nil
+		}
+		// Go time.Time.String() without monotonic part: "2006-01-02 15:04:05.999999 -0700 MST"
+		if tt, err := time.Parse("2006-01-02 15:04:05.999999 -0700 MST", t); err == nil {
+			return tt, nil
+		}
+		if tt, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", t); err == nil {
+			return tt, nil
+		}
+		// UTC timezone format: "2006-01-02 15:04:05.999999 +0000 UTC"
+		if tt, err := time.Parse("2006-01-02 15:04:05.999999 +0000 UTC", t); err == nil {
+			return tt, nil
+		}
+		if tt, err := time.Parse("2006-01-02 15:04:05.999999999 +0000 UTC", t); err == nil {
+			return tt, nil
+		}
+		if tt, err := time.Parse(time.RFC3339Nano, t); err == nil {
+			return tt, nil
+		}
+		if tt, err := time.Parse(time.RFC3339, t); err == nil {
+			return tt, nil
+		}
+		// Some drivers may return with timezone offset but without 'T'
+		if tt, err := time.Parse("2006-01-02 15:04:05-07:00", t); err == nil {
+			return tt, nil
+		}
+		return time.Time{}, fmt.Errorf("unsupported sqlite time format: %q", t)
+	default:
+		return time.Time{}, fmt.Errorf("unsupported sqlite time type: %T", v)
+	}
+}
+
 type DB struct {
 	db *sql.DB
 }
@@ -66,6 +114,8 @@ type Notebook struct {
 	Icon      string
 	SortOrder int
 	Pinned    bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type SmartView struct {
@@ -172,7 +222,9 @@ func (d *DB) migrate() error {
 		name TEXT NOT NULL,
 		icon TEXT DEFAULT '📓',
 		sort_order INTEGER DEFAULT 0,
-		pinned INTEGER DEFAULT 0
+		pinned INTEGER DEFAULT 0,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
 	CREATE TABLE IF NOT EXISTS smart_views (
@@ -215,6 +267,13 @@ func (d *DB) addNotebookIdColumn() {
 	if err != nil || count == 0 {
 		d.db.Exec(`ALTER TABLE notebooks ADD COLUMN pinned INTEGER DEFAULT 0`)
 		d.db.Exec(`CREATE INDEX IF NOT EXISTS idx_notebooks_pinned ON notebooks(pinned)`)
+	}
+
+	// Add created_at and updated_at columns to notebooks table if not exists
+	err = d.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('notebooks') WHERE name='created_at'`).Scan(&count)
+	if err != nil || count == 0 {
+		d.db.Exec(`ALTER TABLE notebooks ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP`)
+		d.db.Exec(`ALTER TABLE notebooks ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`)
 	}
 
 	// Add encrypted_title and encrypted_preview columns for list performance
@@ -639,24 +698,32 @@ func (d *DB) DeleteSingleHistory(historyID string) error {
 }
 
 func (d *DB) CreateNotebook(notebook *Notebook) error {
-	_, err := d.db.Exec(`INSERT INTO notebooks (id, name, icon, sort_order, pinned) VALUES (?, ?, ?, ?, ?)`,
-		notebook.ID, notebook.Name, notebook.Icon, notebook.SortOrder, notebook.Pinned)
+	_, err := d.db.Exec(`INSERT INTO notebooks (id, name, icon, sort_order, pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		notebook.ID, notebook.Name, notebook.Icon, notebook.SortOrder, notebook.Pinned, notebook.CreatedAt, notebook.UpdatedAt)
 	return err
 }
 
 func (d *DB) GetNotebook(id string) (*Notebook, error) {
 	var notebook Notebook
-	err := d.db.QueryRow(`SELECT id, name, icon, sort_order, COALESCE(pinned, 0) FROM notebooks WHERE id = ?`, id).
-		Scan(&notebook.ID, &notebook.Name, &notebook.Icon, &notebook.SortOrder, &notebook.Pinned)
+	var createdAtAny any
+	var updatedAtAny any
+	err := d.db.QueryRow(`SELECT id, name, icon, sort_order, COALESCE(pinned, 0), COALESCE(created_at, CURRENT_TIMESTAMP), COALESCE(updated_at, CURRENT_TIMESTAMP) FROM notebooks WHERE id = ?`, id).
+		Scan(&notebook.ID, &notebook.Name, &notebook.Icon, &notebook.SortOrder, &notebook.Pinned, &createdAtAny, &updatedAtAny)
 	if err != nil {
+		return nil, err
+	}
+	if notebook.CreatedAt, err = parseSQLiteTime(createdAtAny); err != nil {
+		return nil, err
+	}
+	if notebook.UpdatedAt, err = parseSQLiteTime(updatedAtAny); err != nil {
 		return nil, err
 	}
 	return &notebook, nil
 }
 
 func (d *DB) UpdateNotebook(notebook *Notebook) error {
-	_, err := d.db.Exec(`UPDATE notebooks SET name = ?, icon = ?, sort_order = ?, pinned = ? WHERE id = ?`,
-		notebook.Name, notebook.Icon, notebook.SortOrder, notebook.Pinned, notebook.ID)
+	_, err := d.db.Exec(`UPDATE notebooks SET name = ?, icon = ?, sort_order = ?, pinned = ?, updated_at = ? WHERE id = ?`,
+		notebook.Name, notebook.Icon, notebook.SortOrder, notebook.Pinned, notebook.UpdatedAt, notebook.ID)
 	return err
 }
 
@@ -666,7 +733,7 @@ func (d *DB) DeleteNotebook(id string) error {
 }
 
 func (d *DB) ListNotebooks() ([]*Notebook, error) {
-	rows, err := d.db.Query(`SELECT id, name, icon, sort_order, COALESCE(pinned, 0) FROM notebooks ORDER BY pinned DESC, sort_order, name`)
+	rows, err := d.db.Query(`SELECT id, name, icon, sort_order, COALESCE(pinned, 0), COALESCE(created_at, CURRENT_TIMESTAMP), COALESCE(updated_at, CURRENT_TIMESTAMP) FROM notebooks ORDER BY pinned DESC, sort_order, name`)
 	if err != nil {
 		return nil, err
 	}
@@ -675,7 +742,15 @@ func (d *DB) ListNotebooks() ([]*Notebook, error) {
 	var notebooks []*Notebook
 	for rows.Next() {
 		var n Notebook
-		if err := rows.Scan(&n.ID, &n.Name, &n.Icon, &n.SortOrder, &n.Pinned); err != nil {
+		var createdAtAny any
+		var updatedAtAny any
+		if err := rows.Scan(&n.ID, &n.Name, &n.Icon, &n.SortOrder, &n.Pinned, &createdAtAny, &updatedAtAny); err != nil {
+			return nil, err
+		}
+		if n.CreatedAt, err = parseSQLiteTime(createdAtAny); err != nil {
+			return nil, err
+		}
+		if n.UpdatedAt, err = parseSQLiteTime(updatedAtAny); err != nil {
 			return nil, err
 		}
 		notebooks = append(notebooks, &n)
