@@ -47,9 +47,9 @@ export function SettingsView() {
 
   useEffect(() => {
     if (settings) {
-      setAutoLockMinutes(settings.AutoLockMinutes);
-      setLockOnMinimize(settings.LockOnMinimize);
-      setLockOnSleep(settings.LockOnSleep);
+      setAutoLockMinutes(settings.autoLockMinutes);
+      setLockOnMinimize(settings.lockOnMinimize);
+      setLockOnSleep(settings.lockOnSleep);
     }
   }, [settings]);
 
@@ -109,11 +109,10 @@ export function SettingsView() {
       <div className="flex-1 overflow-y-auto p-6">
         {message && (
           <div
-            className={`mb-6 p-4 rounded-xl flex items-start gap-3 ${
-              message.type === 'success'
+            className={`mb-6 p-4 rounded-xl flex items-start gap-3 ${message.type === 'success'
                 ? 'bg-green-50 border border-green-200'
                 : 'bg-red-50 border border-red-200'
-            }`}
+              }`}
           >
             {message.type === 'success' ? (
               <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />

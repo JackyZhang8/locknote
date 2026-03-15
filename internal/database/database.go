@@ -96,9 +96,16 @@ type NoteTag struct {
 }
 
 type Settings struct {
-	AutoLockMinutes int
-	LockOnMinimize  bool
-	LockOnSleep     bool
+	AutoLockMinutes int  `json:"autoLockMinutes"`
+	LockOnMinimize  bool `json:"lockOnMinimize"`
+	LockOnSleep     bool `json:"lockOnSleep"`
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 type NoteHistory struct {
@@ -638,19 +645,23 @@ func (d *DB) GetNotesByTag(tagID string) ([]*NoteMeta, error) {
 
 func (d *DB) GetSettings() (*Settings, error) {
 	var s Settings
+	var lockOnMinimizeInt int
+	var lockOnSleepInt int
 	err := d.db.QueryRow(`
 		SELECT auto_lock_minutes, lock_on_minimize, lock_on_sleep FROM settings WHERE id = 1
-	`).Scan(&s.AutoLockMinutes, &s.LockOnMinimize, &s.LockOnSleep)
+	`).Scan(&s.AutoLockMinutes, &lockOnMinimizeInt, &lockOnSleepInt)
 	if err != nil {
 		return nil, err
 	}
+	s.LockOnMinimize = lockOnMinimizeInt != 0
+	s.LockOnSleep = lockOnSleepInt != 0
 	return &s, nil
 }
 
 func (d *DB) UpdateSettings(s *Settings) error {
 	_, err := d.db.Exec(`
 		UPDATE settings SET auto_lock_minutes = ?, lock_on_minimize = ?, lock_on_sleep = ? WHERE id = 1
-	`, s.AutoLockMinutes, s.LockOnMinimize, s.LockOnSleep)
+	`, s.AutoLockMinutes, boolToInt(s.LockOnMinimize), boolToInt(s.LockOnSleep))
 	return err
 }
 

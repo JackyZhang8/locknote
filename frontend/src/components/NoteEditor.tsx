@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Eye, Edit3, Columns, Tag, History, Download, X, Plus, Check } from 'lucide-react';
+import { Eye, Edit3, Columns, Tag, History, Download, X, Plus, Check, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Bold, Italic, Heading1, Heading2, List, ListOrdered, Quote, Code, Link2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useStore, EditorMode } from '../store';
 import { useI18n } from '../i18n';
 import { notes, tags } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
+
+const FONT_SCALE_STORAGE_KEY = 'locknote-editor-font-scale';
+const MIN_FONT_SCALE = 0.8;
+const MAX_FONT_SCALE = 1.8;
 
 export function NoteEditor() {
   const {
@@ -26,8 +30,11 @@ export function NoteEditor() {
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<notes.Note[]>([]);
   const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(null);
+  const [fontScale, setFontScale] = useState(1);
+  const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tagMenuContainerRef = useRef<HTMLDivElement | null>(null);
+  const contentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     if (selectedNote) {
@@ -38,6 +45,27 @@ export function NoteEditor() {
       setContent('');
     }
   }, [selectedNote]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(FONT_SCALE_STORAGE_KEY);
+      if (!saved) return;
+      const parsed = Number(saved);
+      if (Number.isFinite(parsed) && parsed >= MIN_FONT_SCALE && parsed <= MAX_FONT_SCALE) {
+        setFontScale(parsed);
+      }
+    } catch {
+      // ignore localStorage read errors
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FONT_SCALE_STORAGE_KEY, String(fontScale));
+    } catch {
+      // ignore localStorage write errors
+    }
+  }, [fontScale]);
 
   useEffect(() => {
     if (!showTagMenu) return;
@@ -194,6 +222,33 @@ export function NoteEditor() {
     }
   };
 
+  const handleZoomIn = () => {
+    setFontScale((prev) => Math.min(prev + 0.1, MAX_FONT_SCALE));
+  };
+
+  const handleZoomOut = () => {
+    setFontScale((prev) => Math.max(prev - 0.1, MIN_FONT_SCALE));
+  };
+
+  const applyMarkdown = (before: string, after = '', placeholder = '') => {
+    const textarea = contentTextareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = content.slice(start, end);
+    const insertText = `${before}${selected || placeholder}${after}`;
+    const nextContent = `${content.slice(0, start)}${insertText}${content.slice(end)}`;
+    setContent(nextContent);
+
+    requestAnimationFrame(() => {
+      textarea.focus();
+      const selectionStart = start + before.length;
+      const selectionEnd = selectionStart + (selected || placeholder).length;
+      textarea.setSelectionRange(selectionStart, selectionEnd);
+    });
+  };
+
   const modeButtons: { mode: EditorMode; icon: React.ReactNode; label: string }[] = [
     { mode: 'edit', icon: <Edit3 className="w-4 h-4" />, label: t.editor.edit },
     { mode: 'preview', icon: <Eye className="w-4 h-4" />, label: t.editor.preview },
@@ -202,6 +257,21 @@ export function NoteEditor() {
 
   const noteTags = selectedNote?.tags || [];
   const availableTags = allTags.filter((t) => !noteTags.some((nt) => nt.id === t.id));
+  const markdownActions = [
+    { title: '一级标题', icon: <Heading1 className="w-4 h-4" />, onClick: () => applyMarkdown('# ', '', t.editor.titlePlaceholder) },
+    { title: '二级标题', icon: <Heading2 className="w-4 h-4" />, onClick: () => applyMarkdown('## ', '', t.editor.titlePlaceholder) },
+    { title: '加粗', icon: <Bold className="w-4 h-4" />, onClick: () => applyMarkdown('**', '**', 'bold') },
+    { title: '斜体', icon: <Italic className="w-4 h-4" />, onClick: () => applyMarkdown('*', '*', 'italic') },
+    { title: '无序列表', icon: <List className="w-4 h-4" />, onClick: () => applyMarkdown('- ', '', t.noteList.newNote) },
+    { title: '有序列表', icon: <ListOrdered className="w-4 h-4" />, onClick: () => applyMarkdown('1. ', '', t.noteList.newNote) },
+    { title: '引用', icon: <Quote className="w-4 h-4" />, onClick: () => applyMarkdown('> ', '', t.noteList.noContent) },
+    { title: '行内代码', icon: <Code className="w-4 h-4" />, onClick: () => applyMarkdown('`', '`', 'code') },
+    { title: '链接', icon: <Link2 className="w-4 h-4" />, onClick: () => applyMarkdown('[', '](https://)', 'link') },
+  ];
+  const titleFontSize = `${2 * fontScale}rem`;
+  const contentFontSize = `${0.875 * fontScale}rem`;
+  const previewFontSize = `${1 * fontScale}rem`;
+  const fontPercent = `${Math.round(fontScale * 100)}%`;
 
   if (!selectedNote) {
     return (
@@ -237,6 +307,36 @@ export function NoteEditor() {
 
         <div className="flex items-center gap-2">
           {isSaving && <span className="text-xs text-gray-400">{t.common.loading}</span>}
+
+          <button
+            onClick={handleZoomOut}
+            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+            title={`缩小字体（当前 ${fontPercent}）`}
+          >
+            <ZoomOut className="w-4 h-4" />
+          </button>
+
+          <span className="min-w-[3.5rem] text-center text-xs font-medium text-gray-500 select-none">
+            {fontPercent}
+          </span>
+
+          <button
+            onClick={handleZoomIn}
+            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+            title={`放大字体（当前 ${fontPercent}）`}
+          >
+            <ZoomIn className="w-4 h-4" />
+          </button>
+
+          {editorMode !== 'preview' && (
+            <button
+              onClick={() => setShowMarkdownToolbar((prev) => !prev)}
+              className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+              title={showMarkdownToolbar ? '收起 Markdown 工具栏' : '展开 Markdown 工具栏'}
+            >
+              {showMarkdownToolbar ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          )}
 
           <div className="relative" ref={tagMenuContainerRef}>
             <button
@@ -315,6 +415,21 @@ export function NoteEditor() {
         </div>
       </div>
 
+      {(editorMode === 'edit' || editorMode === 'split') && showMarkdownToolbar && (
+        <div className="px-6 py-2 border-b border-gray-100 flex items-center gap-1 flex-wrap bg-gray-50">
+          {markdownActions.map((action, index) => (
+            <button
+              key={index}
+              onClick={action.onClick}
+              className="p-2 rounded-lg text-gray-600 hover:bg-white hover:text-accent transition-colors border border-transparent hover:border-gray-200"
+              title={action.title}
+            >
+              {action.icon}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex-1 flex overflow-hidden">
         {(editorMode === 'edit' || editorMode === 'split') && (
           <div className={`flex flex-col ${editorMode === 'split' ? 'w-1/2 border-r border-gray-100' : 'flex-1'}`}>
@@ -322,13 +437,16 @@ export function NoteEditor() {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="px-6 py-4 text-2xl font-bold border-b border-gray-100 focus:outline-none"
+              className="px-6 py-4 font-bold border-b border-gray-100 focus:outline-none"
+              style={{ fontSize: titleFontSize }}
               placeholder={t.editor.titlePlaceholder}
             />
             <textarea
+              ref={contentTextareaRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="flex-1 px-6 py-4 resize-none focus:outline-none font-mono text-sm leading-relaxed"
+              className="flex-1 px-6 py-4 resize-none focus:outline-none font-mono leading-relaxed"
+              style={{ fontSize: contentFontSize }}
               placeholder={t.editor.contentPlaceholder}
             />
           </div>
@@ -337,9 +455,11 @@ export function NoteEditor() {
         {(editorMode === 'preview' || editorMode === 'split') && (
           <div className={`flex flex-col overflow-y-auto ${editorMode === 'split' ? 'w-1/2' : 'flex-1'}`}>
             <div className="px-6 py-4 border-b border-gray-100">
-              <h1 className="text-2xl font-bold text-gray-800">{title || t.noteList.untitled}</h1>
+              <h1 className="font-bold text-gray-800" style={{ fontSize: titleFontSize }}>
+                {title || t.noteList.untitled}
+              </h1>
             </div>
-            <div className="flex-1 px-6 py-4 markdown-preview overflow-y-auto">
+            <div className="flex-1 px-6 py-4 markdown-preview overflow-y-auto" style={{ fontSize: previewFontSize }}>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{content || `*${t.noteList.noContent}*`}</ReactMarkdown>
             </div>
           </div>

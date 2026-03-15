@@ -18,9 +18,9 @@ export namespace core {
 export namespace database {
 	
 	export class Settings {
-	    AutoLockMinutes: number;
-	    LockOnMinimize: boolean;
-	    LockOnSleep: boolean;
+	    autoLockMinutes: number;
+	    lockOnMinimize: boolean;
+	    lockOnSleep: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -28,9 +28,9 @@ export namespace database {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.AutoLockMinutes = source["AutoLockMinutes"];
-	        this.LockOnMinimize = source["LockOnMinimize"];
-	        this.LockOnSleep = source["LockOnSleep"];
+	        this.autoLockMinutes = source["autoLockMinutes"];
+	        this.lockOnMinimize = source["lockOnMinimize"];
+	        this.lockOnSleep = source["lockOnSleep"];
 	    }
 	}
 

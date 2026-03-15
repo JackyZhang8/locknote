@@ -28,6 +28,7 @@ export function NoteList() {
     currentView,
     expandedNotebooks,
     toggleNotebookExpand,
+    setEditorMode,
   } = useStore();
 
   const { t, language } = useI18n();
@@ -198,12 +199,16 @@ export function NoteList() {
     overscan: 5,
   });
 
-  const handleCreateNote = async () => {
+  const handleCreateNote = async (notebookId?: string | null) => {
     try {
       const note = await App.CreateNote(t.noteList.newNote, '');
+      if (notebookId) {
+        await App.SetNoteNotebook(note.id, notebookId);
+      }
       const updatedNotes = await App.ListNotes();
       setNotes(updatedNotes || []);
       setSelectedNoteId(note.id);
+      setEditorMode('edit');
     } catch (error) {
       console.error('Failed to create note:', error);
     }
@@ -588,6 +593,14 @@ export function NoteList() {
     setNotebookMenuOpen(null);
   };
 
+  const handleCreateNotebookNote = async (notebookId: string) => {
+    await handleCreateNote(notebookId);
+    setNotebookMenuOpen(null);
+    if (!expandedNotebooks.has(notebookId)) {
+      toggleNotebookExpand(notebookId);
+    }
+  };
+
   const getNotesForNotebook = (notebookId: string) => {
     return sortedNotes.filter((note) => note.notebookId === notebookId);
   };
@@ -922,6 +935,13 @@ export function NoteList() {
                       </button>
                       {notebookMenuOpen === nb.id && (
                         <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[120px]">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleCreateNotebookNote(nb.id); }}
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <Plus className="w-4 h-4" />
+                            {t.noteList.newNote}
+                          </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleToggleNotebookPin(nb); }}
                             className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
