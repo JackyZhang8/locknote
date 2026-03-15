@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Eye, Edit3, Columns, Tag, History, Download, X, Plus, Check, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Bold, Italic, Heading1, Heading2, List, ListOrdered, Quote, Code, Link2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -238,7 +238,9 @@ export function NoteEditor() {
     const end = textarea.selectionEnd;
     const selected = content.slice(start, end);
     const insertText = `${before}${selected || placeholder}${after}`;
-    const nextContent = `${content.slice(0, start)}${insertText}${content.slice(end)}`;
+    textarea.focus();
+    textarea.setRangeText(insertText, start, end, 'select');
+    const nextContent = textarea.value;
     setContent(nextContent);
 
     requestAnimationFrame(() => {
@@ -247,6 +249,124 @@ export function NoteEditor() {
       const selectionEnd = selectionStart + (selected || placeholder).length;
       textarea.setSelectionRange(selectionStart, selectionEnd);
     });
+  };
+
+  const updateTextareaValue = (
+    textarea: HTMLTextAreaElement,
+    nextValue: string,
+    selectionStart: number,
+    selectionEnd: number,
+  ) => {
+    textarea.value = nextValue;
+    textarea.setSelectionRange(selectionStart, selectionEnd);
+    setContent(nextValue);
+  };
+
+  const getSelectedLineRange = (value: string, start: number, end: number) => {
+    const lineStart = value.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+    let lineEnd = value.indexOf('\n', end);
+    if (lineEnd === -1) {
+      lineEnd = value.length;
+    }
+    return { lineStart, lineEnd };
+  };
+
+  const indentSelectedLines = (textarea: HTMLTextAreaElement) => {
+    const { value, selectionStart, selectionEnd } = textarea;
+    const { lineStart, lineEnd } = getSelectedLineRange(value, selectionStart, selectionEnd);
+    const selectedBlock = value.slice(lineStart, lineEnd);
+    const lines = selectedBlock.split('\n');
+    const updatedLines = lines.map((line) => `\t${line}`);
+    const nextBlock = updatedLines.join('\n');
+    const nextValue = `${value.slice(0, lineStart)}${nextBlock}${value.slice(lineEnd)}`;
+    const nextSelectionStart = selectionStart + 1;
+    const nextSelectionEnd = selectionEnd + lines.length;
+    updateTextareaValue(textarea, nextValue, nextSelectionStart, nextSelectionEnd);
+  };
+
+  const outdentSelectedLines = (textarea: HTMLTextAreaElement) => {
+    const { value, selectionStart, selectionEnd } = textarea;
+    const { lineStart, lineEnd } = getSelectedLineRange(value, selectionStart, selectionEnd);
+    const selectedBlock = value.slice(lineStart, lineEnd);
+    const lines = selectedBlock.split('\n');
+    let removedBeforeSelectionStart = 0;
+    let removedTotal = 0;
+    const updatedLines = lines.map((line, index) => {
+      if (line.startsWith('\t')) {
+        removedTotal += 1;
+        if (index === 0 && selectionStart > lineStart) {
+          removedBeforeSelectionStart = 1;
+        }
+        return line.slice(1);
+      }
+      if (line.startsWith('  ')) {
+        removedTotal += 2;
+        if (index === 0 && selectionStart > lineStart) {
+          removedBeforeSelectionStart = Math.min(2, selectionStart - lineStart);
+        }
+        return line.slice(2);
+      }
+      return line;
+    });
+    const nextBlock = updatedLines.join('\n');
+    const nextValue = `${value.slice(0, lineStart)}${nextBlock}${value.slice(lineEnd)}`;
+    const nextSelectionStart = Math.max(lineStart, selectionStart - removedBeforeSelectionStart);
+    const nextSelectionEnd = Math.max(nextSelectionStart, selectionEnd - removedTotal);
+    updateTextareaValue(textarea, nextValue, nextSelectionStart, nextSelectionEnd);
+  };
+
+  const toggleHeadingOnSelectedLines = (textarea: HTMLTextAreaElement) => {
+    const { value, selectionStart, selectionEnd } = textarea;
+    const { lineStart, lineEnd } = getSelectedLineRange(value, selectionStart, selectionEnd);
+    const selectedBlock = value.slice(lineStart, lineEnd);
+    const lines = selectedBlock.split('\n');
+    const shouldRemoveHeading = lines.every((line) => line.trim().length === 0 || line.startsWith('# '));
+    let deltaStart = 0;
+    let deltaEnd = 0;
+    const updatedLines = lines.map((line, index) => {
+      if (line.trim().length === 0) {
+        return line;
+      }
+      if (shouldRemoveHeading) {
+        if (line.startsWith('# ')) {
+          if (index === 0 && selectionStart > lineStart) {
+            deltaStart -= Math.min(2, selectionStart - lineStart);
+          }
+          deltaEnd -= 2;
+          return line.slice(2);
+        }
+        return line;
+      }
+      if (index === 0 && selectionStart > lineStart) {
+        deltaStart += 2;
+      }
+      deltaEnd += 2;
+      return `# ${line}`;
+    });
+    const nextBlock = updatedLines.join('\n');
+    const nextValue = `${value.slice(0, lineStart)}${nextBlock}${value.slice(lineEnd)}`;
+    const nextSelectionStart = Math.max(lineStart, selectionStart + deltaStart);
+    const nextSelectionEnd = Math.max(nextSelectionStart, selectionEnd + deltaEnd);
+    updateTextareaValue(textarea, nextValue, nextSelectionStart, nextSelectionEnd);
+  };
+
+  const handleContentKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    const textarea = event.currentTarget;
+
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      if (event.shiftKey) {
+        outdentSelectedLines(textarea);
+      } else {
+        indentSelectedLines(textarea);
+      }
+      return;
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.key === '/') {
+      event.preventDefault();
+      toggleHeadingOnSelectedLines(textarea);
+    }
   };
 
   const modeButtons: { mode: EditorMode; icon: React.ReactNode; label: string }[] = [
@@ -445,6 +565,7 @@ export function NoteEditor() {
               ref={contentTextareaRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
+              onKeyDown={handleContentKeyDown}
               className="flex-1 px-6 py-4 resize-none focus:outline-none font-mono leading-relaxed"
               style={{ fontSize: contentFontSize }}
               placeholder={t.editor.contentPlaceholder}

@@ -22,6 +22,8 @@ export function MainLayout() {
     selectedNoteId,
     isCommandPaletteOpen,
     setCommandPaletteOpen,
+    isNoteListCollapsed,
+    toggleNoteListCollapsed,
   } = useStore();
 
   useEffect(() => {
@@ -80,7 +82,21 @@ export function MainLayout() {
       case 'recent':
         return (
           <div className="flex flex-1 overflow-hidden">
-            <NoteList />
+            {!isNoteListCollapsed && <NoteList />}
+            <div className="relative flex items-stretch">
+              <div className="w-px h-full bg-primary-100" />
+              <button
+                onClick={toggleNoteListCollapsed}
+                className="absolute left-1/2 top-4 -translate-x-1/2 z-10 w-8 h-8 rounded-full border border-primary-200 bg-white text-primary-300 shadow-sm hover:bg-primary-50 hover:border-primary-300 hover:text-primary-500 transition-colors flex items-center justify-center"
+                title={isNoteListCollapsed ? '展开左侧列表' : '收起左侧列表'}
+              >
+                <span
+                  className={`block w-2.5 h-2.5 border-t-2 border-r-2 border-current transition-transform ${
+                    isNoteListCollapsed ? 'rotate-45 -translate-x-px' : '-rotate-[135deg] translate-x-px'
+                  }`}
+                />
+              </button>
+            </div>
             <NoteEditor />
           </div>
         );

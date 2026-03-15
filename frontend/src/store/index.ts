@@ -28,6 +28,7 @@ interface AppState {
   isCommandPaletteOpen: boolean;
   isMultiSelectMode: boolean;
   expandedNotebooks: Set<string>;
+  isNoteListCollapsed: boolean;
 
   setUnlocked: (unlocked: boolean) => void;
   setFirstRun: (firstRun: boolean) => void;
@@ -54,6 +55,8 @@ interface AppState {
   setDataDir: (dir: string) => void;
   setCommandPaletteOpen: (open: boolean) => void;
   setMultiSelectMode: (mode: boolean) => void;
+  setNoteListCollapsed: (collapsed: boolean) => void;
+  toggleNoteListCollapsed: () => void;
   expandNotebook: (id: string) => void;
   collapseNotebook: (id: string) => void;
   toggleNotebookExpand: (id: string) => void;
@@ -84,6 +87,7 @@ const initialState = {
   isCommandPaletteOpen: false,
   isMultiSelectMode: false,
   expandedNotebooks: new Set<string>(),
+  isNoteListCollapsed: false,
 };
 
 export const useStore = create<AppState>((set, get) => ({
@@ -130,6 +134,8 @@ export const useStore = create<AppState>((set, get) => ({
   setDataDir: (dir) => set({ dataDir: dir }),
   setCommandPaletteOpen: (open) => set({ isCommandPaletteOpen: open }),
   setMultiSelectMode: (mode) => set({ isMultiSelectMode: mode }),
+  setNoteListCollapsed: (collapsed) => set({ isNoteListCollapsed: collapsed }),
+  toggleNoteListCollapsed: () => set((state) => ({ isNoteListCollapsed: !state.isNoteListCollapsed })),
   expandNotebook: (id) => set((state) => {
     const next = new Set(state.expandedNotebooks);
     next.add(id);
