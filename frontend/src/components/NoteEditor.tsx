@@ -393,14 +393,34 @@ export function NoteEditor() {
   const previewFontSize = `${1 * fontScale}rem`;
   const fontPercent = `${Math.round(fontScale * 100)}%`;
 
+  const handleCreateNewNote = async () => {
+    try {
+      const note = await App.CreateNote(t.noteList.newNote, '');
+      const updatedNotes = await App.ListNotes();
+      setNotes(updatedNotes || []);
+      setSelectedNote(note);
+      setEditorMode('edit');
+    } catch (error) {
+      console.error('Failed to create note:', error);
+      alert(`${t.common.error}：${String(error)}`);
+    }
+  };
+
   if (!selectedNote) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
+      <div className="flex-1 flex items-center justify-center bg-gray-50 relative">
         <div className="text-center text-gray-400">
           <Edit3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p>{t.editor.selectNote}</p>
           <p className="text-sm mt-1">{t.editor.selectNoteTip}</p>
         </div>
+        <button
+          onClick={handleCreateNewNote}
+          className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-accent text-white shadow-lg hover:bg-primary-600 hover:shadow-xl transition-all flex items-center justify-center group"
+          title={t.noteList.newNote}
+        >
+          <Plus className="w-6 h-6 group-hover:scale-110 transition-transform" />
+        </button>
       </div>
     );
   }

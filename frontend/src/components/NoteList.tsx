@@ -632,7 +632,7 @@ export function NoteList() {
         onDragLeave={handleNoteDragLeave}
         onDrop={(e) => handleNoteDrop(e, note.id, parentNotebookId)}
         onClick={(e) => handleNoteClick(note.id, e)}
-        className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors relative border-b border-gray-100 ${
+        className={`px-4 py-2 cursor-pointer hover:bg-gray-50 transition-colors relative border-b border-gray-100 ${
           indented ? 'pl-10' : ''
         } ${selectedNoteId === note.id ? 'bg-primary-50 border-l-2 border-accent' : ''} ${isSelected ? 'bg-blue-50' : ''} ${isDragOver && dragOverPosition === 'before' ? 'border-t-2 border-t-accent' : ''} ${isDragOver && dragOverPosition === 'after' ? 'border-b-2 border-b-accent' : ''} ${isDragging ? 'opacity-50' : ''} ${menuOpen === note.id ? 'z-[200]' : ''}`}
       >
@@ -652,10 +652,10 @@ export function NoteList() {
                   {note.title || t.noteList.untitled}
                 </h3>
               </div>
-              <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+              <p className="text-sm text-gray-500 mt-0.5 line-clamp-1">
                 {note.content?.substring(0, 100) || t.noteList.noContent}
               </p>
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs text-gray-400">{formatDate(note.updatedAt)}</span>
                 {note.tags && note.tags.length > 0 && (
                   <div className="flex gap-1">
@@ -1023,7 +1023,7 @@ export function NoteList() {
                     onDragLeave={handleNoteDragLeave}
                     onDrop={(e) => handleNoteDrop(e, note.id)}
                     onClick={(e) => handleNoteClick(note.id, e)}
-                    className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors relative border-b border-gray-100 ${
+                    className={`px-4 py-2 cursor-pointer hover:bg-gray-50 transition-colors relative border-b border-gray-100 ${
                       selectedNoteId === note.id ? 'bg-primary-50 border-l-2 border-accent' : ''
                     } ${isSelected ? 'bg-blue-50' : ''} ${isDragOver && dragOverPosition === 'before' ? 'border-t-2 border-t-accent' : ''} ${isDragOver && dragOverPosition === 'after' ? 'border-b-2 border-b-accent' : ''} ${isDragging ? 'opacity-50' : ''} ${menuOpen === note.id ? 'z-[200]' : ''}`}
                   >
@@ -1043,10 +1043,10 @@ export function NoteList() {
                               {note.title || t.noteList.untitled}
                             </h3>
                           </div>
-                          <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                          <p className="text-sm text-gray-500 mt-0.5 line-clamp-1">
                             {note.content?.substring(0, 100) || t.noteList.noContent}
                           </p>
-                          <div className="flex items-center gap-2 mt-2">
+                          <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-xs text-gray-400">{formatDate(note.updatedAt)}</span>
                             {note.tags && note.tags.length > 0 && (
                               <div className="flex gap-1">
