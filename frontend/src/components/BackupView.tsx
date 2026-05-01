@@ -4,7 +4,11 @@ import { useStore } from '../store';
 import { formatMessage, useI18n } from '../i18n';
 import * as App from '../../wailsjs/go/main/App';
 
-export function BackupView() {
+interface BackupViewProps {
+  embedded?: boolean;
+}
+
+export function BackupView({ embedded = false }: BackupViewProps) {
   const { setNotes } = useStore();
   const { t } = useI18n();
   const [loading, setLoading] = useState<string | null>(null);
@@ -109,13 +113,15 @@ export function BackupView() {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
-      <div className="p-6 border-b border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800">{t.backup.title}</h2>
-        <p className="text-sm text-gray-500 mt-1">{t.backup.subtitle}</p>
-      </div>
+    <div className={embedded ? 'bg-white' : 'flex-1 flex flex-col bg-white'}>
+      {!embedded && (
+        <div className="p-6 border-b border-gray-100">
+          <h2 className="text-xl font-semibold text-gray-800">{t.backup.title}</h2>
+          <p className="text-sm text-gray-500 mt-1">{t.backup.subtitle}</p>
+        </div>
+      )}
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className={embedded ? '' : 'flex-1 overflow-y-auto p-6'}>
         {message && (
           <div
             className={`mb-6 p-4 rounded-xl flex items-start gap-3 ${
@@ -160,8 +166,8 @@ export function BackupView() {
 
           <div className="p-6 border border-gray-200 rounded-xl">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Upload className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
+                <Upload className="w-6 h-6 text-accent" />
               </div>
               <div>
                 <h3 className="font-semibold text-gray-800">{t.backup.restoreBackup}</h3>
@@ -174,7 +180,7 @@ export function BackupView() {
             <button
               onClick={handleRestoreClick}
               disabled={loading !== null}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-3 bg-accent text-white rounded-lg font-medium hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading === 'restore' ? t.common.loading : t.backup.restoreBackup}
             </button>
@@ -182,8 +188,8 @@ export function BackupView() {
 
           <div className="p-6 border border-gray-200 rounded-xl">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                <FileText className="w-6 h-6 text-purple-600" />
+              <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
+                <FileText className="w-6 h-6 text-accent" />
               </div>
               <div>
                 <h3 className="font-semibold text-gray-800">{t.backup.importMarkdown}</h3>
@@ -196,7 +202,7 @@ export function BackupView() {
             <button
               onClick={handleImport}
               disabled={loading !== null}
-              className="w-full py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-3 bg-accent text-white rounded-lg font-medium hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading === 'import' ? t.common.loading : t.backup.importMarkdown}
             </button>
@@ -204,8 +210,8 @@ export function BackupView() {
 
           <div className="p-6 border border-gray-200 rounded-xl">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
-                <Key className="w-6 h-6 text-emerald-600" />
+              <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
+                <Key className="w-6 h-6 text-accent" />
               </div>
               <div>
                 <h3 className="font-semibold text-gray-800">{t.backup.importBackup}</h3>
@@ -218,7 +224,7 @@ export function BackupView() {
             <button
               onClick={() => setShowImportDialog(true)}
               disabled={loading !== null}
-              className="w-full py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-3 bg-accent text-white rounded-lg font-medium hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading === 'importWithKey' ? t.common.loading : t.backup.importBackup}
             </button>
@@ -254,7 +260,7 @@ export function BackupView() {
                 {t.common.cancel}
               </button>
               <button
-                className="px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                className="px-3 py-2 text-sm rounded-lg bg-accent text-white hover:bg-primary-600"
                 onClick={handleConfirmRestore}
               >
                 {t.common.confirm}
@@ -281,7 +287,7 @@ export function BackupView() {
                 value={importKey}
                 onChange={(e) => setImportKey(e.target.value)}
                 placeholder={t.backup.dataKeyPlaceholder}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 font-mono"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 font-mono"
                 autoFocus
               />
             </div>
@@ -293,7 +299,7 @@ export function BackupView() {
                 {t.common.cancel}
               </button>
               <button
-                className="px-3 py-2 text-sm rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                className="px-3 py-2 text-sm rounded-lg bg-accent text-white hover:bg-primary-600"
                 onClick={handleImportWithKey}
               >
                 {t.common.confirm}

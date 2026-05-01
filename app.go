@@ -178,5 +178,5 @@ func (a *App) GetDataDir() string {
 }
 
 func (a *App) GetVersion() string {
-	return "v1.0.4"
+	return "v1.0.5"
 }

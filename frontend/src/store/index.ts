@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { notes, tags, database, notebooks } from '../../wailsjs/go/models';
 
-export type ViewType = 'notes' | 'search' | 'tags' | 'backup' | 'settings' | 'trash' | 'recent';
+export type ViewType = 'notes' | 'search' | 'tags' | 'settings' | 'recent' | 'todos' | 'images';
 export type EditorMode = 'edit' | 'preview' | 'split';
 
 interface AppState {
@@ -16,6 +16,7 @@ interface AppState {
   selectedNoteIds: string[];
   selectedNote: notes.Note | null;
   selectedNotebookId: string | null;
+  selectedTodoId: string | null;
   editorMode: EditorMode;
   searchQuery: string;
   searchResults: notes.Note[];
@@ -44,6 +45,7 @@ interface AppState {
   clearNoteSelection: () => void;
   setSelectedNote: (note: notes.Note | null) => void;
   setSelectedNotebookId: (id: string | null) => void;
+  setSelectedTodoId: (id: string | null) => void;
   setEditorMode: (mode: EditorMode) => void;
   setSearchQuery: (query: string) => void;
   setSearchResults: (results: notes.Note[]) => void;
@@ -75,6 +77,7 @@ const initialState = {
   selectedNoteIds: [] as string[],
   selectedNote: null as notes.Note | null,
   selectedNotebookId: null as string | null,
+  selectedTodoId: null as string | null,
   editorMode: 'edit' as EditorMode,
   searchQuery: '',
   searchResults: [] as notes.Note[],
@@ -82,7 +85,7 @@ const initialState = {
   searchProgress: 0,
   selectedTagId: null as string | null,
   settings: null as database.Settings | null,
-  version: 'v1.0.1',
+  version: 'v1.0.5',
   dataDir: '',
   isCommandPaletteOpen: false,
   isMultiSelectMode: false,
@@ -123,6 +126,7 @@ export const useStore = create<AppState>((set, get) => ({
   clearNoteSelection: () => set({ selectedNoteIds: [], isMultiSelectMode: false }),
   setSelectedNote: (note) => set({ selectedNote: note }),
   setSelectedNotebookId: (id) => set({ selectedNotebookId: id, selectedTagId: null }),
+  setSelectedTodoId: (id) => set({ selectedTodoId: id }),
   setEditorMode: (mode) => set({ editorMode: mode }),
   setSearchQuery: (query) => set({ searchQuery: query }),
   setSearchResults: (results) => set({ searchResults: results }),

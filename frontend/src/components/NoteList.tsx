@@ -6,6 +6,8 @@ import { formatMessage, useI18n } from '../i18n';
 import { notes } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
 
+const RECENT_PAGE_SIZE = 30;
+
 export function NoteList() {
   const {
     notes: notesList,
@@ -45,6 +47,8 @@ export function NoteList() {
   const [dragOverNotebookId, setDragOverNotebookId] = useState<string | null>(null);
   const [confirmDeleteNotebookId, setConfirmDeleteNotebookId] = useState<string | null>(null);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+  const [recentLoadingMore, setRecentLoadingMore] = useState(false);
+  const [recentHasMore, setRecentHasMore] = useState(true);
   const [dragOverNoteId, setDragOverNoteId] = useState<string | null>(null);
   const [dragOverPosition, setDragOverPosition] = useState<'before' | 'after' | null>(null);
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
@@ -177,6 +181,43 @@ export function NoteList() {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [notebookMenuOpen]);
+
+  useEffect(() => {
+    if (currentView === 'recent') {
+      setRecentHasMore(true);
+    }
+  }, [currentView]);
+
+  const loadMoreRecentNotes = async () => {
+    if (currentView !== 'recent' || recentLoadingMore || !recentHasMore) return;
+    setRecentLoadingMore(true);
+    try {
+      const result = await App.ListNotesPaginated(RECENT_PAGE_SIZE, notesList.length);
+      const nextNotes = result?.notes || [];
+      if (nextNotes.length === 0 || notesList.length + nextNotes.length >= (result?.total || 0)) {
+        setRecentHasMore(false);
+      }
+      if (nextNotes.length > 0) {
+        const existingIds = new Set(notesList.map((note) => note.id));
+        const mergedNotes = [...notesList, ...nextNotes.filter((note) => !existingIds.has(note.id))];
+        setNotes(mergedNotes);
+      }
+    } catch (error) {
+      console.error('Failed to load more recent notes:', error);
+    } finally {
+      setRecentLoadingMore(false);
+    }
+  };
+
+  const handleListScroll = () => {
+    if (currentView !== 'recent') return;
+    const element = listContainerRef.current;
+    if (!element) return;
+    const { scrollTop, clientHeight, scrollHeight } = element;
+    if (scrollTop + clientHeight >= scrollHeight - 120) {
+      loadMoreRecentNotes();
+    }
+  };
 
   let filteredNotes = notesList;
 
@@ -634,7 +675,7 @@ export function NoteList() {
         onClick={(e) => handleNoteClick(note.id, e)}
         className={`px-4 py-2 cursor-pointer hover:bg-gray-50 transition-colors relative border-b border-gray-100 ${
           indented ? 'pl-10' : ''
-        } ${selectedNoteId === note.id ? 'bg-primary-50 border-l-2 border-accent' : ''} ${isSelected ? 'bg-blue-50' : ''} ${isDragOver && dragOverPosition === 'before' ? 'border-t-2 border-t-accent' : ''} ${isDragOver && dragOverPosition === 'after' ? 'border-b-2 border-b-accent' : ''} ${isDragging ? 'opacity-50' : ''} ${menuOpen === note.id ? 'z-[200]' : ''}`}
+        } ${selectedNoteId === note.id ? 'bg-primary-50 border-l-2 border-accent' : ''} ${isSelected ? 'bg-primary-100/70' : ''} ${isDragOver && dragOverPosition === 'before' ? 'border-t-2 border-t-accent' : ''} ${isDragOver && dragOverPosition === 'after' ? 'border-b-2 border-b-accent' : ''} ${isDragging ? 'opacity-50' : ''} ${menuOpen === note.id ? 'z-[200]' : ''}`}
       >
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-2 flex-1 min-w-0">
@@ -723,7 +764,7 @@ export function NoteList() {
                         onClick={(e) => { e.stopPropagation(); handleMoveToNotebook(note.id, nb.id); }}
                         className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
                       >
-                        <Folder className="w-4 h-4 text-emerald-400" />
+                        <Folder className="w-4 h-4 text-primary-400" />
                         {nb.name}
                       </button>
                     ))}
@@ -763,7 +804,7 @@ export function NoteList() {
               </button>
             )}
           </div>
-          <div className="relative" ref={createMenuRef}>
+          <div className="relative mr-3" ref={createMenuRef}>
             <button
               onClick={() => setCreateMenuOpen(!createMenuOpen)}
               className="p-2 rounded-lg bg-accent text-white hover:bg-primary-600 transition-colors flex items-center gap-1"
@@ -828,7 +869,7 @@ export function NoteList() {
                         onClick={() => handleBatchMoveToNotebook(nb.id)}
                         className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
                       >
-                        <Folder className="w-4 h-4 text-emerald-400" />
+                        <Folder className="w-4 h-4 text-primary-400" />
                         {nb.name}
                       </button>
                     ))}
@@ -876,7 +917,7 @@ export function NoteList() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto" ref={listContainerRef}>
+      <div className="flex-1 overflow-y-auto" ref={listContainerRef} onScroll={handleListScroll}>
         {showNotebooksInList ? (
           <div>
             {notebooks.map((nb) => {
@@ -892,20 +933,20 @@ export function NoteList() {
                   }}
                   onDragLeave={handleNotebookDragLeave}
                   onDrop={(e) => handleNotebookDrop(e, nb.id)}
-                  className={isNotebookDragOver ? 'ring-2 ring-blue-400 ring-inset bg-blue-50/30' : ''}
+                  className={isNotebookDragOver ? 'ring-2 ring-primary-300 ring-inset bg-primary-50/40' : ''}
                 >
                   <div
                     className={`flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 ${
-                      isNotebookDragOver ? 'bg-blue-50' : ''
+                      isNotebookDragOver ? 'bg-primary-50' : ''
                     }`}
                     onClick={() => toggleNotebookExpand(nb.id)}
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                       {isExpanded ? (
-                        <FolderOpen className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                        <FolderOpen className="w-5 h-5 text-primary-400 flex-shrink-0" />
                       ) : (
-                        <Folder className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                        <Folder className="w-5 h-5 text-primary-400 flex-shrink-0" />
                       )}
                       {editingNotebookId === nb.id ? (
                         <input
@@ -1013,6 +1054,7 @@ export function NoteList() {
                     left: 0,
                     width: '100%',
                     transform: `translateY(${virtualRow.start}px)`,
+                    zIndex: menuOpen === note.id ? 300 : 0,
                   }}
                 >
                   <div
@@ -1025,7 +1067,7 @@ export function NoteList() {
                     onClick={(e) => handleNoteClick(note.id, e)}
                     className={`px-4 py-2 cursor-pointer hover:bg-gray-50 transition-colors relative border-b border-gray-100 ${
                       selectedNoteId === note.id ? 'bg-primary-50 border-l-2 border-accent' : ''
-                    } ${isSelected ? 'bg-blue-50' : ''} ${isDragOver && dragOverPosition === 'before' ? 'border-t-2 border-t-accent' : ''} ${isDragOver && dragOverPosition === 'after' ? 'border-b-2 border-b-accent' : ''} ${isDragging ? 'opacity-50' : ''} ${menuOpen === note.id ? 'z-[200]' : ''}`}
+                    } ${isSelected ? 'bg-primary-100/70' : ''} ${isDragOver && dragOverPosition === 'before' ? 'border-t-2 border-t-accent' : ''} ${isDragOver && dragOverPosition === 'after' ? 'border-b-2 border-b-accent' : ''} ${isDragging ? 'opacity-50' : ''} ${menuOpen === note.id ? 'z-[200]' : ''}`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-2 flex-1 min-w-0">
@@ -1135,6 +1177,11 @@ export function NoteList() {
                 </div>
               );
             })}
+            {currentView === 'recent' && recentLoadingMore && (
+              <div className="absolute bottom-0 left-0 right-0 p-3 text-center text-xs text-gray-400">
+                {t.common.loading}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -5,11 +5,22 @@
 package main
 
 import (
+	"encoding/base64"
+	"errors"
+	"locknote/internal/attachments"
 	"locknote/internal/database"
 	"locknote/internal/notebooks"
 	"locknote/internal/notes"
 	"locknote/internal/smartviews"
 	"locknote/internal/tags"
+	"locknote/internal/todos"
+	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -107,6 +118,92 @@ func (a *App) AddTagToNote(noteID, tagID string) error {
 func (a *App) RemoveTagFromNote(noteID, tagID string) error {
 	a.UpdateActivity()
 	return a.core.Tags().RemoveFromNote(noteID, tagID)
+}
+
+func parseOptionalDate(value string) (*time.Time, error) {
+	if value == "" {
+		return nil, nil
+	}
+	if parsed, err := time.Parse("2006-01-02", value); err == nil {
+		return &parsed, nil
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, value)
+	if err != nil {
+		return nil, err
+	}
+	return &parsed, nil
+}
+
+func (a *App) ListTodos() ([]*todos.Todo, error) {
+	a.UpdateActivity()
+	return a.core.Todos().List()
+}
+
+func (a *App) GetTodo(id string) (*todos.Todo, error) {
+	a.UpdateActivity()
+	return a.core.Todos().Get(id)
+}
+
+func (a *App) CreateTodo(title, priority, dueAt string) (*todos.Todo, error) {
+	a.UpdateActivity()
+
+	parsedDueAt, err := parseOptionalDate(dueAt)
+	if err != nil {
+		return nil, err
+	}
+
+	input := todos.CreateTodoInput{
+		Title:    title,
+		Priority: priority,
+		DueAt:    parsedDueAt,
+	}
+	return a.core.Todos().Create(input)
+}
+
+func (a *App) UpdateTodo(id, title, priority, dueAt string) (*todos.Todo, error) {
+	a.UpdateActivity()
+
+	parsedDueAt, err := parseOptionalDate(dueAt)
+	if err != nil {
+		return nil, err
+	}
+
+	return a.core.Todos().Update(todos.UpdateTodoInput{
+		ID:       id,
+		Title:    title,
+		Priority: priority,
+		DueAt:    parsedDueAt,
+	})
+}
+
+func (a *App) SetTodoCompleted(id string, completed bool) (*todos.Todo, error) {
+	a.UpdateActivity()
+	return a.core.Todos().SetCompleted(id, completed)
+}
+
+func (a *App) DeleteTodo(id string) error {
+	a.UpdateActivity()
+	return a.core.Todos().Delete(id)
+}
+
+func (a *App) CreateTodoSubtask(todoID, title string) (*todos.Subtask, error) {
+	a.UpdateActivity()
+	return a.core.Todos().CreateSubtask(todoID, title)
+}
+
+func (a *App) UpdateTodoSubtask(id, title string) (*todos.Subtask, error) {
+	a.UpdateActivity()
+	return a.core.Todos().UpdateSubtask(id, title)
+}
+
+func (a *App) SetTodoSubtaskCompleted(id string, completed bool) (*todos.Subtask, error) {
+	a.UpdateActivity()
+	return a.core.Todos().SetSubtaskCompleted(id, completed)
+}
+
+func (a *App) DeleteTodoSubtask(id string) error {
+	a.UpdateActivity()
+	return a.core.Todos().DeleteSubtask(id)
 }
 
 func (a *App) GetSettings() (*database.Settings, error) {
@@ -208,12 +305,173 @@ func (a *App) ExportNoteAsMarkdown(noteID string) (string, error) {
 	}
 
 	content := "# " + note.Title + "\n\n" + note.Content
-	err = writeFileAtomic(savePath, []byte(content))
+	exportedContent, err := a.exportMarkdownAttachments(content, filepath.Dir(savePath), time.Now())
+	if err != nil {
+		return "", err
+	}
+	err = writeFileAtomic(savePath, []byte(exportedContent))
 	if err != nil {
 		return "", err
 	}
 
 	return savePath, nil
+}
+
+var attachmentURLPattern = regexp.MustCompile(`locknote-attachment://([A-Za-z0-9_-]+)`)
+
+func formatAssetsDirName(t time.Time) string {
+	return "assets_" + t.Format("200601021504")
+}
+
+func collectAttachmentIDs(content string) []string {
+	matches := attachmentURLPattern.FindAllStringSubmatch(content, -1)
+	seen := map[string]bool{}
+	ids := make([]string, 0, len(matches))
+	for _, match := range matches {
+		if len(match) < 2 || seen[match[1]] {
+			continue
+		}
+		seen[match[1]] = true
+		ids = append(ids, match[1])
+	}
+	return ids
+}
+
+func rewriteMarkdownAttachmentLinks(content, assetsDirName string, fileNames map[string]string) string {
+	return attachmentURLPattern.ReplaceAllStringFunc(content, func(match string) string {
+		parts := attachmentURLPattern.FindStringSubmatch(match)
+		if len(parts) < 2 {
+			return match
+		}
+		fileName, ok := fileNames[parts[1]]
+		if !ok {
+			return match
+		}
+		return filepath.ToSlash(filepath.Join(assetsDirName, fileName))
+	})
+}
+
+func imageExtensionForMIME(mimeType string) string {
+	switch strings.ToLower(mimeType) {
+	case "image/png":
+		return ".png"
+	case "image/jpeg", "image/jpg":
+		return ".jpg"
+	case "image/webp":
+		return ".webp"
+	case "image/gif":
+		return ".gif"
+	default:
+		return ".img"
+	}
+}
+
+func sanitizeExportImageName(originalName, mimeType, id string) string {
+	name := strings.TrimSpace(filepath.Base(originalName))
+	if name == "" || name == "." || name == string(filepath.Separator) {
+		prefix := id
+		if len(prefix) > 8 {
+			prefix = prefix[:8]
+		}
+		name = "image-" + prefix + imageExtensionForMIME(mimeType)
+	}
+
+	ext := filepath.Ext(name)
+	base := strings.TrimSuffix(name, ext)
+	if ext == "" {
+		ext = imageExtensionForMIME(mimeType)
+	}
+	base = strings.TrimSpace(base)
+	if base == "" {
+		base = "image"
+	}
+
+	var b strings.Builder
+	lastDash := false
+	for _, r := range base {
+		isSafe := r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-' || r == '_'
+		if isSafe {
+			b.WriteRune(r)
+			lastDash = false
+			continue
+		}
+		if !lastDash {
+			b.WriteByte('-')
+			lastDash = true
+		}
+	}
+	base = strings.Trim(b.String(), "-")
+	if base == "" {
+		base = "image"
+	}
+	return base + strings.ToLower(ext)
+}
+
+func uniqueExportImageName(originalName, mimeType, id string, used map[string]int) string {
+	name := sanitizeExportImageName(originalName, mimeType, id)
+	ext := filepath.Ext(name)
+	base := strings.TrimSuffix(name, ext)
+	count := used[name]
+	if count == 0 {
+		used[name] = 1
+		return name
+	}
+	for {
+		count++
+		next := base + "-" + strconv.Itoa(count) + ext
+		if used[next] == 0 {
+			used[name] = count
+			used[next] = 1
+			return next
+		}
+	}
+}
+
+func createUniqueAssetsDir(baseDir string, now time.Time) (string, string, error) {
+	baseName := formatAssetsDirName(now)
+	for i := 0; ; i++ {
+		name := baseName
+		if i > 0 {
+			name = baseName + "_" + strconv.Itoa(i+1)
+		}
+		path := filepath.Join(baseDir, name)
+		err := os.Mkdir(path, 0700)
+		if err == nil {
+			return name, path, nil
+		}
+		if os.IsExist(err) {
+			continue
+		}
+		return "", "", err
+	}
+}
+
+func (a *App) exportMarkdownAttachments(content, exportDir string, now time.Time) (string, error) {
+	attachmentIDs := collectAttachmentIDs(content)
+	if len(attachmentIDs) == 0 {
+		return content, nil
+	}
+
+	assetsDirName, assetsDirPath, err := createUniqueAssetsDir(exportDir, now)
+	if err != nil {
+		return "", err
+	}
+
+	fileNames := make(map[string]string, len(attachmentIDs))
+	usedNames := map[string]int{}
+	for _, id := range attachmentIDs {
+		attachment, data, err := a.core.Attachments().GetData(id)
+		if err != nil {
+			return "", err
+		}
+		fileName := uniqueExportImageName(attachment.OriginalName, attachment.MIMEType, attachment.ID, usedNames)
+		fileNames[id] = fileName
+		if err := writeFileAtomic(filepath.Join(assetsDirPath, fileName), data); err != nil {
+			return "", err
+		}
+	}
+
+	return rewriteMarkdownAttachmentLinks(content, assetsDirName, fileNames), nil
 }
 
 func (a *App) ImportMarkdown() (*notes.Note, error) {
@@ -239,6 +497,117 @@ func (a *App) ImportMarkdown() (*notes.Note, error) {
 
 	title := extractTitle(openPath, string(content))
 	return a.core.Notes().Create(title, string(content))
+}
+
+func parseImageDataURL(dataURL string) (string, []byte, error) {
+	const base64Marker = ";base64,"
+	if !strings.HasPrefix(dataURL, "data:") {
+		return "", nil, errors.New("invalid image data URL")
+	}
+	parts := strings.SplitN(strings.TrimPrefix(dataURL, "data:"), base64Marker, 2)
+	if len(parts) != 2 {
+		return "", nil, errors.New("invalid image data URL")
+	}
+	mimeType := strings.ToLower(strings.TrimSpace(parts[0]))
+	if !strings.HasPrefix(mimeType, "image/") {
+		return "", nil, errors.New("data URL is not an image")
+	}
+	data, err := base64.StdEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", nil, err
+	}
+	return mimeType, data, nil
+}
+
+func imageMIMEFromFile(path string, data []byte) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".webp":
+		return "image/webp"
+	case ".gif":
+		return "image/gif"
+	default:
+		detected := http.DetectContentType(data)
+		if strings.HasPrefix(detected, "image/") {
+			return detected
+		}
+		return ""
+	}
+}
+
+func (a *App) ImportImage(noteID string) (*attachments.Attachment, error) {
+	a.UpdateActivity()
+
+	openPath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "插入图片",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "图片文件", Pattern: "*.png;*.jpg;*.jpeg;*.webp;*.gif"},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if openPath == "" {
+		return nil, nil
+	}
+
+	data, err := readFile(openPath)
+	if err != nil {
+		return nil, err
+	}
+	mimeType := imageMIMEFromFile(openPath, data)
+	if mimeType == "" {
+		return nil, errors.New("不支持的图片格式")
+	}
+	return a.core.Attachments().CreateImage(attachments.CreateImageInput{
+		OriginalName: filepath.Base(openPath),
+		MIMEType:     mimeType,
+		Data:         data,
+		NoteID:       noteID,
+	})
+}
+
+func (a *App) CreateImageFromDataURL(noteID, originalName, dataURL string) (*attachments.Attachment, error) {
+	a.UpdateActivity()
+
+	mimeType, data, err := parseImageDataURL(dataURL)
+	if err != nil {
+		return nil, err
+	}
+	return a.core.Attachments().CreateImage(attachments.CreateImageInput{
+		OriginalName: originalName,
+		MIMEType:     mimeType,
+		Data:         data,
+		NoteID:       noteID,
+	})
+}
+
+func (a *App) GetAttachmentDataURL(id string) (string, error) {
+	a.UpdateActivity()
+	return a.core.Attachments().GetDataURL(id)
+}
+
+func (a *App) ListAttachments() ([]*attachments.Attachment, error) {
+	a.UpdateActivity()
+	return a.core.Attachments().ListImages()
+}
+
+func (a *App) DeleteAttachment(id string) error {
+	a.UpdateActivity()
+	return a.core.Attachments().Delete(id)
+}
+
+func (a *App) AttachAttachmentToNote(noteID, attachmentID string) error {
+	a.UpdateActivity()
+	return a.core.Attachments().AttachToNote(noteID, attachmentID)
+}
+
+func (a *App) DetachAttachmentFromNote(noteID, attachmentID string) error {
+	a.UpdateActivity()
+	return a.core.Attachments().DetachFromNote(noteID, attachmentID)
 }
 
 func writeFileAtomic(path string, data []byte) error {

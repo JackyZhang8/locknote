@@ -1,4 +1,4 @@
-import { FileText, Search, Tag, Settings, Lock, Trash2, Clock, HardDrive } from 'lucide-react';
+import { FileText, Search, Tag, Settings, Lock, Clock, CheckSquare, Image as ImageIcon } from 'lucide-react';
 import { useStore, ViewType } from '../store';
 import { useI18n } from '../i18n';
 import * as App from '../../wailsjs/go/main/App';
@@ -26,8 +26,8 @@ export function Sidebar() {
     { id: 'recent', icon: <Clock className="w-6 h-6" />, label: t.sidebar.recent },
     { id: 'search', icon: <Search className="w-6 h-6" />, label: t.sidebar.search },
     { id: 'tags', icon: <Tag className="w-6 h-6" />, label: t.sidebar.tags },
-    { id: 'backup', icon: <HardDrive className="w-6 h-6" />, label: t.sidebar.backup },
-    { id: 'trash', icon: <Trash2 className="w-6 h-6" />, label: t.sidebar.trash },
+    { id: 'todos', icon: <CheckSquare className="w-6 h-6" />, label: t.sidebar.todos },
+    { id: 'images', icon: <ImageIcon className="w-6 h-6" />, label: t.sidebar.images },
     { id: 'settings', icon: <Settings className="w-6 h-6" />, label: t.sidebar.settings },
   ];
 

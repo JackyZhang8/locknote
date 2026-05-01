@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "skipLibCheck": true,
+    "outDir": "./.test-dist",
+    "rootDir": "./src",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "src/theme.test.ts",
+    "src/theme.ts",
+    "src/imageAttachments.test.ts",
+    "src/imageAttachments.ts",
+    "src/imageGrid.test.ts",
+    "src/imageGrid.ts",
+    "src/noteListRecent.test.ts",
+    "src/settingsTabs.test.ts",
+    "src/todoDeletionConfirmation.test.ts",
+    "src/todoFilters.test.ts",
+    "src/todoFilters.ts",
+    "src/test-node-shims.d.ts"
+  ]
+}

@@ -6,6 +6,10 @@ export function AddTagToNote(arg1, arg2) {
   return window['go']['main']['App']['AddTagToNote'](arg1, arg2);
 }
 
+export function AttachAttachmentToNote(arg1, arg2) {
+  return window['go']['main']['App']['AttachAttachmentToNote'](arg1, arg2);
+}
+
 export function BatchAddTagToNotes(arg1, arg2) {
   return window['go']['main']['App']['BatchAddTagToNotes'](arg1, arg2);
 }
@@ -20,6 +24,10 @@ export function ChangePassword(arg1, arg2, arg3) {
 
 export function CreateBackup() {
   return window['go']['main']['App']['CreateBackup']();
+}
+
+export function CreateImageFromDataURL(arg1, arg2, arg3) {
+  return window['go']['main']['App']['CreateImageFromDataURL'](arg1, arg2, arg3);
 }
 
 export function CreateNote(arg1, arg2) {
@@ -38,6 +46,18 @@ export function CreateTag(arg1, arg2) {
   return window['go']['main']['App']['CreateTag'](arg1, arg2);
 }
 
+export function CreateTodo(arg1, arg2, arg3) {
+  return window['go']['main']['App']['CreateTodo'](arg1, arg2, arg3);
+}
+
+export function CreateTodoSubtask(arg1, arg2) {
+  return window['go']['main']['App']['CreateTodoSubtask'](arg1, arg2);
+}
+
+export function DeleteAttachment(arg1) {
+  return window['go']['main']['App']['DeleteAttachment'](arg1);
+}
+
 export function DeleteNote(arg1) {
   return window['go']['main']['App']['DeleteNote'](arg1);
 }
@@ -54,12 +74,28 @@ export function DeleteTag(arg1) {
   return window['go']['main']['App']['DeleteTag'](arg1);
 }
 
+export function DeleteTodo(arg1) {
+  return window['go']['main']['App']['DeleteTodo'](arg1);
+}
+
+export function DeleteTodoSubtask(arg1) {
+  return window['go']['main']['App']['DeleteTodoSubtask'](arg1);
+}
+
+export function DetachAttachmentFromNote(arg1, arg2) {
+  return window['go']['main']['App']['DetachAttachmentFromNote'](arg1, arg2);
+}
+
 export function ExportNoteAsMarkdown(arg1) {
   return window['go']['main']['App']['ExportNoteAsMarkdown'](arg1);
 }
 
 export function GenerateDataKey() {
   return window['go']['main']['App']['GenerateDataKey']();
+}
+
+export function GetAttachmentDataURL(arg1) {
+  return window['go']['main']['App']['GetAttachmentDataURL'](arg1);
 }
 
 export function GetDataDir() {
@@ -86,12 +122,20 @@ export function GetSmartView(arg1) {
   return window['go']['main']['App']['GetSmartView'](arg1);
 }
 
+export function GetTodo(arg1) {
+  return window['go']['main']['App']['GetTodo'](arg1);
+}
+
 export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
 }
 
 export function ImportBackupWithKey(arg1) {
   return window['go']['main']['App']['ImportBackupWithKey'](arg1);
+}
+
+export function ImportImage(arg1) {
+  return window['go']['main']['App']['ImportImage'](arg1);
 }
 
 export function ImportMarkdown() {
@@ -104,6 +148,10 @@ export function IsFirstRun() {
 
 export function IsUnlocked() {
   return window['go']['main']['App']['IsUnlocked']();
+}
+
+export function ListAttachments() {
+  return window['go']['main']['App']['ListAttachments']();
 }
 
 export function ListDeletedNotes() {
@@ -128,6 +176,10 @@ export function ListSmartViews() {
 
 export function ListTags() {
   return window['go']['main']['App']['ListTags']();
+}
+
+export function ListTodos() {
+  return window['go']['main']['App']['ListTodos']();
 }
 
 export function Lock() {
@@ -182,6 +234,14 @@ export function SetNotesNotebook(arg1, arg2) {
   return window['go']['main']['App']['SetNotesNotebook'](arg1, arg2);
 }
 
+export function SetTodoCompleted(arg1, arg2) {
+  return window['go']['main']['App']['SetTodoCompleted'](arg1, arg2);
+}
+
+export function SetTodoSubtaskCompleted(arg1, arg2) {
+  return window['go']['main']['App']['SetTodoSubtaskCompleted'](arg1, arg2);
+}
+
 export function SetupPassword(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetupPassword'](arg1, arg2, arg3);
 }
@@ -216,6 +276,14 @@ export function UpdateSmartView(arg1, arg2, arg3, arg4) {
 
 export function UpdateTag(arg1, arg2, arg3) {
   return window['go']['main']['App']['UpdateTag'](arg1, arg2, arg3);
+}
+
+export function UpdateTodo(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['UpdateTodo'](arg1, arg2, arg3, arg4);
+}
+
+export function UpdateTodoSubtask(arg1, arg2) {
+  return window['go']['main']['App']['UpdateTodoSubtask'](arg1, arg2);
 }
 
 export function VerifyDataKey(arg1) {

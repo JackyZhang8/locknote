@@ -250,6 +250,13 @@ func (d *DB) migrate() error {
 		return err
 	}
 
+	if err := d.ensureTodoSchema(); err != nil {
+		return err
+	}
+	if err := d.ensureAttachmentSchema(); err != nil {
+		return err
+	}
+
 	d.addNotebookIdColumn()
 
 	return nil
