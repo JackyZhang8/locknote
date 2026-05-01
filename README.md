@@ -12,13 +12,19 @@
 
 ## Features
 
-- **Encrypted storage** - All note content is encrypted with AES-256-GCM; keys are derived via Argon2id
-- **Offline-first** - Data is stored locally; no network connection required
-- **Markdown editing** - Markdown support with live preview
-- **Tag management** - Add tags for classification and filtering
-- **Full-text search** - Search titles, content, and tags
+- **Encrypted local storage** - Notes and local image attachments are encrypted with AES-256-GCM; keys are derived via Argon2id
+- **Offline-first** - Data is stored locally and works without a network connection
+- **Markdown editor** - Markdown editing with edit, preview, and split modes, plus convenient formatting controls
+- **Encrypted image attachments** - Paste, drag, or insert local images into notes; images are decrypted only for in-app display
+- **Image manager** - Browse encrypted local images in a compact, virtualized grid; add, copy references, insert into notes, or delete images
+- **Markdown import/export** - Import Markdown files and export notes as Markdown; notes with images export with a timestamped assets folder
+- **Notes organization** - Manage notebooks, tags, recent notes, pinned notes, and filters for structured writing
+- **Todos** - Manage standalone tasks with priorities, due dates, subtasks, filters, and inline editing
+- **Full-text search** - Search note titles, content, and tags
 - **History versions** - Automatic history snapshots with rollback
-- **Backup & restore** - Manual backup and restore supported
+- **Trash** - Deleted notes move to trash and can be restored or permanently deleted
+- **Backup & restore** - Create encrypted backups, restore data, and import backups with a data key
+- **Security settings** - Auto-lock options, password changes, data-key recovery, themes, and language switching
 
 ## Tech Stack
 
