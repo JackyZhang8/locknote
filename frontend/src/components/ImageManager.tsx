@@ -127,6 +127,7 @@ export function ImageManager() {
   const [importing, setImporting] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteAttachment, setConfirmDeleteAttachment] = useState<attachments.Attachment | null>(null);
   const [message, setMessage] = useState('');
   const columnCount = getImageGridColumnCount(containerWidth);
   const rows = useMemo(() => toImageRows(items, columnCount), [columnCount, items]);
@@ -231,10 +232,15 @@ export function ImageManager() {
     setMessage(t.attachments.inserted);
   };
 
-  const handleDelete = async (attachment: attachments.Attachment) => {
-    const confirmed = window.confirm(`${t.attachments.deleteTitle}\n\n${t.attachments.deleteDesc}`);
-    if (!confirmed) return;
+  const handleRequestDelete = (attachment: attachments.Attachment) => {
+    setConfirmDeleteAttachment(attachment);
+  };
 
+  const handleConfirmDelete = async () => {
+    const attachment = confirmDeleteAttachment;
+    if (!attachment) return;
+
+    setConfirmDeleteAttachment(null);
     setDeletingId(attachment.id);
     try {
       await App.DeleteAttachment(attachment.id);
@@ -332,7 +338,7 @@ export function ImageManager() {
                     onPreviewLoaded={handlePreviewLoaded}
                     onCopyMarkdown={handleCopyMarkdown}
                     onInsertIntoNote={handleInsertIntoSelectedNote}
-                    onDelete={handleDelete}
+                    onDelete={handleRequestDelete}
                   />
                 ))}
                 {Array.from({ length: columnCount - (rows[virtualRow.index]?.length || 0) }).map((_, index) => (
@@ -343,6 +349,47 @@ export function ImageManager() {
           </div>
         )}
       </div>
+
+      {confirmDeleteAttachment && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
+          onClick={() => setConfirmDeleteAttachment(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-base font-semibold text-gray-900">{t.attachments.deleteTitle}</div>
+                <div className="mt-1 text-sm text-gray-600">{t.attachments.deleteDesc}</div>
+                <div className="mt-3 truncate rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-500">
+                  {confirmDeleteAttachment.originalName}
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                onClick={() => setConfirmDeleteAttachment(null)}
+              >
+                {t.common.cancel}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-red-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600"
+                onClick={handleConfirmDelete}
+              >
+                {t.common.delete}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

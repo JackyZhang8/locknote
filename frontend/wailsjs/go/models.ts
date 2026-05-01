@@ -1,5 +1,5 @@
 export namespace attachments {
-
+	
 	export class Attachment {
 	    id: string;
 	    originalName: string;
@@ -12,11 +12,11 @@ export namespace attachments {
 	    createdAt: string;
 	    updatedAt: string;
 	    referenceCount: number;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new Attachment(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -36,14 +36,14 @@ export namespace attachments {
 }
 
 export namespace core {
-
+	
 	export class SetupResult {
 	    dataKey: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new SetupResult(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.dataKey = source["dataKey"];
@@ -53,16 +53,16 @@ export namespace core {
 }
 
 export namespace database {
-
+	
 	export class Settings {
 	    autoLockMinutes: number;
 	    lockOnMinimize: boolean;
 	    lockOnSleep: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.autoLockMinutes = source["autoLockMinutes"];
@@ -74,7 +74,7 @@ export namespace database {
 }
 
 export namespace notebooks {
-
+	
 	export class Notebook {
 	    id: string;
 	    name: string;
@@ -83,11 +83,11 @@ export namespace notebooks {
 	    pinned: boolean;
 	    createdAt: string;
 	    updatedAt: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new Notebook(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -103,16 +103,16 @@ export namespace notebooks {
 }
 
 export namespace notes {
-
+	
 	export class Tag {
 	    id: string;
 	    name: string;
 	    color: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new Tag(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -130,11 +130,11 @@ export namespace notes {
 	    deletedAt?: string;
 	    notebookId?: string;
 	    tags: Tag[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new Note(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -147,7 +147,7 @@ export namespace notes {
 	        this.notebookId = source["notebookId"];
 	        this.tags = this.convertValues(source["tags"], Tag);
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -169,17 +169,17 @@ export namespace notes {
 	export class ListResult {
 	    notes: Note[];
 	    total: number;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ListResult(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.notes = this.convertValues(source["notes"], Note);
 	        this.total = source["total"];
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -198,21 +198,21 @@ export namespace notes {
 		    return a;
 		}
 	}
-
+	
 
 }
 
 export namespace smartviews {
-
+	
 	export class FilterCondition {
 	    field: string;
 	    operator: string;
 	    value: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new FilterCondition(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.field = source["field"];
@@ -226,11 +226,11 @@ export namespace smartviews {
 	    notebookId?: string;
 	    daysRecent?: number;
 	    searchQuery?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new Filter(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.conditions = this.convertValues(source["conditions"], FilterCondition);
@@ -239,7 +239,7 @@ export namespace smartviews {
 	        this.daysRecent = source["daysRecent"];
 	        this.searchQuery = source["searchQuery"];
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -258,18 +258,18 @@ export namespace smartviews {
 		    return a;
 		}
 	}
-
+	
 	export class SmartView {
 	    id: string;
 	    name: string;
 	    icon: string;
 	    filter: Filter;
 	    sortOrder: number;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new SmartView(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -278,7 +278,7 @@ export namespace smartviews {
 	        this.filter = this.convertValues(source["filter"], Filter);
 	        this.sortOrder = source["sortOrder"];
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -301,16 +301,16 @@ export namespace smartviews {
 }
 
 export namespace tags {
-
+	
 	export class Tag {
 	    id: string;
 	    name: string;
 	    color: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new Tag(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -322,7 +322,7 @@ export namespace tags {
 }
 
 export namespace todos {
-
+	
 	export class Subtask {
 	    id: string;
 	    todoId: string;
@@ -332,11 +332,11 @@ export namespace todos {
 	    createdAt: string;
 	    updatedAt: string;
 	    completedAt?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new Subtask(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -360,11 +360,11 @@ export namespace todos {
 	    updatedAt: string;
 	    completedAt?: string;
 	    subtasks: Subtask[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new Todo(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -378,7 +378,7 @@ export namespace todos {
 	        this.completedAt = source["completedAt"];
 	        this.subtasks = this.convertValues(source["subtasks"], Subtask);
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
