@@ -5,10 +5,10 @@ import { NoteList } from './NoteList';
 import { NoteEditor } from './NoteEditor';
 import { SearchView } from './SearchView';
 import { TagsView } from './TagsView';
-import { BackupView } from './BackupView';
 import { SettingsView } from './SettingsView';
-import { TrashView } from './TrashView';
 import { CommandPalette } from './CommandPalette';
+import { TodoWorkspace } from './TodoWorkspace';
+import { ImageManager } from './ImageManager';
 import * as App from '../../wailsjs/go/main/App';
 
 export function MainLayout() {
@@ -104,12 +104,12 @@ export function MainLayout() {
         return <SearchView />;
       case 'tags':
         return <TagsView />;
-      case 'backup':
-        return <BackupView />;
+      case 'todos':
+        return <TodoWorkspace />;
+      case 'images':
+        return <ImageManager />;
       case 'settings':
         return <SettingsView />;
-      case 'trash':
-        return <TrashView />;
       default:
         return null;
     }

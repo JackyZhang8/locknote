@@ -5,7 +5,11 @@ import { useI18n } from '../i18n';
 import { notes } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
 
-export function TrashView() {
+interface TrashViewProps {
+  embedded?: boolean;
+}
+
+export function TrashView({ embedded = false }: TrashViewProps) {
   const { deletedNotes, setDeletedNotes, setNotes } = useStore();
   const { t, language } = useI18n();
   const [loading, setLoading] = useState(true);
@@ -92,25 +96,27 @@ export function TrashView() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-white">
+      <div className={embedded ? 'flex items-center justify-center bg-white py-12' : 'flex-1 flex items-center justify-center bg-white'}>
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
-      <div className="p-6 border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <Trash2 className="w-6 h-6 text-gray-500" />
-          <div>
-            <h2 className="text-xl font-semibold text-gray-800">{t.trash.title}</h2>
-            <p className="text-sm text-gray-500 mt-1">{t.trash.subtitle}</p>
+    <div className={embedded ? 'bg-white' : 'flex-1 flex flex-col bg-white'}>
+      {!embedded && (
+        <div className="p-6 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <Trash2 className="w-6 h-6 text-gray-500" />
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800">{t.trash.title}</h2>
+              <p className="text-sm text-gray-500 mt-1">{t.trash.subtitle}</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className={embedded ? '' : 'flex-1 overflow-y-auto p-6'}>
         {deletedNotes.length === 0 ? (
           <div className="text-center text-gray-400 py-12">
             <Trash2 className="w-12 h-12 mx-auto mb-4 opacity-50" />

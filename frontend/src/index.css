@@ -2,13 +2,130 @@
 @tailwind components;
 @tailwind utilities;
 
+:root,
+[data-theme='apple'] {
+  --claw-50: 240 253 244;
+  --claw-100: 220 252 231;
+  --claw-200: 187 247 208;
+  --claw-300: 134 239 172;
+  --claw-400: 74 222 128;
+  --claw-500: 34 197 94;
+  --claw-600: 22 163 74;
+  --claw-700: 21 128 61;
+  --claw-800: 22 101 52;
+  --claw-900: 20 83 45;
+  --claw-950: 5 46 22;
+  --brand-50: 240 253 244;
+  --brand-100: 220 252 231;
+  --brand-200: 187 247 208;
+  --brand-300: 134 239 172;
+  --brand-400: 74 222 128;
+  --brand-500: 34 197 94;
+  --brand-600: 22 163 74;
+  --brand-700: 21 128 61;
+  --brand-800: 22 101 52;
+  --brand-900: 20 83 45;
+  --brand-950: 5 46 22;
+  --dark-900: 15 23 18;
+  --dark-800: 22 33 25;
+  --dark-700: 32 48 37;
+  --dark-600: 45 68 53;
+  --dark-500: 62 92 72;
+  --dark-400: 91 129 105;
+  --accent-cyan: 16 185 129;
+  --accent-purple: 52 211 153;
+  --accent-green: 34 197 94;
+  --accent-amber: 245 158 11;
+  --accent: 16 185 129;
+  --background: 244 251 246;
+}
+
+[data-theme='lobster'] {
+  --claw-50: 255 242 242;
+  --claw-100: 255 227 227;
+  --claw-200: 255 200 200;
+  --claw-300: 255 160 160;
+  --claw-400: 245 112 112;
+  --claw-500: 224 71 71;
+  --claw-600: 191 52 52;
+  --claw-700: 160 41 41;
+  --claw-800: 130 35 35;
+  --claw-900: 104 31 31;
+  --claw-950: 66 18 18;
+  --brand-50: 255 242 242;
+  --brand-100: 255 227 227;
+  --brand-200: 255 200 200;
+  --brand-300: 255 160 160;
+  --brand-400: 245 112 112;
+  --brand-500: 224 71 71;
+  --brand-600: 191 52 52;
+  --brand-700: 160 41 41;
+  --brand-800: 130 35 35;
+  --brand-900: 104 31 31;
+  --brand-950: 66 18 18;
+  --dark-900: 26 14 14;
+  --dark-800: 35 19 19;
+  --dark-700: 47 25 25;
+  --dark-600: 64 34 34;
+  --dark-500: 82 45 45;
+  --dark-400: 110 66 66;
+  --accent-cyan: 232 137 137;
+  --accent-purple: 219 121 121;
+  --accent-green: 204 143 108;
+  --accent-amber: 245 174 97;
+  --accent: 224 71 71;
+  --background: 255 242 242;
+}
+
+[data-theme='sunset'] {
+  --claw-50: 255 246 239;
+  --claw-100: 255 233 219;
+  --claw-200: 255 208 180;
+  --claw-300: 255 177 134;
+  --claw-400: 255 141 92;
+  --claw-500: 248 106 59;
+  --claw-600: 228 81 37;
+  --claw-700: 188 63 28;
+  --claw-800: 151 52 26;
+  --claw-900: 123 46 26;
+  --claw-950: 67 20 10;
+  --brand-50: 255 246 239;
+  --brand-100: 255 233 219;
+  --brand-200: 255 208 180;
+  --brand-300: 255 177 134;
+  --brand-400: 255 141 92;
+  --brand-500: 248 106 59;
+  --brand-600: 228 81 37;
+  --brand-700: 188 63 28;
+  --brand-800: 151 52 26;
+  --brand-900: 123 46 26;
+  --brand-950: 67 20 10;
+  --dark-900: 28 15 11;
+  --dark-800: 39 21 16;
+  --dark-700: 54 29 22;
+  --dark-600: 74 40 30;
+  --dark-500: 99 54 41;
+  --dark-400: 136 82 66;
+  --accent-cyan: 115 188 221;
+  --accent-purple: 186 145 232;
+  --accent-green: 124 196 156;
+  --accent-amber: 255 183 87;
+  --accent: 248 106 59;
+  --background: 255 246 239;
+}
+
 * {
   box-sizing: border-box;
 }
 
+html {
+  background-color: rgb(var(--background));
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background-color: #f4fbf6;
+  background-color: rgb(var(--background));
+  transition: background-color 0.18s ease;
 }
 
 ::-webkit-scrollbar {
@@ -62,7 +179,7 @@ body {
 }
 
 .markdown-preview code {
-  @apply bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-emerald-700;
+  @apply bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-primary-700;
 }
 
 .markdown-preview pre {
@@ -74,11 +191,11 @@ body {
 }
 
 .markdown-preview blockquote {
-  @apply border-l-4 border-emerald-400 pl-4 italic text-gray-600 my-3;
+  @apply border-l-4 border-primary-400 pl-4 italic text-gray-600 my-3;
 }
 
 .markdown-preview a {
-  @apply text-emerald-600 hover:text-emerald-700 underline;
+  @apply text-accent hover:text-primary-700 underline;
 }
 
 .markdown-preview table {

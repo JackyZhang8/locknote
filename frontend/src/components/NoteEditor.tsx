@@ -1,15 +1,71 @@
-import { useState, useEffect, useCallback, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { Eye, Edit3, Columns, Tag, History, Download, X, Plus, Check, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Bold, Italic, Heading1, Heading2, List, ListOrdered, Quote, Code, Link2 } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef, type ClipboardEvent as ReactClipboardEvent, type DragEvent as ReactDragEvent, type ImgHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { Eye, Edit3, Columns, Tag, History, Download, X, Plus, Check, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Bold, Italic, Heading1, Heading2, List, ListOrdered, Quote, Code, Link2, Image as ImageIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useStore, EditorMode } from '../store';
 import { useI18n } from '../i18n';
+import { attachmentMarkdown, fileToDataURL, markdownUrlTransform, parseAttachmentId } from '../imageAttachments';
 import { notes, tags } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
 
 const FONT_SCALE_STORAGE_KEY = 'locknote-editor-font-scale';
 const MIN_FONT_SCALE = 0.8;
 const MAX_FONT_SCALE = 1.8;
+
+function AttachmentImage({ src, alt, title }: ImgHTMLAttributes<HTMLImageElement>) {
+  const attachmentId = parseAttachmentId(src);
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(attachmentId ? null : src ?? null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!attachmentId) {
+      setResolvedSrc(src ?? null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setResolvedSrc(null);
+    App.GetAttachmentDataURL(attachmentId)
+      .then((dataURL) => {
+        if (!cancelled) {
+          setResolvedSrc(dataURL);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load attachment image:', error);
+        if (!cancelled) {
+          setResolvedSrc(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attachmentId, src]);
+
+  if (!resolvedSrc) {
+    return (
+      <span className="inline-flex min-h-[5rem] min-w-[8rem] items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-400">
+        image
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={resolvedSrc}
+      alt={alt ?? ''}
+      title={title}
+      className="my-3 max-h-[520px] max-w-full rounded-lg border border-gray-100 object-contain"
+    />
+  );
+}
+
+const markdownComponents: Components = {
+  img: AttachmentImage,
+};
 
 export function NoteEditor() {
   const {
@@ -251,6 +307,46 @@ export function NoteEditor() {
     });
   };
 
+  const insertMarkdownAtCursor = (markdown: string) => {
+    const textarea = contentTextareaRef.current;
+    const insertion = content && !content.endsWith('\n') ? `\n${markdown}\n` : `${markdown}\n`;
+    if (!textarea) {
+      setContent((current) => current + insertion);
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    textarea.focus();
+    textarea.setRangeText(insertion, start, end, 'end');
+    const nextContent = textarea.value;
+    setContent(nextContent);
+  };
+
+  const createAttachmentFromFile = async (file: File) => {
+    if (!selectedNote || !file.type.startsWith('image/')) return;
+    const dataURL = await fileToDataURL(file);
+    const attachment = await App.CreateImageFromDataURL(
+      selectedNote.id,
+      file.name || `image-${Date.now()}`,
+      dataURL,
+    );
+    insertMarkdownAtCursor(attachmentMarkdown(attachment));
+  };
+
+  const handleInsertImage = async () => {
+    if (!selectedNote) return;
+    try {
+      const attachment = await App.ImportImage(selectedNote.id);
+      if (attachment) {
+        insertMarkdownAtCursor(attachmentMarkdown(attachment));
+      }
+    } catch (error) {
+      console.error('Failed to import image:', error);
+      alert(`${t.common.error}：${String(error)}`);
+    }
+  };
+
   const updateTextareaValue = (
     textarea: HTMLTextAreaElement,
     nextValue: string,
@@ -369,6 +465,29 @@ export function NoteEditor() {
     }
   };
 
+  const handleContentPaste = (event: ReactClipboardEvent<HTMLTextAreaElement>) => {
+    const imageItem = Array.from(event.clipboardData.items).find((item) => item.type.startsWith('image/'));
+    const file = imageItem?.getAsFile();
+    if (!file) return;
+
+    event.preventDefault();
+    createAttachmentFromFile(file).catch((error) => {
+      console.error('Failed to paste image:', error);
+      alert(`${t.common.error}：${String(error)}`);
+    });
+  };
+
+  const handleContentDrop = (event: ReactDragEvent<HTMLTextAreaElement>) => {
+    const file = Array.from(event.dataTransfer.files).find((item) => item.type.startsWith('image/'));
+    if (!file) return;
+
+    event.preventDefault();
+    createAttachmentFromFile(file).catch((error) => {
+      console.error('Failed to drop image:', error);
+      alert(`${t.common.error}：${String(error)}`);
+    });
+  };
+
   const modeButtons: { mode: EditorMode; icon: React.ReactNode; label: string }[] = [
     { mode: 'edit', icon: <Edit3 className="w-4 h-4" />, label: t.editor.edit },
     { mode: 'preview', icon: <Eye className="w-4 h-4" />, label: t.editor.preview },
@@ -387,6 +506,7 @@ export function NoteEditor() {
     { title: '引用', icon: <Quote className="w-4 h-4" />, onClick: () => applyMarkdown('> ', '', t.noteList.noContent) },
     { title: '行内代码', icon: <Code className="w-4 h-4" />, onClick: () => applyMarkdown('`', '`', 'code') },
     { title: '链接', icon: <Link2 className="w-4 h-4" />, onClick: () => applyMarkdown('[', '](https://)', 'link') },
+    { title: '图片', icon: <ImageIcon className="w-4 h-4" />, onClick: handleInsertImage },
   ];
   const titleFontSize = `${2 * fontScale}rem`;
   const contentFontSize = `${0.875 * fontScale}rem`;
@@ -586,6 +706,9 @@ export function NoteEditor() {
               value={content}
               onChange={(e) => setContent(e.target.value)}
               onKeyDown={handleContentKeyDown}
+              onPaste={handleContentPaste}
+              onDrop={handleContentDrop}
+              onDragOver={(event) => event.preventDefault()}
               className="flex-1 px-6 py-4 resize-none focus:outline-none font-mono leading-relaxed"
               style={{ fontSize: contentFontSize }}
               placeholder={t.editor.contentPlaceholder}
@@ -601,7 +724,7 @@ export function NoteEditor() {
               </h1>
             </div>
             <div className="flex-1 px-6 py-4 markdown-preview overflow-y-auto" style={{ fontSize: previewFontSize }}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content || `*${t.noteList.noContent}*`}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents} urlTransform={markdownUrlTransform}>{content || `*${t.noteList.noContent}*`}</ReactMarkdown>
             </div>
           </div>
         )}

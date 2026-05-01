@@ -7,6 +7,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"locknote/internal/attachments"
 	"locknote/internal/backup"
 	"locknote/internal/crypto"
 	"locknote/internal/database"
@@ -14,6 +15,7 @@ import (
 	"locknote/internal/notes"
 	"locknote/internal/smartviews"
 	"locknote/internal/tags"
+	"locknote/internal/todos"
 	"os"
 	"path/filepath"
 	"sync"
@@ -27,14 +29,16 @@ type LockCallback func()
 
 // Core 是 LockNote 的核心业务逻辑层，与平台无关
 type Core struct {
-	db               *database.DB
-	cryptoService    *crypto.Service
-	noteService      *notes.Service
-	tagService       *tags.Service
-	notebookService  *notebooks.Service
-	smartViewService *smartviews.Service
-	backupService    *backup.Service
-	dataDir          string
+	db                *database.DB
+	cryptoService     *crypto.Service
+	noteService       *notes.Service
+	tagService        *tags.Service
+	notebookService   *notebooks.Service
+	todoService       *todos.Service
+	attachmentService *attachments.Service
+	smartViewService  *smartviews.Service
+	backupService     *backup.Service
+	dataDir           string
 
 	isUnlocked   bool
 	dataKey      []byte
@@ -81,15 +85,17 @@ func New(dataDir string) (*Core, error) {
 	}
 
 	c := &Core{
-		db:               db,
-		cryptoService:    crypto.NewService(),
-		noteService:      notes.NewService(db, dataDir),
-		tagService:       tags.NewService(db),
-		notebookService:  notebooks.NewService(db),
-		smartViewService: smartviews.NewService(db),
-		backupService:    backup.NewService(dataDir),
-		dataDir:          dataDir,
-		lastActivity:     time.Now(),
+		db:                db,
+		cryptoService:     crypto.NewService(),
+		noteService:       notes.NewService(db, dataDir),
+		tagService:        tags.NewService(db),
+		notebookService:   notebooks.NewService(db),
+		todoService:       todos.NewService(db),
+		attachmentService: attachments.NewService(db, dataDir),
+		smartViewService:  smartviews.NewService(db),
+		backupService:     backup.NewService(dataDir),
+		dataDir:           dataDir,
+		lastActivity:      time.Now(),
 	}
 
 	return c, nil
@@ -192,6 +198,8 @@ func (c *Core) SetupPassword(password, hint, displayKey string) (*SetupResult, e
 	c.dataKey = dataKey
 	c.isUnlocked = true
 	c.noteService.SetMasterKey(dataKey)
+	c.todoService.SetMasterKey(dataKey)
+	c.attachmentService.SetMasterKey(dataKey)
 	c.lastActivity = time.Now()
 	c.mu.Unlock()
 
@@ -246,6 +254,8 @@ func (c *Core) Unlock(password string) (bool, error) {
 	c.dataKey = dataKey
 	c.isUnlocked = true
 	c.noteService.SetMasterKey(dataKey)
+	c.todoService.SetMasterKey(dataKey)
+	c.attachmentService.SetMasterKey(dataKey)
 	c.lastActivity = time.Now()
 	c.mu.Unlock()
 
@@ -268,6 +278,8 @@ func (c *Core) Lock() {
 		c.dataKey = nil
 	}
 	c.noteService.SetMasterKey(nil)
+	c.todoService.SetMasterKey(nil)
+	c.attachmentService.SetMasterKey(nil)
 	if c.lockTimer != nil {
 		c.lockTimer.Stop()
 	}
@@ -385,6 +397,8 @@ func (c *Core) ResetPasswordWithDataKey(displayKey, newPassword, newHint string)
 	c.dataKey = dataKey
 	c.isUnlocked = true
 	c.noteService.SetMasterKey(dataKey)
+	c.todoService.SetMasterKey(dataKey)
+	c.attachmentService.SetMasterKey(dataKey)
 	c.mu.Unlock()
 
 	// startLockTimer 内部会获取锁，必须在释放锁后调用
@@ -467,6 +481,18 @@ func (c *Core) Tags() *tags.Service {
 // Notebooks 返回笔记本服务
 func (c *Core) Notebooks() *notebooks.Service {
 	return c.notebookService
+}
+
+// ============ 待办相关（代理到 todoService）============
+
+// Todos 返回待办服务
+func (c *Core) Todos() *todos.Service {
+	return c.todoService
+}
+
+// Attachments 返回附件服务
+func (c *Core) Attachments() *attachments.Service {
+	return c.attachmentService
 }
 
 // ============ 智能视图相关（代理到 smartViewService）============
