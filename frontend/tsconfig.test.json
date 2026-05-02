@@ -20,6 +20,7 @@
     "src/imageAttachments.test.ts",
     "src/imageAttachments.ts",
     "src/imageManagerDeletion.test.ts",
+    "src/imageManagerFavoritesPreview.test.ts",
     "src/imageGrid.test.ts",
     "src/imageGrid.ts",
     "src/noteListRecent.test.ts",

@@ -43,6 +43,7 @@ type Attachment struct {
 	Height         int    `json:"height"`
 	CipherPath     string `json:"cipherPath"`
 	SHA256         string `json:"sha256"`
+	Favorite       bool   `json:"favorite"`
 	CreatedAt      string `json:"createdAt"`
 	UpdatedAt      string `json:"updatedAt"`
 	ReferenceCount int    `json:"referenceCount"`
@@ -85,6 +86,7 @@ func attachmentFromMeta(meta *database.AttachmentMeta) *Attachment {
 		Height:         meta.Height,
 		CipherPath:     meta.CipherPath,
 		SHA256:         meta.SHA256,
+		Favorite:       meta.Favorite,
 		CreatedAt:      formatTime(meta.CreatedAt),
 		UpdatedAt:      formatTime(meta.UpdatedAt),
 		ReferenceCount: meta.ReferenceCount,
@@ -231,6 +233,10 @@ func (s *Service) Delete(id string) error {
 		return err
 	}
 	return nil
+}
+
+func (s *Service) SetFavorite(id string, favorite bool) error {
+	return s.db.SetAttachmentFavorite(id, favorite)
 }
 
 func (s *Service) AttachToNote(noteID, attachmentID string) error {

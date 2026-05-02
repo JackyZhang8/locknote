@@ -600,6 +600,11 @@ func (a *App) DeleteAttachment(id string) error {
 	return a.core.Attachments().Delete(id)
 }
 
+func (a *App) SetAttachmentFavorite(id string, favorite bool) error {
+	a.UpdateActivity()
+	return a.core.Attachments().SetFavorite(id, favorite)
+}
+
 func (a *App) AttachAttachmentToNote(noteID, attachmentID string) error {
 	a.UpdateActivity()
 	return a.core.Attachments().AttachToNote(noteID, attachmentID)

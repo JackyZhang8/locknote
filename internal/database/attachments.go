@@ -11,6 +11,7 @@ type AttachmentMeta struct {
 	Height         int
 	CipherPath     string
 	SHA256         string
+	Favorite       bool
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	ReferenceCount int
@@ -27,6 +28,7 @@ func (d *DB) ensureAttachmentSchema() error {
 		height INTEGER DEFAULT 0,
 		cipher_path TEXT NOT NULL,
 		sha256 TEXT DEFAULT '',
+		favorite INTEGER NOT NULL DEFAULT 0,
 		created_at DATETIME NOT NULL,
 		updated_at DATETIME NOT NULL
 	);
@@ -45,14 +47,29 @@ func (d *DB) ensureAttachmentSchema() error {
 	CREATE INDEX IF NOT EXISTS idx_note_attachments_attachment_id ON note_attachments(attachment_id);
 	`
 	_, err := d.db.Exec(schema)
-	return err
+	if err != nil {
+		return err
+	}
+	return d.ensureAttachmentFavoriteColumn()
+}
+
+func (d *DB) ensureAttachmentFavoriteColumn() error {
+	var count int
+	if err := d.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('attachments') WHERE name='favorite'`).Scan(&count); err != nil {
+		return err
+	}
+	if count == 0 {
+		_, err := d.db.Exec(`ALTER TABLE attachments ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0`)
+		return err
+	}
+	return nil
 }
 
 func (d *DB) CreateAttachment(a *AttachmentMeta) error {
 	_, err := d.db.Exec(`
-		INSERT INTO attachments (id, original_name, mime_type, size, width, height, cipher_path, sha256, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, a.ID, a.OriginalName, a.MIMEType, a.Size, a.Width, a.Height, a.CipherPath, a.SHA256, a.CreatedAt, a.UpdatedAt)
+		INSERT INTO attachments (id, original_name, mime_type, size, width, height, cipher_path, sha256, favorite, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, a.ID, a.OriginalName, a.MIMEType, a.Size, a.Width, a.Height, a.CipherPath, a.SHA256, boolToInt(a.Favorite), a.CreatedAt, a.UpdatedAt)
 	return err
 }
 
@@ -60,16 +77,18 @@ func (d *DB) GetAttachment(id string) (*AttachmentMeta, error) {
 	var a AttachmentMeta
 	var createdAtAny any
 	var updatedAtAny any
+	var favoriteInt int
 	err := d.db.QueryRow(`
 		SELECT a.id, a.original_name, a.mime_type, a.size, COALESCE(a.width, 0), COALESCE(a.height, 0),
-			a.cipher_path, COALESCE(a.sha256, ''), a.created_at, a.updated_at,
+			a.cipher_path, COALESCE(a.sha256, ''), COALESCE(a.favorite, 0), a.created_at, a.updated_at,
 			(SELECT COUNT(*) FROM note_attachments na WHERE na.attachment_id = a.id)
 		FROM attachments a
 		WHERE a.id = ?
-	`, id).Scan(&a.ID, &a.OriginalName, &a.MIMEType, &a.Size, &a.Width, &a.Height, &a.CipherPath, &a.SHA256, &createdAtAny, &updatedAtAny, &a.ReferenceCount)
+	`, id).Scan(&a.ID, &a.OriginalName, &a.MIMEType, &a.Size, &a.Width, &a.Height, &a.CipherPath, &a.SHA256, &favoriteInt, &createdAtAny, &updatedAtAny, &a.ReferenceCount)
 	if err != nil {
 		return nil, err
 	}
+	a.Favorite = favoriteInt != 0
 	if a.CreatedAt, err = parseSQLiteTime(createdAtAny); err != nil {
 		return nil, err
 	}
@@ -82,7 +101,7 @@ func (d *DB) GetAttachment(id string) (*AttachmentMeta, error) {
 func (d *DB) ListAttachments() ([]*AttachmentMeta, error) {
 	rows, err := d.db.Query(`
 		SELECT a.id, a.original_name, a.mime_type, a.size, COALESCE(a.width, 0), COALESCE(a.height, 0),
-			a.cipher_path, COALESCE(a.sha256, ''), a.created_at, a.updated_at,
+			a.cipher_path, COALESCE(a.sha256, ''), COALESCE(a.favorite, 0), a.created_at, a.updated_at,
 			(SELECT COUNT(*) FROM note_attachments na WHERE na.attachment_id = a.id)
 		FROM attachments a
 		ORDER BY a.created_at DESC
@@ -97,9 +116,11 @@ func (d *DB) ListAttachments() ([]*AttachmentMeta, error) {
 		var a AttachmentMeta
 		var createdAtAny any
 		var updatedAtAny any
-		if err := rows.Scan(&a.ID, &a.OriginalName, &a.MIMEType, &a.Size, &a.Width, &a.Height, &a.CipherPath, &a.SHA256, &createdAtAny, &updatedAtAny, &a.ReferenceCount); err != nil {
+		var favoriteInt int
+		if err := rows.Scan(&a.ID, &a.OriginalName, &a.MIMEType, &a.Size, &a.Width, &a.Height, &a.CipherPath, &a.SHA256, &favoriteInt, &createdAtAny, &updatedAtAny, &a.ReferenceCount); err != nil {
 			return nil, err
 		}
+		a.Favorite = favoriteInt != 0
 		if a.CreatedAt, err = parseSQLiteTime(createdAtAny); err != nil {
 			return nil, err
 		}
@@ -112,6 +133,15 @@ func (d *DB) ListAttachments() ([]*AttachmentMeta, error) {
 		return nil, err
 	}
 	return attachments, nil
+}
+
+func (d *DB) SetAttachmentFavorite(id string, favorite bool) error {
+	_, err := d.db.Exec(`
+		UPDATE attachments
+		SET favorite = ?, updated_at = ?
+		WHERE id = ?
+	`, boolToInt(favorite), time.Now(), id)
+	return err
 }
 
 func (d *DB) DeleteAttachment(id string) error {

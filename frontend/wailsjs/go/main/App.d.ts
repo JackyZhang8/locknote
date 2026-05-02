@@ -117,6 +117,8 @@ export function RestoreNote(arg1:string):Promise<void>;
 
 export function RestoreNoteFromHistory(arg1:string,arg2:string):Promise<notes.Note>;
 
+export function SetAttachmentFavorite(arg1:string,arg2:boolean):Promise<void>;
+
 export function SetNoteNotebook(arg1:string,arg2:any):Promise<void>;
 
 export function SetNotePinned(arg1:string,arg2:boolean):Promise<void>;

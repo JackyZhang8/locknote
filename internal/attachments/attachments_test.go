@@ -119,3 +119,50 @@ func TestServiceListsAndDeletesEncryptedImages(t *testing.T) {
 		t.Fatalf("deleted image is still listed: %#v", items)
 	}
 }
+
+func TestServiceSetsImageFavorite(t *testing.T) {
+	dataDir := t.TempDir()
+	db, err := database.New(filepath.Join(dataDir, "locknote.db"))
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer db.Close()
+
+	service := attachments.NewService(db, dataDir)
+	service.SetMasterKey(bytes.Repeat([]byte{5}, 32))
+
+	attachment, err := service.CreateImage(attachments.CreateImageInput{
+		OriginalName: "favorite.png",
+		MIMEType:     "image/png",
+		Data:         []byte("favorite image"),
+	})
+	if err != nil {
+		t.Fatalf("create image: %v", err)
+	}
+	if attachment.Favorite {
+		t.Fatal("new image should not be favorite by default")
+	}
+
+	if err := service.SetFavorite(attachment.ID, true); err != nil {
+		t.Fatalf("set image favorite: %v", err)
+	}
+
+	items, err := service.ListImages()
+	if err != nil {
+		t.Fatalf("list images: %v", err)
+	}
+	if len(items) != 1 || !items[0].Favorite {
+		t.Fatalf("listed favorite = %#v, want one favorite image", items)
+	}
+
+	if err := service.SetFavorite(attachment.ID, false); err != nil {
+		t.Fatalf("unset image favorite: %v", err)
+	}
+	items, err = service.ListImages()
+	if err != nil {
+		t.Fatalf("list images after unset: %v", err)
+	}
+	if len(items) != 1 || items[0].Favorite {
+		t.Fatalf("listed favorite after unset = %#v, want one non-favorite image", items)
+	}
+}

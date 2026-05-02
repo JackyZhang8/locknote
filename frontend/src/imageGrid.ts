@@ -16,3 +16,8 @@ export function toImageRows<T>(items: T[], columnCount: number): T[][] {
   }
   return rows;
 }
+
+export function filterFavoriteImages<T extends { favorite?: boolean }>(items: T[], favoritesOnly: boolean): T[] {
+  if (!favoritesOnly) return items;
+  return items.filter((item) => item.favorite === true);
+}

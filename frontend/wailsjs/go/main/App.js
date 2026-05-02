@@ -218,6 +218,10 @@ export function RestoreNoteFromHistory(arg1, arg2) {
   return window['go']['main']['App']['RestoreNoteFromHistory'](arg1, arg2);
 }
 
+export function SetAttachmentFavorite(arg1, arg2) {
+  return window['go']['main']['App']['SetAttachmentFavorite'](arg1, arg2);
+}
+
 export function SetNoteNotebook(arg1, arg2) {
   return window['go']['main']['App']['SetNoteNotebook'](arg1, arg2);
 }

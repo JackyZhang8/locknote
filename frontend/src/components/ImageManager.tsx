@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Check, Copy, Image as ImageIcon, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Check, Copy, Heart, Image as ImageIcon, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { useStore } from '../store';
 import { useI18n } from '../i18n';
-import { getImageGridColumnCount, toImageRows } from '../imageGrid';
+import { filterFavoriteImages, getImageGridColumnCount, toImageRows } from '../imageGrid';
 import { attachmentMarkdown, fileToDataURL } from '../imageAttachments';
 import { attachments } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
@@ -19,6 +19,8 @@ interface ImageCardProps {
   dataURL?: string;
   deleting: boolean;
   onPreviewLoaded: (id: string, dataURL: string) => void;
+  onOpenPreview: (attachment: attachments.Attachment) => void;
+  onToggleFavorite: (attachment: attachments.Attachment) => void;
   onCopyMarkdown: (attachment: attachments.Attachment) => void;
   onInsertIntoNote: (attachment: attachments.Attachment) => void;
   onDelete: (attachment: attachments.Attachment) => void;
@@ -29,6 +31,8 @@ function ImageCard({
   dataURL,
   deleting,
   onPreviewLoaded,
+  onOpenPreview,
+  onToggleFavorite,
   onCopyMarkdown,
   onInsertIntoNote,
   onDelete,
@@ -56,7 +60,24 @@ function ImageCard({
 
   return (
     <div className="overflow-hidden rounded-md border border-gray-200 bg-white">
-      <div className="flex aspect-square items-center justify-center bg-gray-100">
+      <div
+        className={`relative flex aspect-square items-center justify-center bg-gray-100 ${
+          dataURL ? 'cursor-zoom-in' : ''
+        }`}
+        role={dataURL ? 'button' : undefined}
+        tabIndex={dataURL ? 0 : -1}
+        title={dataURL ? t.attachments.openPreview : undefined}
+        onClick={() => {
+          if (dataURL) {
+            onOpenPreview(attachment);
+          }
+        }}
+        onKeyDown={(event) => {
+          if (!dataURL || (event.key !== 'Enter' && event.key !== ' ')) return;
+          event.preventDefault();
+          onOpenPreview(attachment);
+        }}
+      >
         {dataURL ? (
           <img
             src={dataURL}
@@ -71,6 +92,22 @@ function ImageCard({
         ) : (
           <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
         )}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleFavorite(attachment);
+          }}
+          className={`absolute right-2 top-2 rounded-full border p-1.5 shadow-sm transition-colors ${
+            attachment.favorite
+              ? 'border-red-100 bg-red-50 text-red-500 hover:bg-red-100'
+              : 'border-gray-200 bg-white/90 text-gray-500 hover:bg-white'
+          }`}
+          title={attachment.favorite ? t.attachments.unfavorite : t.attachments.favorite}
+          aria-pressed={attachment.favorite}
+        >
+          <Heart className={`h-3.5 w-3.5 ${attachment.favorite ? 'fill-current' : ''}`} />
+        </button>
       </div>
       <div className="space-y-2 p-2">
         <div className="min-w-0">
@@ -128,9 +165,13 @@ export function ImageManager() {
   const [dragActive, setDragActive] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteAttachment, setConfirmDeleteAttachment] = useState<attachments.Attachment | null>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<attachments.Attachment | null>(null);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [message, setMessage] = useState('');
+  const visibleItems = useMemo(() => filterFavoriteImages(items, showFavoritesOnly), [items, showFavoritesOnly]);
   const columnCount = getImageGridColumnCount(containerWidth);
-  const rows = useMemo(() => toImageRows(items, columnCount), [columnCount, items]);
+  const rows = useMemo(() => toImageRows(visibleItems, columnCount), [columnCount, visibleItems]);
+  const previewDataURL = previewAttachment ? previews[previewAttachment.id] : '';
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollContainerRef.current,
@@ -154,6 +195,20 @@ export function ImageManager() {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    if (!previewAttachment) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPreviewAttachment(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [previewAttachment]);
 
   useEffect(() => {
     const element = scrollContainerRef.current;
@@ -236,6 +291,26 @@ export function ImageManager() {
     setConfirmDeleteAttachment(attachment);
   };
 
+  const handleOpenPreview = (attachment: attachments.Attachment) => {
+    setPreviewAttachment(attachment);
+  };
+
+  const handleToggleFavorite = async (attachment: attachments.Attachment) => {
+    const nextFavorite = !attachment.favorite;
+    setItems((current) =>
+      current.map((item) => (item.id === attachment.id ? { ...item, favorite: nextFavorite } : item)),
+    );
+    try {
+      await App.SetAttachmentFavorite(attachment.id, !attachment.favorite);
+    } catch (error) {
+      console.error('Failed to update image favorite:', error);
+      setItems((current) =>
+        current.map((item) => (item.id === attachment.id ? { ...item, favorite: attachment.favorite } : item)),
+      );
+      setMessage(`${t.common.error}：${String(error)}`);
+    }
+  };
+
   const handleConfirmDelete = async () => {
     const attachment = confirmDeleteAttachment;
     if (!attachment) return;
@@ -250,6 +325,7 @@ export function ImageManager() {
         delete next[attachment.id];
         return next;
       });
+      setPreviewAttachment((current) => (current?.id === attachment.id ? null : current));
     } catch (error) {
       console.error('Failed to delete image:', error);
       setMessage(`${t.common.error}：${String(error)}`);
@@ -259,21 +335,36 @@ export function ImageManager() {
   };
 
   return (
-    <div className="flex-1 overflow-hidden bg-gray-50 flex flex-col">
+    <div className="relative flex-1 overflow-hidden bg-gray-50 flex flex-col">
       <div className="border-b border-gray-200 bg-white px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold text-gray-900">{t.attachments.title}</h1>
             <p className="mt-1 text-sm text-gray-500">{t.attachments.subtitle}</p>
           </div>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50"
-            disabled={importing}
-          >
-            {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            {t.attachments.add}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowFavoritesOnly((current) => !current)}
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${
+                showFavoritesOnly
+                  ? 'border-red-100 bg-red-50 text-red-500 hover:bg-red-100'
+                  : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+              }`}
+              title={showFavoritesOnly ? t.attachments.showAllImages : t.attachments.showFavoritesOnly}
+              aria-pressed={showFavoritesOnly}
+            >
+              <Heart className={`h-4 w-4 ${showFavoritesOnly ? 'fill-current' : ''}`} />
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50"
+              disabled={importing}
+            >
+              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              {t.attachments.add}
+            </button>
+          </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -318,6 +409,11 @@ export function ImageManager() {
             <ImageIcon className="mb-3 h-10 w-10 opacity-60" />
             <div>{t.attachments.empty}</div>
           </div>
+        ) : visibleItems.length === 0 ? (
+          <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-400">
+            <Heart className="mb-3 h-10 w-10 opacity-60" />
+            <div>{t.attachments.favoritesEmpty}</div>
+          </div>
         ) : (
           <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
             {rowVirtualizer.getVirtualItems().map((virtualRow) => (
@@ -336,6 +432,8 @@ export function ImageManager() {
                     dataURL={previews[attachment.id]}
                     deleting={deletingId === attachment.id}
                     onPreviewLoaded={handlePreviewLoaded}
+                    onOpenPreview={handleOpenPreview}
+                    onToggleFavorite={handleToggleFavorite}
                     onCopyMarkdown={handleCopyMarkdown}
                     onInsertIntoNote={handleInsertIntoSelectedNote}
                     onDelete={handleRequestDelete}
@@ -349,6 +447,32 @@ export function ImageManager() {
           </div>
         )}
       </div>
+
+      {previewAttachment && previewDataURL && (
+        <div
+          className="absolute inset-0 z-40 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setPreviewAttachment(null)}
+        >
+          <button
+            type="button"
+            className="absolute right-4 top-4 rounded-full bg-white/90 p-2 text-gray-700 shadow-lg transition-colors hover:bg-white"
+            onClick={() => setPreviewAttachment(null)}
+            title={t.common.close}
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <div className="max-h-full max-w-full" onClick={(event) => event.stopPropagation()}>
+            <img
+              src={previewDataURL}
+              alt={previewAttachment.originalName}
+              className="max-h-[86vh] max-w-[92vw] object-contain shadow-2xl"
+            />
+            <div className="mt-3 max-w-[92vw] truncate text-center text-sm text-white/90">
+              {previewAttachment.originalName}
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmDeleteAttachment && (
         <div

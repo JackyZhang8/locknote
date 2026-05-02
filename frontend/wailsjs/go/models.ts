@@ -9,6 +9,7 @@ export namespace attachments {
 	    height: number;
 	    cipherPath: string;
 	    sha256: string;
+	    favorite: boolean;
 	    createdAt: string;
 	    updatedAt: string;
 	    referenceCount: number;
@@ -27,6 +28,7 @@ export namespace attachments {
 	        this.height = source["height"];
 	        this.cipherPath = source["cipherPath"];
 	        this.sha256 = source["sha256"];
+	        this.favorite = source["favorite"];
 	        this.createdAt = source["createdAt"];
 	        this.updatedAt = source["updatedAt"];
 	        this.referenceCount = source["referenceCount"];
