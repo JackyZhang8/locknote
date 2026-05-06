@@ -2,13 +2,25 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
+function readOptionalFile(path: string): string {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
 const sidebarSource = readFileSync('src/components/Sidebar.tsx', 'utf8');
 const mainLayoutSource = readFileSync('src/components/MainLayout.tsx', 'utf8');
 const settingsSource = readFileSync('src/components/SettingsView.tsx', 'utf8');
+const setupSource = readFileSync('src/components/SetupScreen.tsx', 'utf8');
+const cssSource = readFileSync('src/index.css', 'utf8');
 const backupSource = readFileSync('src/components/BackupView.tsx', 'utf8');
 const trashSource = readFileSync('src/components/TrashView.tsx', 'utf8');
+const i18nSource = readFileSync('src/i18n/index.tsx', 'utf8');
 const zhSource = readFileSync('src/i18n/locales/zh-CN.ts', 'utf8');
 const enSource = readFileSync('src/i18n/locales/en-US.ts', 'utf8');
+const zhTWSource = readOptionalFile('src/i18n/locales/zh-TW.ts');
 
 test('sidebar no longer exposes backup or trash as primary navigation items', () => {
   assert.equal(/id:\s*'backup'/.test(sidebarSource), false);
@@ -67,6 +79,35 @@ test('theme selector shows only right-aligned color swatches with centered check
 test('language selector is right aligned inside its settings row', () => {
   assert.equal(/sm:flex-row sm:items-center sm:justify-between[\s\S]*<Globe className="w-5 h-5 text-accent" \/>[\s\S]*relative w-full sm:w-\[220px\]/.test(settingsSource), true);
   assert.equal(/relative w-full sm:w-\[220px\]/.test(settingsSource), true);
+});
+
+test('Traditional Chinese is registered as a complete language option', () => {
+  assert.equal(/import \{ zhTW \} from '\.\/locales\/zh-TW';/.test(i18nSource), true);
+  assert.equal(/export type Language = 'zh-CN' \| 'zh-TW' \| 'en-US';/.test(i18nSource), true);
+  assert.equal(/'zh-TW': zhTW/.test(i18nSource), true);
+  assert.equal(/saved === 'zh-CN' \|\| saved === 'zh-TW' \|\| saved === 'en-US'/.test(i18nSource), true);
+  assert.equal(/languageTraditionalChinese:\s*'繁體中文'/.test(zhSource), true);
+  assert.equal(/languageTraditionalChinese:\s*'繁體中文'/.test(enSource), true);
+  assert.equal(/export const zhTW/.test(zhTWSource), true);
+  assert.equal(/title:\s*'設定'/.test(zhTWSource), true);
+  assert.equal(/languageTraditionalChinese:\s*'繁體中文'/.test(zhTWSource), true);
+  assert.equal(/<option value="zh-TW">\{t\.settings\.languageTraditionalChinese\}<\/option>/.test(settingsSource), true);
+  assert.equal(/setLanguage\(e\.target\.value as Language\)/.test(settingsSource), true);
+  assert.equal(/setLanguage\('zh-TW'\)/.test(setupSource), true);
+  assert.equal(/\{t\.settings\.languageTraditionalChinese\}/.test(setupSource), true);
+});
+
+test('Traditional Chinese uses an explicit CJK font stack', () => {
+  assert.equal(/html\[lang='zh-TW'\]\s+body/.test(cssSource), true);
+  assert.equal(/PingFang TC/.test(cssSource), true);
+  assert.equal(/Microsoft JhengHei/.test(cssSource), true);
+});
+
+test('global font stack avoids macOS private system font aliases', () => {
+  assert.equal(/-apple-system/.test(cssSource), false);
+  assert.equal(/BlinkMacSystemFont/.test(cssSource), false);
+  assert.equal(/html\[lang='zh-CN'\]\s+body/.test(cssSource), true);
+  assert.equal(/html\[lang='en-US'\]\s+body/.test(cssSource), true);
 });
 
 test('password form and auto lock keep the original vertical settings layout', () => {

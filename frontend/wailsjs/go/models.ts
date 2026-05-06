@@ -12,6 +12,7 @@ export namespace attachments {
 	    favorite: boolean;
 	    createdAt: string;
 	    updatedAt: string;
+	    deletedAt?: string;
 	    referenceCount: number;
 	
 	    static createFrom(source: any = {}) {
@@ -31,6 +32,7 @@ export namespace attachments {
 	        this.favorite = source["favorite"];
 	        this.createdAt = source["createdAt"];
 	        this.updatedAt = source["updatedAt"];
+	        this.deletedAt = source["deletedAt"];
 	        this.referenceCount = source["referenceCount"];
 	    }
 	}

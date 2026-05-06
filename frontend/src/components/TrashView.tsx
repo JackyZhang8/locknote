@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Trash2, RotateCcw, AlertTriangle, FileText, Image as ImageIcon } from 'lucide-react';
 import { useStore } from '../store';
 import { useI18n } from '../i18n';
-import { notes } from '../../wailsjs/go/models';
+import { attachments, notes } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
 
 interface TrashViewProps {
@@ -13,14 +13,16 @@ export function TrashView({ embedded = false }: TrashViewProps) {
   const { deletedNotes, setDeletedNotes, setNotes } = useStore();
   const { t, language } = useI18n();
   const [loading, setLoading] = useState(true);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'notes' | 'images'>('notes');
+  const [deletedImages, setDeletedImages] = useState<attachments.Attachment[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState<{ type: 'note' | 'image'; id: string } | null>(null);
 
   useEffect(() => {
-    if (!confirmDeleteId) return;
+    if (!confirmDelete) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setConfirmDeleteId(null);
+        setConfirmDelete(null);
       }
     };
 
@@ -28,21 +30,25 @@ export function TrashView({ embedded = false }: TrashViewProps) {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [confirmDeleteId]);
+  }, [confirmDelete]);
 
   useEffect(() => {
-    const loadDeletedNotes = async () => {
+    const loadTrash = async () => {
       try {
-        const deleted = await App.ListDeletedNotes();
+        const [deleted, images] = await Promise.all([
+          App.ListDeletedNotes(),
+          App.ListDeletedAttachments(),
+        ]);
         setDeletedNotes(deleted || []);
+        setDeletedImages(images || []);
       } catch (error) {
-        console.error('Failed to load deleted notes:', error);
+        console.error('Failed to load trash:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    loadDeletedNotes();
+    loadTrash();
   }, [setDeletedNotes]);
 
   const handleRestore = async (note: notes.Note) => {
@@ -60,25 +66,46 @@ export function TrashView({ embedded = false }: TrashViewProps) {
     }
   };
 
+  const handleRestoreImage = async (image: attachments.Attachment) => {
+    try {
+      await App.RestoreAttachment(image.id);
+      const images = await App.ListDeletedAttachments();
+      setDeletedImages(images || []);
+    } catch (error) {
+      console.error('Failed to restore image:', error);
+      alert(`${t.common.error}：${String(error)}`);
+    }
+  };
+
   const handlePermanentDeleteClick = (note: notes.Note) => {
-    setConfirmDeleteId(note.id);
+    setConfirmDelete({ type: 'note', id: note.id });
+  };
+
+  const handlePermanentDeleteImageClick = (image: attachments.Attachment) => {
+    setConfirmDelete({ type: 'image', id: image.id });
   };
 
   const handleConfirmPermanentDelete = async () => {
-    if (!confirmDeleteId) return;
-    const noteId = confirmDeleteId;
-    setConfirmDeleteId(null);
+    if (!confirmDelete) return;
+    const request = confirmDelete;
+    setConfirmDelete(null);
 
     try {
-      await App.DeleteNote(noteId);
-      const [deleted, notesList] = await Promise.all([
-        App.ListDeletedNotes(),
-        App.ListNotes(),
-      ]);
-      setDeletedNotes(deleted || []);
-      setNotes(notesList || []);
+      if (request.type === 'note') {
+        await App.DeleteNote(request.id);
+        const [deleted, notesList] = await Promise.all([
+          App.ListDeletedNotes(),
+          App.ListNotes(),
+        ]);
+        setDeletedNotes(deleted || []);
+        setNotes(notesList || []);
+      } else {
+        await App.DeleteAttachment(request.id);
+        const images = await App.ListDeletedAttachments();
+        setDeletedImages(images || []);
+      }
     } catch (error) {
-      console.error('Failed to delete note:', error);
+      console.error('Failed to delete trash item:', error);
       alert(`${t.common.error}：${String(error)}`);
     }
   };
@@ -117,7 +144,30 @@ export function TrashView({ embedded = false }: TrashViewProps) {
       )}
 
       <div className={embedded ? '' : 'flex-1 overflow-y-auto p-6'}>
-        {deletedNotes.length === 0 ? (
+        <div className="mb-4 inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('notes')}
+            className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              activeTab === 'notes' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            {t.trash.notesTab}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('images')}
+            className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              activeTab === 'images' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <ImageIcon className="h-4 w-4" />
+            {t.trash.imagesTab}
+          </button>
+        </div>
+
+        {activeTab === 'notes' && (deletedNotes.length === 0 ? (
           <div className="text-center text-gray-400 py-12">
             <Trash2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p>{t.trash.empty}</p>
@@ -167,24 +217,52 @@ export function TrashView({ embedded = false }: TrashViewProps) {
               </div>
             ))}
           </div>
-        )}
+        ))}
+
+        {activeTab === 'images' && (deletedImages.length === 0 ? (
+          <div className="text-center text-gray-400 py-12">
+            <ImageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p>{t.trash.emptyImages}</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-yellow-700">{t.trash.imageEmptyTip}</p>
+            </div>
+
+            {deletedImages.map((image) => (
+              <DeletedImageRow
+                key={image.id}
+                image={image}
+                deletedAt={formatDate(image.deletedAt)}
+                onRestore={() => handleRestoreImage(image)}
+                onDelete={() => handlePermanentDeleteImageClick(image)}
+              />
+            ))}
+          </div>
+        ))}
       </div>
 
-      {confirmDeleteId && (
+      {confirmDelete && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-          onClick={() => setConfirmDeleteId(null)}
+          onClick={() => setConfirmDelete(null)}
         >
           <div
             className="w-[380px] bg-white rounded-xl shadow-xl border border-gray-200 p-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-sm font-semibold text-gray-900">{t.trash.deleteTitle}</div>
-            <div className="mt-2 text-sm text-gray-600">{t.trash.deleteDesc}</div>
+            <div className="text-sm font-semibold text-gray-900">
+              {confirmDelete.type === 'image' ? t.trash.deleteImageTitle : t.trash.deleteTitle}
+            </div>
+            <div className="mt-2 text-sm text-gray-600">
+              {confirmDelete.type === 'image' ? t.trash.deleteImageDesc : t.trash.deleteDesc}
+            </div>
             <div className="mt-4 flex justify-end gap-2">
               <button
                 className="px-3 py-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50"
-                onClick={() => setConfirmDeleteId(null)}
+                onClick={() => setConfirmDelete(null)}
               >
                 {t.common.cancel}
               </button>
@@ -198,6 +276,74 @@ export function TrashView({ embedded = false }: TrashViewProps) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function DeletedImageRow({
+  image,
+  deletedAt,
+  onRestore,
+  onDelete,
+}: {
+  image: attachments.Attachment;
+  deletedAt: string;
+  onRestore: () => void;
+  onDelete: () => void;
+}) {
+  const { t } = useI18n();
+  const [thumbnail, setThumbnail] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+    App.GetAttachmentThumbnailDataURL(image.id)
+      .then((dataURL) => {
+        if (isMounted) setThumbnail(dataURL);
+      })
+      .catch((error) => {
+        console.error('Failed to load deleted image thumbnail:', error);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [image.id]);
+
+  return (
+    <div className="p-4 border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100">
+            {thumbnail ? (
+              <img src={thumbnail} alt={image.originalName} className="h-full w-full object-cover" />
+            ) : (
+              <ImageIcon className="h-7 w-7 text-gray-400" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <h3 className="truncate font-medium text-gray-800">{image.originalName}</h3>
+            <p className="mt-1 text-xs text-gray-400">
+              {t.trash.deletedAt} {deletedAt}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onRestore}
+            className="px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center gap-1"
+          >
+            <RotateCcw className="w-4 h-4" />
+            {t.trash.restore}
+          </button>
+          <button
+            onClick={onDelete}
+            className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-1"
+          >
+            <Trash2 className="w-4 h-4" />
+            {t.trash.deletePermanently}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

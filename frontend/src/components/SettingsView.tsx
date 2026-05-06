@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Settings, Key, Clock, Monitor, Moon, Folder, Info, Check, AlertCircle, Globe, Palette, HardDrive, Trash2, ChevronDown, type LucideIcon } from 'lucide-react';
 import { useStore } from '../store';
-import { formatMessage, useI18n } from '../i18n';
+import { formatMessage, useI18n, type Language } from '../i18n';
 import { themeOptions, useTheme } from '../theme';
 import { BackupView } from './BackupView';
 import { TrashView } from './TrashView';
@@ -398,10 +398,11 @@ export function SettingsView() {
               <div className="relative w-full sm:w-[220px]">
                 <select
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value as 'zh-CN' | 'en-US')}
+                  onChange={(e) => setLanguage(e.target.value as Language)}
                   className={selectControlClassName}
                 >
                   <option value="zh-CN">{t.settings.languageChinese}</option>
+                  <option value="zh-TW">{t.settings.languageTraditionalChinese}</option>
                   <option value="en-US">{t.settings.languageEnglish}</option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />

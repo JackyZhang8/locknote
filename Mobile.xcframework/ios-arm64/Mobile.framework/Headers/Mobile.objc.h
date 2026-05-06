@@ -28,6 +28,11 @@
 FOUNDATION_EXPORT BOOL MobileAddTagToNote(NSString* _Nullable noteID, NSString* _Nullable tagID, NSError* _Nullable* _Nullable error);
 
 /**
+ * AttachAttachmentToNote 将图片附件关联到笔记
+ */
+FOUNDATION_EXPORT BOOL MobileAttachAttachmentToNote(NSString* _Nullable noteID, NSString* _Nullable attachmentID, NSError* _Nullable* _Nullable error);
+
+/**
  * ChangePassword 修改密码
  */
 FOUNDATION_EXPORT BOOL MobileChangePassword(NSString* _Nullable oldPassword, NSString* _Nullable newPassword, NSString* _Nullable newHint, NSError* _Nullable* _Nullable error);
@@ -41,6 +46,11 @@ FOUNDATION_EXPORT void MobileClose(void);
  * CreateBackup 创建备份到指定路径
  */
 FOUNDATION_EXPORT BOOL MobileCreateBackup(NSString* _Nullable outputPath, NSError* _Nullable* _Nullable error);
+
+/**
+ * CreateImageFromDataURL 从 data URL 创建图片附件，返回 JSON 格式的 Attachment
+ */
+FOUNDATION_EXPORT NSString* _Nonnull MobileCreateImageFromDataURL(NSString* _Nullable noteID, NSString* _Nullable originalName, NSString* _Nullable dataURL, NSError* _Nullable* _Nullable error);
 
 /**
  * CreateNote 创建笔记，返回 JSON 格式的 Note
@@ -58,6 +68,21 @@ FOUNDATION_EXPORT NSString* _Nonnull MobileCreateNotebook(NSString* _Nullable na
 FOUNDATION_EXPORT NSString* _Nonnull MobileCreateTag(NSString* _Nullable name, NSString* _Nullable color, NSError* _Nullable* _Nullable error);
 
 /**
+ * CreateTodo 创建待办，返回 JSON 格式的 Todo
+ */
+FOUNDATION_EXPORT NSString* _Nonnull MobileCreateTodo(NSString* _Nullable title, NSString* _Nullable priority, NSString* _Nullable dueAt, NSError* _Nullable* _Nullable error);
+
+/**
+ * CreateTodoSubtask 创建待办子任务，返回 JSON 格式的 Subtask
+ */
+FOUNDATION_EXPORT NSString* _Nonnull MobileCreateTodoSubtask(NSString* _Nullable todoID, NSString* _Nullable title, NSError* _Nullable* _Nullable error);
+
+/**
+ * DeleteAttachment 删除图片附件
+ */
+FOUNDATION_EXPORT BOOL MobileDeleteAttachment(NSString* _Nullable id_, NSError* _Nullable* _Nullable error);
+
+/**
  * DeleteNote 永久删除笔记
  */
 FOUNDATION_EXPORT BOOL MobileDeleteNote(NSString* _Nullable id_, NSError* _Nullable* _Nullable error);
@@ -73,9 +98,34 @@ FOUNDATION_EXPORT BOOL MobileDeleteNotebook(NSString* _Nullable id_, NSError* _N
 FOUNDATION_EXPORT BOOL MobileDeleteTag(NSString* _Nullable id_, NSError* _Nullable* _Nullable error);
 
 /**
+ * DeleteTodo 删除待办
+ */
+FOUNDATION_EXPORT BOOL MobileDeleteTodo(NSString* _Nullable id_, NSError* _Nullable* _Nullable error);
+
+/**
+ * DeleteTodoSubtask 删除待办子任务
+ */
+FOUNDATION_EXPORT BOOL MobileDeleteTodoSubtask(NSString* _Nullable id_, NSError* _Nullable* _Nullable error);
+
+/**
+ * DetachAttachmentFromNote 取消图片附件与笔记的关联
+ */
+FOUNDATION_EXPORT BOOL MobileDetachAttachmentFromNote(NSString* _Nullable noteID, NSString* _Nullable attachmentID, NSError* _Nullable* _Nullable error);
+
+/**
  * GenerateDataKey 生成一个新的恢复密钥
  */
 FOUNDATION_EXPORT NSString* _Nonnull MobileGenerateDataKey(NSError* _Nullable* _Nullable error);
+
+/**
+ * GetAttachmentDataURL 获取图片附件 data URL
+ */
+FOUNDATION_EXPORT NSString* _Nonnull MobileGetAttachmentDataURL(NSString* _Nullable id_, NSError* _Nullable* _Nullable error);
+
+/**
+ * GetAttachmentThumbnailDataURL 获取图片附件缩略图 data URL
+ */
+FOUNDATION_EXPORT NSString* _Nonnull MobileGetAttachmentThumbnailDataURL(NSString* _Nullable id_, NSError* _Nullable* _Nullable error);
 
 /**
  * GetNote 获取笔记，返回 JSON 格式的 Note
@@ -96,6 +146,11 @@ FOUNDATION_EXPORT NSString* _Nonnull MobileGetPasswordHint(NSError* _Nullable* _
  * GetSettings 获取设置，返回 JSON 格式
  */
 FOUNDATION_EXPORT NSString* _Nonnull MobileGetSettings(NSError* _Nullable* _Nullable error);
+
+/**
+ * GetTodo 获取待办详情，返回 JSON 格式的 Todo
+ */
+FOUNDATION_EXPORT NSString* _Nonnull MobileGetTodo(NSString* _Nullable id_, NSError* _Nullable* _Nullable error);
 
 /**
  * ImportFromBackup 从备份导入笔记（使用恢复密钥）
@@ -119,6 +174,16 @@ FOUNDATION_EXPORT BOOL MobileIsFirstRun(void);
 FOUNDATION_EXPORT BOOL MobileIsUnlocked(void);
 
 /**
+ * ListAttachments 列出所有图片附件，返回 JSON 格式的 Attachment 数组
+ */
+FOUNDATION_EXPORT NSString* _Nonnull MobileListAttachments(NSError* _Nullable* _Nullable error);
+
+/**
+ * ListDeletedAttachments 列出回收站图片附件，返回 JSON 格式的 Attachment 数组
+ */
+FOUNDATION_EXPORT NSString* _Nonnull MobileListDeletedAttachments(NSError* _Nullable* _Nullable error);
+
+/**
  * ListDeletedNotes 列出回收站中的笔记
  */
 FOUNDATION_EXPORT NSString* _Nonnull MobileListDeletedNotes(NSError* _Nullable* _Nullable error);
@@ -139,6 +204,11 @@ FOUNDATION_EXPORT NSString* _Nonnull MobileListNotes(NSError* _Nullable* _Nullab
 FOUNDATION_EXPORT NSString* _Nonnull MobileListTags(NSError* _Nullable* _Nullable error);
 
 /**
+ * ListTodos 列出所有待办，返回 JSON 格式的 Todo 数组
+ */
+FOUNDATION_EXPORT NSString* _Nonnull MobileListTodos(NSError* _Nullable* _Nullable error);
+
+/**
  * Lock 锁定应用
  */
 FOUNDATION_EXPORT void MobileLock(void);
@@ -152,6 +222,11 @@ FOUNDATION_EXPORT BOOL MobileRemoveTagFromNote(NSString* _Nullable noteID, NSStr
  * ResetPasswordWithDataKey 使用恢复密钥重置密码
  */
 FOUNDATION_EXPORT BOOL MobileResetPasswordWithDataKey(NSString* _Nullable displayKey, NSString* _Nullable newPassword, NSString* _Nullable newHint, NSError* _Nullable* _Nullable error);
+
+/**
+ * RestoreAttachment 从回收站恢复图片附件
+ */
+FOUNDATION_EXPORT BOOL MobileRestoreAttachment(NSString* _Nullable id_, NSError* _Nullable* _Nullable error);
 
 /**
  * RestoreBackup 从备份恢复
@@ -169,6 +244,11 @@ FOUNDATION_EXPORT BOOL MobileRestoreNote(NSString* _Nullable id_, NSError* _Null
 FOUNDATION_EXPORT NSString* _Nonnull MobileRestoreNoteFromHistory(NSString* _Nullable noteID, NSString* _Nullable historyID, NSError* _Nullable* _Nullable error);
 
 /**
+ * SetAttachmentFavorite 设置图片附件收藏状态
+ */
+FOUNDATION_EXPORT BOOL MobileSetAttachmentFavorite(NSString* _Nullable id_, BOOL favorite, NSError* _Nullable* _Nullable error);
+
+/**
  * SetNoteNotebook 设置笔记所属笔记本
  */
 FOUNDATION_EXPORT BOOL MobileSetNoteNotebook(NSString* _Nullable noteID, NSString* _Nullable notebookID, NSError* _Nullable* _Nullable error);
@@ -184,9 +264,24 @@ FOUNDATION_EXPORT BOOL MobileSetNotePinned(NSString* _Nullable id_, BOOL pinned,
 FOUNDATION_EXPORT BOOL MobileSetNotebookPinned(NSString* _Nullable id_, BOOL pinned, NSError* _Nullable* _Nullable error);
 
 /**
+ * SetTodoCompleted 设置待办完成状态，返回 JSON 格式的 Todo
+ */
+FOUNDATION_EXPORT NSString* _Nonnull MobileSetTodoCompleted(NSString* _Nullable id_, BOOL completed, NSError* _Nullable* _Nullable error);
+
+/**
+ * SetTodoSubtaskCompleted 设置待办子任务完成状态，返回 JSON 格式的 Subtask
+ */
+FOUNDATION_EXPORT NSString* _Nonnull MobileSetTodoSubtaskCompleted(NSString* _Nullable id_, BOOL completed, NSError* _Nullable* _Nullable error);
+
+/**
  * SetupPassword 初始化主密码，返回 JSON 格式的 SetupResult
  */
 FOUNDATION_EXPORT NSString* _Nonnull MobileSetupPassword(NSString* _Nullable password, NSString* _Nullable hint, NSString* _Nullable displayKey, NSError* _Nullable* _Nullable error);
+
+/**
+ * SoftDeleteAttachment 将图片附件移入回收站
+ */
+FOUNDATION_EXPORT BOOL MobileSoftDeleteAttachment(NSString* _Nullable id_, NSError* _Nullable* _Nullable error);
 
 /**
  * SoftDeleteNote 软删除笔记（移到回收站）
@@ -222,6 +317,16 @@ FOUNDATION_EXPORT BOOL MobileUpdateSettings(long autoLockMinutes, BOOL lockOnMin
  * UpdateTag 更新标签
  */
 FOUNDATION_EXPORT NSString* _Nonnull MobileUpdateTag(NSString* _Nullable id_, NSString* _Nullable name, NSString* _Nullable color, NSError* _Nullable* _Nullable error);
+
+/**
+ * UpdateTodo 更新待办，返回 JSON 格式的 Todo
+ */
+FOUNDATION_EXPORT NSString* _Nonnull MobileUpdateTodo(NSString* _Nullable id_, NSString* _Nullable title, NSString* _Nullable priority, NSString* _Nullable dueAt, NSError* _Nullable* _Nullable error);
+
+/**
+ * UpdateTodoSubtask 更新待办子任务，返回 JSON 格式的 Subtask
+ */
+FOUNDATION_EXPORT NSString* _Nonnull MobileUpdateTodoSubtask(NSString* _Nullable id_, NSString* _Nullable title, NSError* _Nullable* _Nullable error);
 
 /**
  * VerifyDataKey 验证恢复密钥是否正确

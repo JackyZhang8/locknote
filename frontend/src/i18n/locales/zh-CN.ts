@@ -148,10 +148,11 @@ export const zhCN = {
     copyMarkdown: '复制引用',
     insertIntoNote: '插入当前笔记',
     deleteTitle: '删除图片？',
-    deleteDesc: '删除后，引用这张图片的笔记将无法显示它。',
+    deleteDesc: '图片会移入回收站，可从回收站恢复。',
     noSelectedNote: '请先选择一篇笔记',
     copied: '已复制图片引用',
     inserted: '已插入当前笔记',
+    movedToTrash: '图片已移入回收站',
   },
 
   // 搜索
@@ -185,10 +186,14 @@ export const zhCN = {
   // 回收站
   trash: {
     title: '回收站',
-    subtitle: '已删除的笔记',
+    subtitle: '已删除的笔记和图片',
+    notesTab: '笔记',
+    imagesTab: '图片',
     count: '{count} 篇已删除笔记',
     empty: '回收站为空',
+    emptyImages: '暂无已删除图片',
     emptyTip: '删除的笔记会在这里显示',
+    imageEmptyTip: '回收站中的图片可以恢复或永久删除。永久删除后，图片文件将无法恢复。',
     warning: '回收站中的笔记可以恢复或彻底删除。彻底删除后，笔记内容和加密文件将被永久移除，无法恢复。',
     restore: '恢复',
     deletePermanently: '永久删除',
@@ -197,6 +202,8 @@ export const zhCN = {
     emptyTrashDesc: '此操作不可撤销，所有笔记将被永久删除。',
     deleteTitle: '永久删除？',
     deleteDesc: '此操作不可撤销，笔记将被永久删除。',
+    deleteImageTitle: '永久删除图片？',
+    deleteImageDesc: '此操作不可撤销，图片将被永久删除。',
     deletedAt: '删除于',
   },
 
@@ -275,6 +282,7 @@ export const zhCN = {
     language: '语言',
     languageDesc: '选择界面显示语言',
     languageChinese: '简体中文',
+    languageTraditionalChinese: '繁體中文',
     languageEnglish: 'English',
 
     // 数据目录

@@ -102,6 +102,17 @@ export function SetupScreen() {
               </button>
               <button
                 type="button"
+                onClick={() => setLanguage('zh-TW')}
+                className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                  language === 'zh-TW'
+                    ? 'bg-accent text-white'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {t.settings.languageTraditionalChinese}
+              </button>
+              <button
+                type="button"
                 onClick={() => setLanguage('en-US')}
                 className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
                   language === 'en-US'

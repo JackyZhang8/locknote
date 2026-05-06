@@ -98,6 +98,10 @@ export function GetAttachmentDataURL(arg1) {
   return window['go']['main']['App']['GetAttachmentDataURL'](arg1);
 }
 
+export function GetAttachmentThumbnailDataURL(arg1) {
+  return window['go']['main']['App']['GetAttachmentThumbnailDataURL'](arg1);
+}
+
 export function GetDataDir() {
   return window['go']['main']['App']['GetDataDir']();
 }
@@ -154,6 +158,10 @@ export function ListAttachments() {
   return window['go']['main']['App']['ListAttachments']();
 }
 
+export function ListDeletedAttachments() {
+  return window['go']['main']['App']['ListDeletedAttachments']();
+}
+
 export function ListDeletedNotes() {
   return window['go']['main']['App']['ListDeletedNotes']();
 }
@@ -206,6 +214,10 @@ export function ResetPasswordWithDataKey(arg1, arg2, arg3) {
   return window['go']['main']['App']['ResetPasswordWithDataKey'](arg1, arg2, arg3);
 }
 
+export function RestoreAttachment(arg1) {
+  return window['go']['main']['App']['RestoreAttachment'](arg1);
+}
+
 export function RestoreBackup() {
   return window['go']['main']['App']['RestoreBackup']();
 }
@@ -248,6 +260,10 @@ export function SetTodoSubtaskCompleted(arg1, arg2) {
 
 export function SetupPassword(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetupPassword'](arg1, arg2, arg3);
+}
+
+export function SoftDeleteAttachment(arg1) {
+  return window['go']['main']['App']['SoftDeleteAttachment'](arg1);
 }
 
 export function SoftDeleteNote(arg1) {

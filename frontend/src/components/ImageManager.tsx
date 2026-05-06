@@ -318,7 +318,7 @@ export function ImageManager() {
     setConfirmDeleteAttachment(null);
     setDeletingId(attachment.id);
     try {
-      await App.DeleteAttachment(attachment.id);
+      await App.SoftDeleteAttachment(attachment.id);
       setItems((current) => current.filter((item) => item.id !== attachment.id));
       setPreviews((current) => {
         const next = { ...current };
@@ -326,6 +326,7 @@ export function ImageManager() {
         return next;
       });
       setPreviewAttachment((current) => (current?.id === attachment.id ? null : current));
+      setMessage(t.attachments.movedToTrash);
     } catch (error) {
       console.error('Failed to delete image:', error);
       setMessage(`${t.common.error}：${String(error)}`);

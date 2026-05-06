@@ -57,6 +57,8 @@ export function GenerateDataKey():Promise<string>;
 
 export function GetAttachmentDataURL(arg1:string):Promise<string>;
 
+export function GetAttachmentThumbnailDataURL(arg1:string):Promise<string>;
+
 export function GetDataDir():Promise<string>;
 
 export function GetNote(arg1:string):Promise<notes.Note>;
@@ -85,6 +87,8 @@ export function IsUnlocked():Promise<boolean>;
 
 export function ListAttachments():Promise<Array<attachments.Attachment>>;
 
+export function ListDeletedAttachments():Promise<Array<attachments.Attachment>>;
+
 export function ListDeletedNotes():Promise<Array<notes.Note>>;
 
 export function ListNotebooks():Promise<Array<notebooks.Notebook>>;
@@ -111,6 +115,8 @@ export function ReorderNotes(arg1:Array<string>):Promise<void>;
 
 export function ResetPasswordWithDataKey(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function RestoreAttachment(arg1:string):Promise<void>;
+
 export function RestoreBackup():Promise<void>;
 
 export function RestoreNote(arg1:string):Promise<void>;
@@ -132,6 +138,8 @@ export function SetTodoCompleted(arg1:string,arg2:boolean):Promise<todos.Todo>;
 export function SetTodoSubtaskCompleted(arg1:string,arg2:boolean):Promise<todos.Subtask>;
 
 export function SetupPassword(arg1:string,arg2:string,arg3:string):Promise<core.SetupResult>;
+
+export function SoftDeleteAttachment(arg1:string):Promise<void>;
 
 export function SoftDeleteNote(arg1:string):Promise<void>;
 

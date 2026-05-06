@@ -87,7 +87,7 @@ build_one() {
   fi
 
   echo "==> wails ${args[*]}"
-  wails "${args[@]}"
+  CC=/usr/bin/clang CXX=/usr/bin/clang++  wails "${args[@]}"
 }
 
 sync_icon

@@ -5,7 +5,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"errors"
 	"locknote/internal/attachments"
 	"locknote/internal/database"
@@ -500,23 +499,7 @@ func (a *App) ImportMarkdown() (*notes.Note, error) {
 }
 
 func parseImageDataURL(dataURL string) (string, []byte, error) {
-	const base64Marker = ";base64,"
-	if !strings.HasPrefix(dataURL, "data:") {
-		return "", nil, errors.New("invalid image data URL")
-	}
-	parts := strings.SplitN(strings.TrimPrefix(dataURL, "data:"), base64Marker, 2)
-	if len(parts) != 2 {
-		return "", nil, errors.New("invalid image data URL")
-	}
-	mimeType := strings.ToLower(strings.TrimSpace(parts[0]))
-	if !strings.HasPrefix(mimeType, "image/") {
-		return "", nil, errors.New("data URL is not an image")
-	}
-	data, err := base64.StdEncoding.DecodeString(parts[1])
-	if err != nil {
-		return "", nil, err
-	}
-	return mimeType, data, nil
+	return attachments.ParseImageDataURL(dataURL)
 }
 
 func imageMIMEFromFile(path string, data []byte) string {
@@ -572,17 +555,7 @@ func (a *App) ImportImage(noteID string) (*attachments.Attachment, error) {
 
 func (a *App) CreateImageFromDataURL(noteID, originalName, dataURL string) (*attachments.Attachment, error) {
 	a.UpdateActivity()
-
-	mimeType, data, err := parseImageDataURL(dataURL)
-	if err != nil {
-		return nil, err
-	}
-	return a.core.Attachments().CreateImage(attachments.CreateImageInput{
-		OriginalName: originalName,
-		MIMEType:     mimeType,
-		Data:         data,
-		NoteID:       noteID,
-	})
+	return a.core.Attachments().CreateImageFromDataURL(noteID, originalName, dataURL)
 }
 
 func (a *App) GetAttachmentDataURL(id string) (string, error) {
@@ -590,9 +563,29 @@ func (a *App) GetAttachmentDataURL(id string) (string, error) {
 	return a.core.Attachments().GetDataURL(id)
 }
 
+func (a *App) GetAttachmentThumbnailDataURL(id string) (string, error) {
+	a.UpdateActivity()
+	return a.core.Attachments().GetThumbnailDataURL(id)
+}
+
 func (a *App) ListAttachments() ([]*attachments.Attachment, error) {
 	a.UpdateActivity()
 	return a.core.Attachments().ListImages()
+}
+
+func (a *App) ListDeletedAttachments() ([]*attachments.Attachment, error) {
+	a.UpdateActivity()
+	return a.core.Attachments().ListDeletedImages()
+}
+
+func (a *App) SoftDeleteAttachment(id string) error {
+	a.UpdateActivity()
+	return a.core.Attachments().SoftDelete(id)
+}
+
+func (a *App) RestoreAttachment(id string) error {
+	a.UpdateActivity()
+	return a.core.Attachments().Restore(id)
 }
 
 func (a *App) DeleteAttachment(id string) error {

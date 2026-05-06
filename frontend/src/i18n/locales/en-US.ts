@@ -150,10 +150,11 @@ export const enUS: Translations = {
     copyMarkdown: 'Copy reference',
     insertIntoNote: 'Insert into note',
     deleteTitle: 'Delete image?',
-    deleteDesc: 'Notes that reference this image will no longer display it.',
+    deleteDesc: 'The image will be moved to trash and can be restored.',
     noSelectedNote: 'Select a note first',
     copied: 'Image reference copied',
     inserted: 'Inserted into current note',
+    movedToTrash: 'Image moved to trash',
   },
 
   // Search
@@ -187,10 +188,14 @@ export const enUS: Translations = {
   // Trash
   trash: {
     title: 'Trash',
-    subtitle: 'Deleted notes',
+    subtitle: 'Deleted notes and images',
+    notesTab: 'Notes',
+    imagesTab: 'Images',
     count: '{count} deleted notes',
     empty: 'Trash is empty',
+    emptyImages: 'No deleted images',
     emptyTip: 'Deleted notes will appear here',
+    imageEmptyTip: 'Images in trash can be restored or deleted permanently. Permanent deletion cannot be undone.',
     warning: 'Notes in trash can be restored or deleted permanently. Permanent deletion removes note content and encrypted files forever.',
     restore: 'Restore',
     deletePermanently: 'Delete permanently',
@@ -199,6 +204,8 @@ export const enUS: Translations = {
     emptyTrashDesc: 'This action cannot be undone. All notes will be permanently deleted.',
     deleteTitle: 'Delete permanently?',
     deleteDesc: 'This action cannot be undone. The note will be permanently deleted.',
+    deleteImageTitle: 'Delete image permanently?',
+    deleteImageDesc: 'This action cannot be undone. The image will be permanently deleted.',
     deletedAt: 'Deleted at',
   },
 
@@ -277,6 +284,7 @@ export const enUS: Translations = {
     language: 'Language',
     languageDesc: 'Select display language',
     languageChinese: '简体中文',
+    languageTraditionalChinese: '繁體中文',
     languageEnglish: 'English',
 
     // Data Directory

@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { zhCN, type Translations } from './locales/zh-CN';
+import { zhTW } from './locales/zh-TW';
 import { enUS } from './locales/en-US';
 
-export type Language = 'zh-CN' | 'en-US';
+export type Language = 'zh-CN' | 'zh-TW' | 'en-US';
 
 const locales: Record<Language, Translations> = {
   'zh-CN': zhCN,
+  'zh-TW': zhTW,
   'en-US': enUS,
 };
 
@@ -14,7 +16,7 @@ const STORAGE_KEY = 'locknote-language';
 function getInitialLanguage(): Language {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === 'zh-CN' || saved === 'en-US') {
+    if (saved === 'zh-CN' || saved === 'zh-TW' || saved === 'en-US') {
       return saved;
     }
   } catch {
