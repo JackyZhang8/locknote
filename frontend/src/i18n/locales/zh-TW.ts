@@ -125,7 +125,7 @@ export const zhTW: Translations = {
     dueDate: '截止時間',
     updatedAtLabel: '更新於',
     subtasks: '子任務',
-    emptySubtasks: '新增第一個子任務',
+    emptySubtasks: '新增子任務',
     newSubtaskPlaceholder: '新增子任務',
     deleteTodoTitle: '刪除任務',
     deleteTodoDesc: '確定要刪除這個任務嗎？任務下的子任務也會一起刪除。',

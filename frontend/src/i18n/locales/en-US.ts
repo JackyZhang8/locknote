@@ -125,7 +125,7 @@ export const enUS: Translations = {
     dueDate: 'Due date',
     updatedAtLabel: 'Updated',
     subtasks: 'Subtasks',
-    emptySubtasks: 'Add the first subtask',
+    emptySubtasks: 'Add a subtask',
     newSubtaskPlaceholder: 'Add a subtask',
     deleteTodoTitle: 'Delete task',
     deleteTodoDesc: 'Delete this task? Its subtasks will be deleted too.',

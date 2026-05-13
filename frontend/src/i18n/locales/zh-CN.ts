@@ -123,7 +123,7 @@ export const zhCN = {
     dueDate: '截止时间',
     updatedAtLabel: '更新于',
     subtasks: '子任务',
-    emptySubtasks: '添加第一个子任务',
+    emptySubtasks: '添加子任务',
     newSubtaskPlaceholder: '添加子任务',
     deleteTodoTitle: '删除任务',
     deleteTodoDesc: '确定要删除这个任务吗？任务下的子任务也会一起删除。',

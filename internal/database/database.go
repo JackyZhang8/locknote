@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	_ "modernc.org/sqlite"
 )
 
 func parseSQLiteTime(v any) (time.Time, error) {
@@ -135,7 +133,7 @@ type SmartView struct {
 
 func New(dbPath string) (*DB, error) {
 	dsn := fmt.Sprintf("%s?_foreign_keys=on", dbPath)
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(sqliteDriverName, dsn)
 	if err != nil {
 		return nil, err
 	}

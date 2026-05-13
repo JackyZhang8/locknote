@@ -31,6 +31,26 @@ test('TodoWorkspace reveals the new todo input from a header add button', () => 
   assert.equal(/setShowNewTodoInput\(false\)/.test(source), true);
 });
 
+test('TodoWorkspace places the new todo input below the todo stats', () => {
+  const statsGridIndex = source.indexOf('<div className="grid grid-cols-2 gap-2">');
+  const newTodoInputIndex = source.indexOf('{showNewTodoInput ? (');
+
+  assert.equal(statsGridIndex > -1, true);
+  assert.equal(newTodoInputIndex > -1, true);
+  assert.equal(statsGridIndex < newTodoInputIndex, true);
+});
+
+test('TodoWorkspace keeps the add subtask action below the subtask list', () => {
+  const subtaskListIndex = source.indexOf('{selectedTodoSubtasks.map((subtask) => (');
+  const addSubtaskActionIndex = source.indexOf('data-testid="add-subtask-action"');
+
+  assert.equal(subtaskListIndex > -1, true);
+  assert.equal(addSubtaskActionIndex > -1, true);
+  assert.equal(subtaskListIndex < addSubtaskActionIndex, true);
+  assert.equal(/selectedTodoSubtasks\.length === 0 && !showNewSubtaskInput/.test(source), false);
+  assert.equal(/data-testid="add-subtask-action"[\s\S]*\{t\.todos\.newSubtaskPlaceholder\}/.test(source), true);
+});
+
 test('TodoWorkspace edits task and subtask titles only after clicking text', () => {
   assert.equal(/editingTodoTitle/.test(source), true);
   assert.equal(/setEditingTodoTitle\(true\)/.test(source), true);
