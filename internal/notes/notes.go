@@ -90,13 +90,14 @@ func (s *Service) getMasterKey() ([]byte, error) {
 	return s.masterKey, nil
 }
 
-const previewMaxLen = 200
+const previewMaxRunes = 200
 
 func (s *Service) extractPreview(content string) string {
-	if len(content) <= previewMaxLen {
+	runes := []rune(content)
+	if len(runes) <= previewMaxRunes {
 		return content
 	}
-	return content[:previewMaxLen]
+	return string(runes[:previewMaxRunes])
 }
 
 func (s *Service) Create(title, content string) (*Note, error) {
