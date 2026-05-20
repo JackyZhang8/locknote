@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"io"
+	"math/big"
 	"unicode/utf8"
 
 	"golang.org/x/crypto/argon2"
@@ -35,13 +36,13 @@ func (s *Service) GenerateDataKey() (string, error) {
 	const charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	const length = 16
 	key := make([]byte, length)
-	rnd := make([]byte, length)
-	_, err := io.ReadFull(rand.Reader, rnd)
-	if err != nil {
-		return "", err
-	}
-	for i, b := range rnd {
-		key[i] = charset[int(b)%len(charset)]
+	charsetLen := big.NewInt(int64(len(charset)))
+	for i := 0; i < length; i++ {
+		idx, err := rand.Int(rand.Reader, charsetLen)
+		if err != nil {
+			return "", err
+		}
+		key[i] = charset[idx.Int64()]
 	}
 	return string(key), nil
 }
