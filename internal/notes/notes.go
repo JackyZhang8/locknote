@@ -326,7 +326,9 @@ func (s *Service) Update(id, title, content string) (*Note, error) {
 		return nil, err
 	}
 
-	meta.UpdatedAt = time.Now()
+	if contentChanged {
+		meta.UpdatedAt = time.Now()
+	}
 	meta.EncryptedTitle = encryptedTitle
 	meta.EncryptedPreview = encryptedPreview
 	if err := s.db.UpdateNoteAndCreateHistory(meta, historyRecord); err != nil {
