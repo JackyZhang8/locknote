@@ -23,6 +23,9 @@ import (
 )
 
 const dataKeyVerifierPlaintext = "LOCKNOTE_DATAKEY_VERIFY_V1"
+const minPasswordLength = 6
+
+var errPasswordTooShort = errors.New("密码长度不能少于6个字符")
 
 // LockCallback 是锁定时的回调函数类型，用于通知上层（如桌面端发送事件）
 type LockCallback func()
@@ -162,6 +165,10 @@ func (c *Core) verifyDataKeyWithFile(dataKey []byte) (bool, error) {
 
 // SetupPassword 初始化主密码（首次运行时调用）
 func (c *Core) SetupPassword(password, hint, displayKey string) (*SetupResult, error) {
+	if len([]rune(password)) < minPasswordLength {
+		return nil, errPasswordTooShort
+	}
+
 	c.mu.Lock()
 
 	salt, err := c.cryptoService.GenerateSalt()
@@ -303,6 +310,10 @@ func (c *Core) GetPasswordHint() (string, error) {
 
 // ChangePassword 修改密码（需要旧密码）
 func (c *Core) ChangePassword(oldPassword, newPassword, newHint string) error {
+	if len([]rune(newPassword)) < minPasswordLength {
+		return errPasswordTooShort
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -350,6 +361,10 @@ func (c *Core) ChangePassword(oldPassword, newPassword, newHint string) error {
 
 // ResetPasswordWithDataKey 使用恢复密钥重置密码
 func (c *Core) ResetPasswordWithDataKey(displayKey, newPassword, newHint string) error {
+	if len([]rune(newPassword)) < minPasswordLength {
+		return errPasswordTooShort
+	}
+
 	c.mu.Lock()
 
 	dataKey, err := c.cryptoService.ParseDisplayKey(displayKey)
