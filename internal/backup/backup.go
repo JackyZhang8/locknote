@@ -5,11 +5,14 @@ package backup
 
 import (
 	"archive/zip"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+const maxZipFileSize = 500 * 1024 * 1024 // 500 MB per file
 
 type Service struct {
 	dataDir string
@@ -45,6 +48,11 @@ func (s *Service) ExtractBackupToTemp(inputPath string) (string, error) {
 			continue
 		}
 
+		if file.UncompressedSize64 > maxZipFileSize {
+			os.RemoveAll(tempDir)
+			return "", fmt.Errorf("file %s exceeds size limit (%d bytes)", file.Name, file.UncompressedSize64)
+		}
+
 		if err := os.MkdirAll(filepath.Dir(cleanDestPath), 0700); err != nil {
 			os.RemoveAll(tempDir)
 			return "", err
@@ -63,7 +71,7 @@ func (s *Service) ExtractBackupToTemp(inputPath string) (string, error) {
 			return "", err
 		}
 
-		_, err = io.Copy(destFile, srcFile)
+		_, err = io.Copy(destFile, io.LimitReader(srcFile, maxZipFileSize+1))
 		srcFile.Close()
 		destFile.Close()
 
@@ -152,6 +160,10 @@ func (s *Service) RestoreBackup(inputPath string) error {
 			continue
 		}
 
+		if file.UncompressedSize64 > maxZipFileSize {
+			return fmt.Errorf("file %s exceeds size limit (%d bytes)", file.Name, file.UncompressedSize64)
+		}
+
 		if err := os.MkdirAll(filepath.Dir(cleanDestPath), 0700); err != nil {
 			return err
 		}
@@ -167,7 +179,7 @@ func (s *Service) RestoreBackup(inputPath string) error {
 			return err
 		}
 
-		_, err = io.Copy(destFile, srcFile)
+		_, err = io.Copy(destFile, io.LimitReader(srcFile, maxZipFileSize+1))
 		srcFile.Close()
 		destFile.Close()
 

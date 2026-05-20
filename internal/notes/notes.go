@@ -789,6 +789,7 @@ func (s *Service) extractZip(zipPath, destDir string) error {
 	}
 	defer reader.Close()
 
+	const maxFileSize uint64 = 500 * 1024 * 1024
 	for _, file := range reader.File {
 		destPath := filepath.Join(destDir, file.Name)
 		cleanDestPath := filepath.Clean(destPath)
@@ -800,6 +801,10 @@ func (s *Service) extractZip(zipPath, destDir string) error {
 		if file.FileInfo().IsDir() {
 			os.MkdirAll(cleanDestPath, 0700)
 			continue
+		}
+
+		if file.UncompressedSize64 > maxFileSize {
+			return errors.New("file in zip exceeds size limit")
 		}
 
 		if err := os.MkdirAll(filepath.Dir(cleanDestPath), 0700); err != nil {
@@ -817,7 +822,7 @@ func (s *Service) extractZip(zipPath, destDir string) error {
 			return err
 		}
 
-		_, err = io.Copy(destFile, srcFile)
+		_, err = io.Copy(destFile, io.LimitReader(srcFile, int64(maxFileSize)+1))
 		srcFile.Close()
 		destFile.Close()
 
