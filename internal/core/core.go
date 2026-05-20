@@ -333,6 +333,14 @@ func (c *Core) ChangePassword(oldPassword, newPassword, newHint string) error {
 		return err
 	}
 
+	ok, verifyErr := c.verifyDataKeyWithFile(dataKey)
+	if verifyErr != nil {
+		return fmt.Errorf("data key verification failed: %w", verifyErr)
+	}
+	if !ok {
+		return errors.New("decrypted data key does not match verifier")
+	}
+
 	newSalt, err := c.cryptoService.GenerateSalt()
 	if err != nil {
 		return err
