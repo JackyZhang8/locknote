@@ -98,6 +98,18 @@ func (s *Service) CreateBackup(outputPath string) error {
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
 
+	sensitiveFiles := map[string]bool{
+		"locknote.db":         true,
+		"locknote.db-journal": true,
+		"locknote.db-wal":     true,
+		"locknote.db-shm":     true,
+		"notebase.db":         true,
+		"notebase.db-journal": true,
+		"notebase.db-wal":     true,
+		"notebase.db-shm":     true,
+		"data_key_verifier":   true,
+	}
+
 	err = filepath.Walk(s.dataDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -110,6 +122,10 @@ func (s *Service) CreateBackup(outputPath string) error {
 		relPath, err := filepath.Rel(s.dataDir, path)
 		if err != nil {
 			return err
+		}
+
+		if sensitiveFiles[filepath.Base(relPath)] {
+			return nil
 		}
 
 		header, err := zip.FileInfoHeader(info)
