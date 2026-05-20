@@ -440,23 +440,21 @@ func (c *Core) UpdateActivity() {
 
 func (c *Core) startLockTimer() {
 	settings, _ := c.db.GetSettings()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.lockTimer != nil {
+		c.lockTimer.Stop()
+		c.lockTimer = nil
+	}
+
 	if settings == nil || settings.AutoLockMinutes <= 0 {
-		// 如果禁用了自动锁定，停止现有计时器
-		c.mu.Lock()
-		if c.lockTimer != nil {
-			c.lockTimer.Stop()
-			c.lockTimer = nil
-		}
-		c.mu.Unlock()
 		return
 	}
 
 	autoLockDuration := time.Duration(settings.AutoLockMinutes) * time.Minute
 
-	c.mu.Lock()
-	if c.lockTimer != nil {
-		c.lockTimer.Stop()
-	}
 	c.lockTimer = time.AfterFunc(autoLockDuration, func() {
 		c.mu.RLock()
 		elapsed := time.Since(c.lastActivity)
@@ -477,7 +475,6 @@ func (c *Core) startLockTimer() {
 			c.startLockTimer()
 		}
 	})
-	c.mu.Unlock()
 }
 
 // GenerateDataKey 生成一个新的恢复密钥（用于首次设置时）
