@@ -742,38 +742,43 @@ func (s *Service) ImportFromBackup(backupPath, displayKey string) (int, error) {
 	}
 
 	notesDir := filepath.Join(tempDir, "notes")
-	entries, err := os.ReadDir(notesDir)
-	if err != nil {
+	if _, err := os.Stat(notesDir); err != nil {
 		return 0, errors.New("备份文件格式无效：找不到笔记目录")
 	}
 
 	importedCount := 0
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".enc") {
-			continue
+	err = filepath.Walk(notesDir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return nil
+		}
+		if info.IsDir() || !strings.HasSuffix(info.Name(), ".enc") {
+			return nil
 		}
 
-		encPath := filepath.Join(notesDir, entry.Name())
-		ciphertext, err := os.ReadFile(encPath)
+		ciphertext, err := os.ReadFile(path)
 		if err != nil {
-			continue
+			return nil
 		}
 
 		plaintext, err := s.crypto.Decrypt(importKey, ciphertext)
 		if err != nil {
-			continue
+			return nil
 		}
 
 		var noteContent NoteContent
 		if err := json.Unmarshal(plaintext, &noteContent); err != nil {
-			continue
+			return nil
 		}
 
 		_, err = s.Create(noteContent.Title, noteContent.Content)
 		if err != nil {
-			continue
+			return nil
 		}
 		importedCount++
+		return nil
+	})
+	if err != nil {
+		return 0, err
 	}
 
 	if importedCount == 0 {
