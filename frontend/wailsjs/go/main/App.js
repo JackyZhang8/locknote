@@ -210,6 +210,10 @@ export function ReorderNotes(arg1) {
   return window['go']['main']['App']['ReorderNotes'](arg1);
 }
 
+export function SearchNotes(arg1) {
+  return window['go']['main']['App']['SearchNotes'](arg1);
+}
+
 export function ResetPasswordWithDataKey(arg1, arg2, arg3) {
   return window['go']['main']['App']['ResetPasswordWithDataKey'](arg1, arg2, arg3);
 }

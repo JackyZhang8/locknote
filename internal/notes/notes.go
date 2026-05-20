@@ -478,6 +478,73 @@ func (s *Service) List() ([]*Note, error) {
 	return notes, nil
 }
 
+func (s *Service) Search(query string) ([]*Note, error) {
+	key, err := s.getMasterKey()
+	if err != nil {
+		return nil, err
+	}
+
+	metas, err := s.db.ListNotes(false)
+	if err != nil {
+		return nil, err
+	}
+
+	query = strings.ToLower(query)
+	noteIDs := make([]string, len(metas))
+	for i, meta := range metas {
+		noteIDs[i] = meta.ID
+	}
+	tagsByNoteID, _ := s.db.GetNoteTagsBatch(noteIDs)
+
+	var results []*Note
+	for _, meta := range metas {
+		fullPath := filepath.Join(s.dataDir, meta.CipherPath)
+		ciphertext, err := os.ReadFile(fullPath)
+		if err != nil {
+			continue
+		}
+
+		plaintext, err := s.crypto.Decrypt(key, ciphertext)
+		if err != nil {
+			continue
+		}
+
+		var noteContent NoteContent
+		if err := json.Unmarshal(plaintext, &noteContent); err != nil {
+			continue
+		}
+
+		titleMatch := strings.Contains(strings.ToLower(noteContent.Title), query)
+		contentMatch := strings.Contains(strings.ToLower(noteContent.Content), query)
+
+		dbTags := tagsByNoteID[meta.ID]
+		tags := make([]Tag, len(dbTags))
+		tagMatch := false
+		for i, t := range dbTags {
+			tags[i] = Tag{ID: t.ID, Name: t.Name, Color: t.Color}
+			if strings.Contains(strings.ToLower(t.Name), query) {
+				tagMatch = true
+			}
+		}
+
+		if titleMatch || contentMatch || tagMatch {
+			results = append(results, &Note{
+				ID:         meta.ID,
+				Title:      noteContent.Title,
+				Content:    s.extractPreview(noteContent.Content),
+				CreatedAt:  formatTime(meta.CreatedAt),
+				UpdatedAt:  formatTime(meta.UpdatedAt),
+				Pinned:     meta.Pinned,
+				DeletedAt:  formatTimePtr(meta.DeletedAt),
+				NotebookID: meta.NotebookID,
+				Tags:       tags,
+			})
+		}
+	}
+
+	return results, nil
+}
+
 type ListResult struct {
 	Notes []*Note `json:"notes"`
 	Total int     `json:"total"`

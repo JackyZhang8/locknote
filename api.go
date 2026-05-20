@@ -69,6 +69,11 @@ func (a *App) ListNotesPaginated(limit, offset int) (*notes.ListResult, error) {
 	return a.core.Notes().ListPaginated(limit, offset)
 }
 
+func (a *App) SearchNotes(query string) ([]*notes.Note, error) {
+	a.UpdateActivity()
+	return a.core.Notes().Search(query)
+}
+
 func (a *App) MigrateOldNotes() (int, error) {
 	a.UpdateActivity()
 	return a.core.Notes().MigrateOldNotes()
