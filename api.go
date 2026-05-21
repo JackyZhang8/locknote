@@ -616,9 +616,14 @@ func (a *App) DetachAttachmentFromNote(noteID, attachmentID string) error {
 func writeFileAtomic(path string, data []byte) error {
 	tempPath := path + ".tmp"
 	if err := writeFile(tempPath, data); err != nil {
+		os.Remove(tempPath)
 		return err
 	}
-	return renameFile(tempPath, path)
+	if err := renameFile(tempPath, path); err != nil {
+		os.Remove(tempPath)
+		return err
+	}
+	return nil
 }
 
 func writeFile(path string, data []byte) error {
