@@ -21,12 +21,25 @@ import (
 var _keepGomobileDep = seq.FinalizeRef
 
 var coreInstance *core.Core
-var mobileMu sync.Mutex
+var mobileMu sync.RWMutex
 
 func mobileCall[T any](operation string, zero T, fn func() (T, error)) (value T, err error) {
 	value = zero
 	mobileMu.Lock()
 	defer mobileMu.Unlock()
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			value = zero
+			err = fmt.Errorf("%s panic: %v", operation, recovered)
+		}
+	}()
+	return fn()
+}
+
+func mobileCallRead[T any](operation string, zero T, fn func() (T, error)) (value T, err error) {
+	value = zero
+	mobileMu.RLock()
+	defer mobileMu.RUnlock()
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			value = zero
@@ -49,8 +62,8 @@ func mobileCallError(operation string, fn func() error) (err error) {
 
 func mobileCallValue[T any](operation string, fallback T, fn func() T) (value T) {
 	value = fallback
-	mobileMu.Lock()
-	defer mobileMu.Unlock()
+	mobileMu.RLock()
+	defer mobileMu.RUnlock()
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			fmt.Printf("locknote mobile %s panic: %v\n", operation, recovered)
@@ -140,7 +153,7 @@ func GenerateDataKey() (string, error) {
 
 // VerifyDataKey 验证恢复密钥是否正确
 func VerifyDataKey(displayKey string) (bool, error) {
-	return mobileCall("VerifyDataKey", false, func() (bool, error) {
+	return mobileCallRead("VerifyDataKey", false, func() (bool, error) {
 		if coreInstance == nil {
 			return false, errNotInitialized
 		}
@@ -179,7 +192,7 @@ func IsUnlocked() bool {
 
 // GetPasswordHint 获取密码提示
 func GetPasswordHint() (string, error) {
-	return mobileCall("GetPasswordHint", "", func() (string, error) {
+	return mobileCallRead("GetPasswordHint", "", func() (string, error) {
 		if coreInstance == nil {
 			return "", errNotInitialized
 		}
@@ -234,7 +247,7 @@ func CreateNote(title, content string) (string, error) {
 
 // GetNote 获取笔记，返回 JSON 格式的 Note
 func GetNote(id string) (string, error) {
-	return mobileCall("GetNote", "", func() (string, error) {
+	return mobileCallRead("GetNote", "", func() (string, error) {
 		if coreInstance == nil {
 			return "", errNotInitialized
 		}
@@ -262,7 +275,7 @@ func UpdateNote(id, title, content string) (string, error) {
 
 // ListNotes 列出所有笔记，返回 JSON 格式的 Note 数组
 func ListNotes() (string, error) {
-	return mobileCall("ListNotes", "", func() (string, error) {
+	return mobileCallRead("ListNotes", "", func() (string, error) {
 		if coreInstance == nil {
 			return "", errNotInitialized
 		}
@@ -276,7 +289,7 @@ func ListNotes() (string, error) {
 
 // ListDeletedNotes 列出回收站中的笔记
 func ListDeletedNotes() (string, error) {
-	return mobileCall("ListDeletedNotes", "", func() (string, error) {
+	return mobileCallRead("ListDeletedNotes", "", func() (string, error) {
 		if coreInstance == nil {
 			return "", errNotInitialized
 		}
@@ -330,7 +343,7 @@ func SetNotePinned(id string, pinned bool) error {
 
 // GetNoteHistory 获取笔记历史版本
 func GetNoteHistory(noteID string) (string, error) {
-	return mobileCall("GetNoteHistory", "", func() (string, error) {
+	return mobileCallRead("GetNoteHistory", "", func() (string, error) {
 		if coreInstance == nil {
 			return "", errNotInitialized
 		}
@@ -412,7 +425,7 @@ func DeleteTag(id string) error {
 
 // ListTags 列出所有标签
 func ListTags() (string, error) {
-	return mobileCall("ListTags", "", func() (string, error) {
+	return mobileCallRead("ListTags", "", func() (string, error) {
 		if coreInstance == nil {
 			return "", errNotInitialized
 		}
@@ -466,7 +479,7 @@ func CreateNotebook(name, icon string) (string, error) {
 
 // ListNotebooks 列出所有笔记本
 func ListNotebooks() (string, error) {
-	return mobileCall("ListNotebooks", "", func() (string, error) {
+	return mobileCallRead("ListNotebooks", "", func() (string, error) {
 		if coreInstance == nil {
 			return "", errNotInitialized
 		}
@@ -556,7 +569,7 @@ func ImportFromBackup(backupPath, displayKey string) (int, error) {
 
 // ListTodos 列出所有待办，返回 JSON 格式的 Todo 数组
 func ListTodos() (string, error) {
-	return mobileCall("ListTodos", "", func() (string, error) {
+	return mobileCallRead("ListTodos", "", func() (string, error) {
 		if coreInstance == nil {
 			return "", errNotInitialized
 		}
@@ -570,7 +583,7 @@ func ListTodos() (string, error) {
 
 // GetTodo 获取待办详情，返回 JSON 格式的 Todo
 func GetTodo(id string) (string, error) {
-	return mobileCall("GetTodo", "", func() (string, error) {
+	return mobileCallRead("GetTodo", "", func() (string, error) {
 		if coreInstance == nil {
 			return "", errNotInitialized
 		}
@@ -725,7 +738,7 @@ func CreateImageFromDataURL(noteID, originalName, dataURL string) (string, error
 
 // GetAttachmentDataURL 获取图片附件 data URL
 func GetAttachmentDataURL(id string) (string, error) {
-	return mobileCall("GetAttachmentDataURL", "", func() (string, error) {
+	return mobileCallRead("GetAttachmentDataURL", "", func() (string, error) {
 		if coreInstance == nil {
 			return "", errNotInitialized
 		}
@@ -735,7 +748,7 @@ func GetAttachmentDataURL(id string) (string, error) {
 
 // GetAttachmentThumbnailDataURL 获取图片附件缩略图 data URL
 func GetAttachmentThumbnailDataURL(id string) (string, error) {
-	return mobileCall("GetAttachmentThumbnailDataURL", "", func() (string, error) {
+	return mobileCallRead("GetAttachmentThumbnailDataURL", "", func() (string, error) {
 		if coreInstance == nil {
 			return "", errNotInitialized
 		}
@@ -745,7 +758,7 @@ func GetAttachmentThumbnailDataURL(id string) (string, error) {
 
 // ListAttachments 列出所有图片附件，返回 JSON 格式的 Attachment 数组
 func ListAttachments() (string, error) {
-	return mobileCall("ListAttachments", "", func() (string, error) {
+	return mobileCallRead("ListAttachments", "", func() (string, error) {
 		if coreInstance == nil {
 			return "", errNotInitialized
 		}
@@ -763,7 +776,7 @@ func ListAttachments() (string, error) {
 
 // ListDeletedAttachments 列出回收站图片附件，返回 JSON 格式的 Attachment 数组
 func ListDeletedAttachments() (string, error) {
-	return mobileCall("ListDeletedAttachments", "", func() (string, error) {
+	return mobileCallRead("ListDeletedAttachments", "", func() (string, error) {
 		if coreInstance == nil {
 			return "", errNotInitialized
 		}
@@ -843,7 +856,7 @@ func DetachAttachmentFromNote(noteID, attachmentID string) error {
 
 // GetSettings 获取设置，返回 JSON 格式
 func GetSettings() (string, error) {
-	return mobileCall("GetSettings", "", func() (string, error) {
+	return mobileCallRead("GetSettings", "", func() (string, error) {
 		if coreInstance == nil {
 			return "", errNotInitialized
 		}
