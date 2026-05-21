@@ -638,7 +638,7 @@ func (d *DB) GetNoteTagsBatch(noteIDs []string) (map[string][]*Tag, error) {
 
 func (d *DB) GetNotesByTag(tagID string) ([]*NoteMeta, error) {
 	rows, err := d.db.Query(`
-		SELECT n.id, n.cipher_path, n.created_at, n.updated_at, n.pinned, n.deleted_at, n.notebook_id
+		SELECT n.id, n.cipher_path, n.created_at, n.updated_at, n.pinned, n.deleted_at, n.notebook_id, COALESCE(n.sort_order, 0), n.encrypted_title, n.encrypted_preview
 		FROM notes n
 		INNER JOIN note_tags nt ON n.id = nt.note_id
 		WHERE nt.tag_id = ? AND n.deleted_at IS NULL
@@ -652,7 +652,7 @@ func (d *DB) GetNotesByTag(tagID string) ([]*NoteMeta, error) {
 	var notes []*NoteMeta
 	for rows.Next() {
 		var note NoteMeta
-		if err := rows.Scan(&note.ID, &note.CipherPath, &note.CreatedAt, &note.UpdatedAt, &note.Pinned, &note.DeletedAt, &note.NotebookID); err != nil {
+		if err := rows.Scan(&note.ID, &note.CipherPath, &note.CreatedAt, &note.UpdatedAt, &note.Pinned, &note.DeletedAt, &note.NotebookID, &note.SortOrder, &note.EncryptedTitle, &note.EncryptedPreview); err != nil {
 			return nil, err
 		}
 		notes = append(notes, &note)
