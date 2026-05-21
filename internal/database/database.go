@@ -340,6 +340,21 @@ func (d *DB) UpdateNote(note *NoteMeta) error {
 	return err
 }
 
+func (d *DB) SetNotePinned(id string, pinned bool) error {
+	_, err := d.db.Exec(`UPDATE notes SET pinned = ?, updated_at = ? WHERE id = ?`, pinned, time.Now(), id)
+	return err
+}
+
+func (d *DB) SoftDeleteNote(id string) error {
+	_, err := d.db.Exec(`UPDATE notes SET deleted_at = ? WHERE id = ?`, time.Now(), id)
+	return err
+}
+
+func (d *DB) RestoreNote(id string) error {
+	_, err := d.db.Exec(`UPDATE notes SET deleted_at = NULL, updated_at = ? WHERE id = ?`, time.Now(), id)
+	return err
+}
+
 func (d *DB) UpdateNoteAndCreateHistory(note *NoteMeta, h *NoteHistory) error {
 	tx, err := d.db.Begin()
 	if err != nil {

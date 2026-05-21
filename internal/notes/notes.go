@@ -355,33 +355,15 @@ func (s *Service) Update(id, title, content string) (*Note, error) {
 }
 
 func (s *Service) SetPinned(id string, pinned bool) error {
-	meta, err := s.db.GetNote(id)
-	if err != nil {
-		return err
-	}
-	meta.Pinned = pinned
-	meta.UpdatedAt = time.Now()
-	return s.db.UpdateNote(meta)
+	return s.db.SetNotePinned(id, pinned)
 }
 
 func (s *Service) SoftDelete(id string) error {
-	meta, err := s.db.GetNote(id)
-	if err != nil {
-		return err
-	}
-	now := time.Now()
-	meta.DeletedAt = &now
-	return s.db.UpdateNote(meta)
+	return s.db.SoftDeleteNote(id)
 }
 
 func (s *Service) Restore(id string) error {
-	meta, err := s.db.GetNote(id)
-	if err != nil {
-		return err
-	}
-	meta.DeletedAt = nil
-	meta.UpdatedAt = time.Now()
-	return s.db.UpdateNote(meta)
+	return s.db.RestoreNote(id)
 }
 
 func (s *Service) Delete(id string) error {
