@@ -363,6 +363,10 @@ func (s *Service) SoftDelete(id string) error {
 	return s.db.SoftDeleteNote(id)
 }
 
+func (s *Service) BatchSoftDelete(ids []string) error {
+	return s.db.BatchSoftDeleteNotes(ids)
+}
+
 func (s *Service) Restore(id string) error {
 	return s.db.RestoreNote(id)
 }

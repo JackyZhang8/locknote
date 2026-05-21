@@ -682,12 +682,7 @@ func (a *App) SetNotesNotebook(noteIDs []string, notebookID *string) error {
 
 func (a *App) BatchDeleteNotes(noteIDs []string) error {
 	a.UpdateActivity()
-	for _, id := range noteIDs {
-		if err := a.core.Notes().SoftDelete(id); err != nil {
-			return err
-		}
-	}
-	return nil
+	return a.core.Notes().BatchSoftDelete(noteIDs)
 }
 
 func (a *App) BatchAddTagToNotes(noteIDs []string, tagID string) error {

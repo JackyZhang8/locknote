@@ -350,6 +350,21 @@ func (d *DB) SoftDeleteNote(id string) error {
 	return err
 }
 
+func (d *DB) BatchSoftDeleteNotes(ids []string) error {
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	now := time.Now()
+	for _, id := range ids {
+		if _, err := tx.Exec(`UPDATE notes SET deleted_at = ? WHERE id = ?`, now, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 func (d *DB) RestoreNote(id string) error {
 	_, err := d.db.Exec(`UPDATE notes SET deleted_at = NULL, updated_at = ? WHERE id = ?`, time.Now(), id)
 	return err
