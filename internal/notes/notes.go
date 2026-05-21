@@ -10,6 +10,7 @@ import (
 	"io"
 	"locknote/internal/crypto"
 	"locknote/internal/database"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -423,16 +424,19 @@ func (s *Service) List() ([]*Note, error) {
 			fullPath := filepath.Join(s.dataDir, meta.CipherPath)
 			ciphertext, err := os.ReadFile(fullPath)
 			if err != nil {
+				log.Printf("[ListNotes] failed to read note file %s: %v", meta.ID, err)
 				continue
 			}
 
 			plaintext, err := s.crypto.Decrypt(key, ciphertext)
 			if err != nil {
+				log.Printf("[ListNotes] failed to decrypt note %s: %v", meta.ID, err)
 				continue
 			}
 
 			var noteContent NoteContent
 			if err := json.Unmarshal(plaintext, &noteContent); err != nil {
+				log.Printf("[ListNotes] failed to unmarshal note %s: %v", meta.ID, err)
 				continue
 			}
 			title = noteContent.Title
@@ -573,16 +577,19 @@ func (s *Service) ListPaginated(limit, offset int) (*ListResult, error) {
 			fullPath := filepath.Join(s.dataDir, meta.CipherPath)
 			ciphertext, err := os.ReadFile(fullPath)
 			if err != nil {
+				log.Printf("[ListNotesPaginated] failed to read note file %s: %v", meta.ID, err)
 				continue
 			}
 
 			plaintext, err := s.crypto.Decrypt(key, ciphertext)
 			if err != nil {
+				log.Printf("[ListNotesPaginated] failed to decrypt note %s: %v", meta.ID, err)
 				continue
 			}
 
 			var noteContent NoteContent
 			if err := json.Unmarshal(plaintext, &noteContent); err != nil {
+				log.Printf("[ListNotesPaginated] failed to unmarshal note %s: %v", meta.ID, err)
 				continue
 			}
 			title = noteContent.Title
@@ -652,16 +659,19 @@ func (s *Service) ListDeleted() ([]*Note, error) {
 			fullPath := filepath.Join(s.dataDir, meta.CipherPath)
 			ciphertext, err := os.ReadFile(fullPath)
 			if err != nil {
+				log.Printf("[ListDeleted] failed to read note file %s: %v", meta.ID, err)
 				continue
 			}
 
 			plaintext, err := s.crypto.Decrypt(key, ciphertext)
 			if err != nil {
+				log.Printf("[ListDeleted] failed to decrypt note %s: %v", meta.ID, err)
 				continue
 			}
 
 			var noteContent NoteContent
 			if err := json.Unmarshal(plaintext, &noteContent); err != nil {
+				log.Printf("[ListDeleted] failed to unmarshal note %s: %v", meta.ID, err)
 				continue
 			}
 			title = noteContent.Title
