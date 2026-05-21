@@ -112,6 +112,7 @@ func (a *App) stopWindowWatcher() {
 	}
 	if a.watcherStop != nil {
 		close(a.watcherStop)
+		a.watcherStop = nil
 	}
 }
 
