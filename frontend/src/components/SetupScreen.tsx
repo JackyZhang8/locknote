@@ -19,18 +19,7 @@ export function SetupScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const generateRandomKey = () => {
-    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    let result = '';
-    const array = new Uint8Array(16);
-    crypto.getRandomValues(array);
-    for (let i = 0; i < 16; i++) {
-      result += charset[array[i] % charset.length];
-    }
-    return result;
-  };
-
-  const handleSetPassword = () => {
+  const handleSetPassword = async () => {
     setError('');
 
     if (password.length < 6) {
@@ -43,8 +32,13 @@ export function SetupScreen() {
       return;
     }
 
-    setDataKey(generateRandomKey());
-    setStep('recovery');
+    try {
+      const key = await App.GenerateDataKey();
+      setDataKey(key);
+      setStep('recovery');
+    } catch (err) {
+      setError(`${t.auth.setupFailed}：${String(err)}`);
+    }
   };
 
   const handleConfirmDataKey = async () => {
@@ -222,7 +216,14 @@ export function SetupScreen() {
                 />
                 <button
                   type="button"
-                  onClick={() => setDataKey(generateRandomKey())}
+                  onClick={async () => {
+                    try {
+                      const key = await App.GenerateDataKey();
+                      setDataKey(key);
+                    } catch (err) {
+                      setError(`${t.auth.setupFailed}：${String(err)}`);
+                    }
+                  }}
                   className="px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 text-gray-600"
                   title={t.auth.randomGenerate}
                 >
