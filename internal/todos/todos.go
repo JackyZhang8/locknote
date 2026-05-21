@@ -83,6 +83,11 @@ func formatTimePtr(t *time.Time) *string {
 func (s *Service) SetMasterKey(key []byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.masterKey != nil {
+		for i := range s.masterKey {
+			s.masterKey[i] = 0
+		}
+	}
 	s.masterKey = key
 }
 

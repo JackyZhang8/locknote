@@ -340,6 +340,36 @@ func (d *DB) UpdateNote(note *NoteMeta) error {
 	return err
 }
 
+func (d *DB) SetNotePinned(id string, pinned bool) error {
+	_, err := d.db.Exec(`UPDATE notes SET pinned = ?, updated_at = ? WHERE id = ?`, pinned, time.Now(), id)
+	return err
+}
+
+func (d *DB) SoftDeleteNote(id string) error {
+	_, err := d.db.Exec(`UPDATE notes SET deleted_at = ? WHERE id = ?`, time.Now(), id)
+	return err
+}
+
+func (d *DB) BatchSoftDeleteNotes(ids []string) error {
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	now := time.Now()
+	for _, id := range ids {
+		if _, err := tx.Exec(`UPDATE notes SET deleted_at = ? WHERE id = ?`, now, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (d *DB) RestoreNote(id string) error {
+	_, err := d.db.Exec(`UPDATE notes SET deleted_at = NULL, updated_at = ? WHERE id = ?`, time.Now(), id)
+	return err
+}
+
 func (d *DB) UpdateNoteAndCreateHistory(note *NoteMeta, h *NoteHistory) error {
 	tx, err := d.db.Begin()
 	if err != nil {
@@ -623,7 +653,7 @@ func (d *DB) GetNoteTagsBatch(noteIDs []string) (map[string][]*Tag, error) {
 
 func (d *DB) GetNotesByTag(tagID string) ([]*NoteMeta, error) {
 	rows, err := d.db.Query(`
-		SELECT n.id, n.cipher_path, n.created_at, n.updated_at, n.pinned, n.deleted_at, n.notebook_id
+		SELECT n.id, n.cipher_path, n.created_at, n.updated_at, n.pinned, n.deleted_at, n.notebook_id, COALESCE(n.sort_order, 0), n.encrypted_title, n.encrypted_preview
 		FROM notes n
 		INNER JOIN note_tags nt ON n.id = nt.note_id
 		WHERE nt.tag_id = ? AND n.deleted_at IS NULL
@@ -637,7 +667,7 @@ func (d *DB) GetNotesByTag(tagID string) ([]*NoteMeta, error) {
 	var notes []*NoteMeta
 	for rows.Next() {
 		var note NoteMeta
-		if err := rows.Scan(&note.ID, &note.CipherPath, &note.CreatedAt, &note.UpdatedAt, &note.Pinned, &note.DeletedAt, &note.NotebookID); err != nil {
+		if err := rows.Scan(&note.ID, &note.CipherPath, &note.CreatedAt, &note.UpdatedAt, &note.Pinned, &note.DeletedAt, &note.NotebookID, &note.SortOrder, &note.EncryptedTitle, &note.EncryptedPreview); err != nil {
 			return nil, err
 		}
 		notes = append(notes, &note)

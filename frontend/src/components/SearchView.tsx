@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useStore } from '../store';
 import { formatMessage, useI18n } from '../i18n';
 import { notes as notesModel } from '../../wailsjs/go/models';
+import * as App from '../../wailsjs/go/main/App';
 
 export function SearchView() {
   const {
@@ -44,32 +45,18 @@ export function SearchView() {
     setSearchProgress(0);
     abortRef.current = false;
 
-    const query = localQuery.toLowerCase();
-    const results: typeof notes = [];
-
-    for (let i = 0; i < notes.length; i++) {
-      if (abortRef.current) break;
-
-      const note = notes[i];
-      const titleMatch = note.title?.toLowerCase().includes(query);
-      const contentMatch = note.content?.toLowerCase().includes(query);
-      const tagMatch = note.tags?.some((tag) => tag.name.toLowerCase().includes(query));
-
-      if (titleMatch || contentMatch || tagMatch) {
-        results.push(note);
+    try {
+      const results = await App.SearchNotes(localQuery.trim());
+      if (!abortRef.current) {
+        setSearchResults(results || []);
+        setSearchQuery(localQuery);
       }
-
-      if (i % 50 === 0) {
-        setSearchProgress(Math.round(((i + 1) / notes.length) * 100));
-        await new Promise((r) => setTimeout(r, 0));
+    } catch {
+      if (!abortRef.current) {
+        setSearchResults([]);
       }
     }
     setSearchProgress(100);
-
-    if (!abortRef.current) {
-      setSearchResults(results);
-      setSearchQuery(localQuery);
-    }
     setIsSearching(false);
   };
 

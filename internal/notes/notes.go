@@ -10,6 +10,7 @@ import (
 	"io"
 	"locknote/internal/crypto"
 	"locknote/internal/database"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,6 +74,11 @@ func NewService(db *database.DB, dataDir string) *Service {
 func (s *Service) SetMasterKey(key []byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.masterKey != nil {
+		for i := range s.masterKey {
+			s.masterKey[i] = 0
+		}
+	}
 	s.masterKey = key
 }
 
@@ -85,13 +91,14 @@ func (s *Service) getMasterKey() ([]byte, error) {
 	return s.masterKey, nil
 }
 
-const previewMaxLen = 200
+const previewMaxRunes = 200
 
 func (s *Service) extractPreview(content string) string {
-	if len(content) <= previewMaxLen {
+	runes := []rune(content)
+	if len(runes) <= previewMaxRunes {
 		return content
 	}
-	return content[:previewMaxLen]
+	return string(runes[:previewMaxRunes])
 }
 
 func (s *Service) Create(title, content string) (*Note, error) {
@@ -320,7 +327,9 @@ func (s *Service) Update(id, title, content string) (*Note, error) {
 		return nil, err
 	}
 
-	meta.UpdatedAt = time.Now()
+	if contentChanged {
+		meta.UpdatedAt = time.Now()
+	}
 	meta.EncryptedTitle = encryptedTitle
 	meta.EncryptedPreview = encryptedPreview
 	if err := s.db.UpdateNoteAndCreateHistory(meta, historyRecord); err != nil {
@@ -347,33 +356,19 @@ func (s *Service) Update(id, title, content string) (*Note, error) {
 }
 
 func (s *Service) SetPinned(id string, pinned bool) error {
-	meta, err := s.db.GetNote(id)
-	if err != nil {
-		return err
-	}
-	meta.Pinned = pinned
-	meta.UpdatedAt = time.Now()
-	return s.db.UpdateNote(meta)
+	return s.db.SetNotePinned(id, pinned)
 }
 
 func (s *Service) SoftDelete(id string) error {
-	meta, err := s.db.GetNote(id)
-	if err != nil {
-		return err
-	}
-	now := time.Now()
-	meta.DeletedAt = &now
-	return s.db.UpdateNote(meta)
+	return s.db.SoftDeleteNote(id)
+}
+
+func (s *Service) BatchSoftDelete(ids []string) error {
+	return s.db.BatchSoftDeleteNotes(ids)
 }
 
 func (s *Service) Restore(id string) error {
-	meta, err := s.db.GetNote(id)
-	if err != nil {
-		return err
-	}
-	meta.DeletedAt = nil
-	meta.UpdatedAt = time.Now()
-	return s.db.UpdateNote(meta)
+	return s.db.RestoreNote(id)
 }
 
 func (s *Service) Delete(id string) error {
@@ -433,16 +428,19 @@ func (s *Service) List() ([]*Note, error) {
 			fullPath := filepath.Join(s.dataDir, meta.CipherPath)
 			ciphertext, err := os.ReadFile(fullPath)
 			if err != nil {
+				log.Printf("[ListNotes] failed to read note file %s: %v", meta.ID, err)
 				continue
 			}
 
 			plaintext, err := s.crypto.Decrypt(key, ciphertext)
 			if err != nil {
+				log.Printf("[ListNotes] failed to decrypt note %s: %v", meta.ID, err)
 				continue
 			}
 
 			var noteContent NoteContent
 			if err := json.Unmarshal(plaintext, &noteContent); err != nil {
+				log.Printf("[ListNotes] failed to unmarshal note %s: %v", meta.ID, err)
 				continue
 			}
 			title = noteContent.Title
@@ -470,6 +468,73 @@ func (s *Service) List() ([]*Note, error) {
 	}
 
 	return notes, nil
+}
+
+func (s *Service) Search(query string) ([]*Note, error) {
+	key, err := s.getMasterKey()
+	if err != nil {
+		return nil, err
+	}
+
+	metas, err := s.db.ListNotes(false)
+	if err != nil {
+		return nil, err
+	}
+
+	query = strings.ToLower(query)
+	noteIDs := make([]string, len(metas))
+	for i, meta := range metas {
+		noteIDs[i] = meta.ID
+	}
+	tagsByNoteID, _ := s.db.GetNoteTagsBatch(noteIDs)
+
+	var results []*Note
+	for _, meta := range metas {
+		fullPath := filepath.Join(s.dataDir, meta.CipherPath)
+		ciphertext, err := os.ReadFile(fullPath)
+		if err != nil {
+			continue
+		}
+
+		plaintext, err := s.crypto.Decrypt(key, ciphertext)
+		if err != nil {
+			continue
+		}
+
+		var noteContent NoteContent
+		if err := json.Unmarshal(plaintext, &noteContent); err != nil {
+			continue
+		}
+
+		titleMatch := strings.Contains(strings.ToLower(noteContent.Title), query)
+		contentMatch := strings.Contains(strings.ToLower(noteContent.Content), query)
+
+		dbTags := tagsByNoteID[meta.ID]
+		tags := make([]Tag, len(dbTags))
+		tagMatch := false
+		for i, t := range dbTags {
+			tags[i] = Tag{ID: t.ID, Name: t.Name, Color: t.Color}
+			if strings.Contains(strings.ToLower(t.Name), query) {
+				tagMatch = true
+			}
+		}
+
+		if titleMatch || contentMatch || tagMatch {
+			results = append(results, &Note{
+				ID:         meta.ID,
+				Title:      noteContent.Title,
+				Content:    s.extractPreview(noteContent.Content),
+				CreatedAt:  formatTime(meta.CreatedAt),
+				UpdatedAt:  formatTime(meta.UpdatedAt),
+				Pinned:     meta.Pinned,
+				DeletedAt:  formatTimePtr(meta.DeletedAt),
+				NotebookID: meta.NotebookID,
+				Tags:       tags,
+			})
+		}
+	}
+
+	return results, nil
 }
 
 type ListResult struct {
@@ -516,16 +581,19 @@ func (s *Service) ListPaginated(limit, offset int) (*ListResult, error) {
 			fullPath := filepath.Join(s.dataDir, meta.CipherPath)
 			ciphertext, err := os.ReadFile(fullPath)
 			if err != nil {
+				log.Printf("[ListNotesPaginated] failed to read note file %s: %v", meta.ID, err)
 				continue
 			}
 
 			plaintext, err := s.crypto.Decrypt(key, ciphertext)
 			if err != nil {
+				log.Printf("[ListNotesPaginated] failed to decrypt note %s: %v", meta.ID, err)
 				continue
 			}
 
 			var noteContent NoteContent
 			if err := json.Unmarshal(plaintext, &noteContent); err != nil {
+				log.Printf("[ListNotesPaginated] failed to unmarshal note %s: %v", meta.ID, err)
 				continue
 			}
 			title = noteContent.Title
@@ -595,16 +663,19 @@ func (s *Service) ListDeleted() ([]*Note, error) {
 			fullPath := filepath.Join(s.dataDir, meta.CipherPath)
 			ciphertext, err := os.ReadFile(fullPath)
 			if err != nil {
+				log.Printf("[ListDeleted] failed to read note file %s: %v", meta.ID, err)
 				continue
 			}
 
 			plaintext, err := s.crypto.Decrypt(key, ciphertext)
 			if err != nil {
+				log.Printf("[ListDeleted] failed to decrypt note %s: %v", meta.ID, err)
 				continue
 			}
 
 			var noteContent NoteContent
 			if err := json.Unmarshal(plaintext, &noteContent); err != nil {
+				log.Printf("[ListDeleted] failed to unmarshal note %s: %v", meta.ID, err)
 				continue
 			}
 			title = noteContent.Title
@@ -736,38 +807,43 @@ func (s *Service) ImportFromBackup(backupPath, displayKey string) (int, error) {
 	}
 
 	notesDir := filepath.Join(tempDir, "notes")
-	entries, err := os.ReadDir(notesDir)
-	if err != nil {
+	if _, err := os.Stat(notesDir); err != nil {
 		return 0, errors.New("备份文件格式无效：找不到笔记目录")
 	}
 
 	importedCount := 0
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".enc") {
-			continue
+	err = filepath.Walk(notesDir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return nil
+		}
+		if info.IsDir() || !strings.HasSuffix(info.Name(), ".enc") {
+			return nil
 		}
 
-		encPath := filepath.Join(notesDir, entry.Name())
-		ciphertext, err := os.ReadFile(encPath)
+		ciphertext, err := os.ReadFile(path)
 		if err != nil {
-			continue
+			return nil
 		}
 
 		plaintext, err := s.crypto.Decrypt(importKey, ciphertext)
 		if err != nil {
-			continue
+			return nil
 		}
 
 		var noteContent NoteContent
 		if err := json.Unmarshal(plaintext, &noteContent); err != nil {
-			continue
+			return nil
 		}
 
 		_, err = s.Create(noteContent.Title, noteContent.Content)
 		if err != nil {
-			continue
+			return nil
 		}
 		importedCount++
+		return nil
+	})
+	if err != nil {
+		return 0, err
 	}
 
 	if importedCount == 0 {
@@ -784,6 +860,7 @@ func (s *Service) extractZip(zipPath, destDir string) error {
 	}
 	defer reader.Close()
 
+	const maxFileSize uint64 = 500 * 1024 * 1024
 	for _, file := range reader.File {
 		destPath := filepath.Join(destDir, file.Name)
 		cleanDestPath := filepath.Clean(destPath)
@@ -795,6 +872,10 @@ func (s *Service) extractZip(zipPath, destDir string) error {
 		if file.FileInfo().IsDir() {
 			os.MkdirAll(cleanDestPath, 0700)
 			continue
+		}
+
+		if file.UncompressedSize64 > maxFileSize {
+			return errors.New("file in zip exceeds size limit")
 		}
 
 		if err := os.MkdirAll(filepath.Dir(cleanDestPath), 0700); err != nil {
@@ -812,7 +893,7 @@ func (s *Service) extractZip(zipPath, destDir string) error {
 			return err
 		}
 
-		_, err = io.Copy(destFile, srcFile)
+		_, err = io.Copy(destFile, io.LimitReader(srcFile, int64(maxFileSize)+1))
 		srcFile.Close()
 		destFile.Close()
 

@@ -69,6 +69,11 @@ func (a *App) ListNotesPaginated(limit, offset int) (*notes.ListResult, error) {
 	return a.core.Notes().ListPaginated(limit, offset)
 }
 
+func (a *App) SearchNotes(query string) ([]*notes.Note, error) {
+	a.UpdateActivity()
+	return a.core.Notes().Search(query)
+}
+
 func (a *App) MigrateOldNotes() (int, error) {
 	a.UpdateActivity()
 	return a.core.Notes().MigrateOldNotes()
@@ -611,9 +616,14 @@ func (a *App) DetachAttachmentFromNote(noteID, attachmentID string) error {
 func writeFileAtomic(path string, data []byte) error {
 	tempPath := path + ".tmp"
 	if err := writeFile(tempPath, data); err != nil {
+		os.Remove(tempPath)
 		return err
 	}
-	return renameFile(tempPath, path)
+	if err := renameFile(tempPath, path); err != nil {
+		os.Remove(tempPath)
+		return err
+	}
+	return nil
 }
 
 func writeFile(path string, data []byte) error {
@@ -672,12 +682,7 @@ func (a *App) SetNotesNotebook(noteIDs []string, notebookID *string) error {
 
 func (a *App) BatchDeleteNotes(noteIDs []string) error {
 	a.UpdateActivity()
-	for _, id := range noteIDs {
-		if err := a.core.Notes().SoftDelete(id); err != nil {
-			return err
-		}
-	}
-	return nil
+	return a.core.Notes().BatchSoftDelete(noteIDs)
 }
 
 func (a *App) BatchAddTagToNotes(noteIDs []string, tagID string) error {

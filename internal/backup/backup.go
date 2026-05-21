@@ -5,11 +5,14 @@ package backup
 
 import (
 	"archive/zip"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+const maxZipFileSize = 500 * 1024 * 1024 // 500 MB per file
 
 type Service struct {
 	dataDir string
@@ -45,6 +48,11 @@ func (s *Service) ExtractBackupToTemp(inputPath string) (string, error) {
 			continue
 		}
 
+		if file.UncompressedSize64 > maxZipFileSize {
+			os.RemoveAll(tempDir)
+			return "", fmt.Errorf("file %s exceeds size limit (%d bytes)", file.Name, file.UncompressedSize64)
+		}
+
 		if err := os.MkdirAll(filepath.Dir(cleanDestPath), 0700); err != nil {
 			os.RemoveAll(tempDir)
 			return "", err
@@ -63,7 +71,7 @@ func (s *Service) ExtractBackupToTemp(inputPath string) (string, error) {
 			return "", err
 		}
 
-		_, err = io.Copy(destFile, srcFile)
+		_, err = io.Copy(destFile, io.LimitReader(srcFile, maxZipFileSize+1))
 		srcFile.Close()
 		destFile.Close()
 
@@ -90,6 +98,18 @@ func (s *Service) CreateBackup(outputPath string) error {
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
 
+	sensitiveFiles := map[string]bool{
+		"locknote.db":         true,
+		"locknote.db-journal": true,
+		"locknote.db-wal":     true,
+		"locknote.db-shm":     true,
+		"notebase.db":         true,
+		"notebase.db-journal": true,
+		"notebase.db-wal":     true,
+		"notebase.db-shm":     true,
+		"data_key_verifier":   true,
+	}
+
 	err = filepath.Walk(s.dataDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -102,6 +122,10 @@ func (s *Service) CreateBackup(outputPath string) error {
 		relPath, err := filepath.Rel(s.dataDir, path)
 		if err != nil {
 			return err
+		}
+
+		if sensitiveFiles[filepath.Base(relPath)] {
+			return nil
 		}
 
 		header, err := zip.FileInfoHeader(info)
@@ -152,6 +176,10 @@ func (s *Service) RestoreBackup(inputPath string) error {
 			continue
 		}
 
+		if file.UncompressedSize64 > maxZipFileSize {
+			return fmt.Errorf("file %s exceeds size limit (%d bytes)", file.Name, file.UncompressedSize64)
+		}
+
 		if err := os.MkdirAll(filepath.Dir(cleanDestPath), 0700); err != nil {
 			return err
 		}
@@ -167,7 +195,7 @@ func (s *Service) RestoreBackup(inputPath string) error {
 			return err
 		}
 
-		_, err = io.Copy(destFile, srcFile)
+		_, err = io.Copy(destFile, io.LimitReader(srcFile, maxZipFileSize+1))
 		srcFile.Close()
 		destFile.Close()
 

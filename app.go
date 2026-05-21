@@ -6,7 +6,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"locknote/internal/core"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -51,7 +53,13 @@ func (a *App) startup(ctx context.Context) {
 
 	c, err := core.New(a.dataDir)
 	if err != nil {
-		panic(err)
+		log.Printf("Failed to initialize core: %v", err)
+		runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
+			Type:    runtime.ErrorDialog,
+			Title:   "LockNote",
+			Message: fmt.Sprintf("Failed to initialize: %v", err),
+		})
+		return
 	}
 	a.core = c
 
@@ -104,6 +112,7 @@ func (a *App) stopWindowWatcher() {
 	}
 	if a.watcherStop != nil {
 		close(a.watcherStop)
+		a.watcherStop = nil
 	}
 }
 
