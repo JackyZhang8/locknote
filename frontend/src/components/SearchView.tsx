@@ -8,7 +8,6 @@ import * as App from '../../wailsjs/go/main/App';
 
 export function SearchView() {
   const {
-    notes,
     notebooks,
     searchQuery,
     setSearchQuery,
