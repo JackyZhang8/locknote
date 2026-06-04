@@ -210,10 +210,6 @@ export function ReorderNotes(arg1) {
   return window['go']['main']['App']['ReorderNotes'](arg1);
 }
 
-export function SearchNotes(arg1) {
-  return window['go']['main']['App']['SearchNotes'](arg1);
-}
-
 export function ResetPasswordWithDataKey(arg1, arg2, arg3) {
   return window['go']['main']['App']['ResetPasswordWithDataKey'](arg1, arg2, arg3);
 }
@@ -232,6 +228,10 @@ export function RestoreNote(arg1) {
 
 export function RestoreNoteFromHistory(arg1, arg2) {
   return window['go']['main']['App']['RestoreNoteFromHistory'](arg1, arg2);
+}
+
+export function SearchNotes(arg1) {
+  return window['go']['main']['App']['SearchNotes'](arg1);
 }
 
 export function SetAttachmentFavorite(arg1, arg2) {

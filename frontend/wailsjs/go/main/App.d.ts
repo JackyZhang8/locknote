@@ -113,8 +113,6 @@ export function ReorderNotebooks(arg1:Array<string>):Promise<void>;
 
 export function ReorderNotes(arg1:Array<string>):Promise<void>;
 
-export function SearchNotes(arg1:string):Promise<Array<notes.Note>>;
-
 export function ResetPasswordWithDataKey(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function RestoreAttachment(arg1:string):Promise<void>;
@@ -124,6 +122,8 @@ export function RestoreBackup():Promise<void>;
 export function RestoreNote(arg1:string):Promise<void>;
 
 export function RestoreNoteFromHistory(arg1:string,arg2:string):Promise<notes.Note>;
+
+export function SearchNotes(arg1:string):Promise<Array<notes.Note>>;
 
 export function SetAttachmentFavorite(arg1:string,arg2:boolean):Promise<void>;
 

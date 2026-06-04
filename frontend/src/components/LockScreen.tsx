@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Lock, Eye, EyeOff, AlertCircle, HelpCircle, Key } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, HelpCircle, Key } from 'lucide-react';
 import { useStore } from '../store';
 import { useI18n } from '../i18n';
+import appIcon from '../assets/app-icon.png';
 import * as App from '../../wailsjs/go/main/App';
 
 type Mode = 'unlock' | 'forgot' | 'reset';
@@ -84,13 +85,21 @@ export function LockScreen() {
   return (
     <div className="h-screen flex items-center justify-center bg-background backdrop-blur-sm">
       <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-lg border border-primary-100">
-        <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center">
-            <Lock className="w-8 h-8 text-accent" />
-          </div>
+        <div className="flex justify-center mb-5">
+          <img
+            src={appIcon}
+            alt=""
+            aria-hidden="true"
+            className="h-20 w-20 rounded-[20px]"
+          />
         </div>
 
-        <h1 className="text-2xl font-bold text-center text-gray-800 mb-2">LockNote.app</h1>
+        <h1
+          className="mb-2 text-center text-[28px] font-bold leading-tight text-gray-900"
+          style={{ fontFamily: "'SF Pro Rounded', 'SF Pro Display', 'Inter', system-ui, sans-serif" }}
+        >
+          LockNote
+        </h1>
         <p className="text-center text-gray-500 mb-6">
           {mode === 'unlock' && t.auth.enterPassword}
           {mode === 'forgot' && t.auth.forgotPassword}

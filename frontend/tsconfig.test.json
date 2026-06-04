@@ -25,6 +25,7 @@
     "src/imageGrid.ts",
     "src/noteListRecent.test.ts",
     "src/settingsTabs.test.ts",
+    "src/lockScreenBranding.test.ts",
     "src/todoDeletionConfirmation.test.ts",
     "src/todoFilters.test.ts",
     "src/todoFilters.ts",
