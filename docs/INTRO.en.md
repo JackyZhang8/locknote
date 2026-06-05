@@ -26,14 +26,24 @@ Your notes are encrypted locally using modern cryptography:
   - Manual lock is supported
 - **Markdown editing**
   - Markdown authoring with preview
+- **Image attachments**
+  - Paste, insert, manage, and reference encrypted local images
 - **Tags & organization**
   - Tag notes for filtering and organization
+- **Todos**
+  - Track tasks with priorities, due dates, subtasks, and completion states
+- **Calendar**
+  - Review note creation/edit activity, due todos, and completed todos by date
+- **HeatMap**
+  - View recent activity with a GitHub-style heatmap
 - **Full-text search**
   - Search titles, content, and tags
 - **Version history**
   - Automatically saved versions with rollback
 - **Backup & restore**
   - Manual backups under your control
+- **Startup experience**
+  - Windows cold-start progress and a first-run feature introduction
 
 ## Security notes (summary)
 
@@ -81,4 +91,4 @@ For multi-platform builds and additional flags, see `build.md` and `build.sh` in
 
 ## Version
 
-v1.0.5
+v1.0.6

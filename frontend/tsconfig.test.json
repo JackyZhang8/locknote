@@ -23,12 +23,16 @@
     "src/imageManagerFavoritesPreview.test.ts",
     "src/imageGrid.test.ts",
     "src/imageGrid.ts",
+    "src/appStartup.test.ts",
     "src/noteListRecent.test.ts",
     "src/settingsTabs.test.ts",
     "src/lockScreenBranding.test.ts",
     "src/todoDeletionConfirmation.test.ts",
     "src/todoFilters.test.ts",
     "src/todoFilters.ts",
+    "src/calendar.test.ts",
+    "src/calendar.ts",
+    "src/calendarViewIntegration.test.ts",
     "src/test-node-shims.d.ts"
   ]
 }

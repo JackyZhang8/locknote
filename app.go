@@ -21,6 +21,9 @@ import (
 type App struct {
 	ctx               context.Context
 	core              *core.Core
+	coreReady         chan struct{}
+	coreInitErr       error
+	coreMu            sync.RWMutex
 	dataDir           string
 	windowWatcher     *time.Ticker
 	windowWatcherOnce sync.Once
@@ -43,32 +46,15 @@ func NewApp() *App {
 		}
 	}
 	return &App{
-		dataDir: dataDir,
+		dataDir:   dataDir,
+		coreReady: make(chan struct{}),
 	}
 }
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.watcherStop = make(chan struct{})
-
-	c, err := core.New(a.dataDir)
-	if err != nil {
-		log.Printf("Failed to initialize core: %v", err)
-		runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
-			Type:    runtime.ErrorDialog,
-			Title:   "LockNote",
-			Message: fmt.Sprintf("Failed to initialize: %v", err),
-		})
-		return
-	}
-	a.core = c
-
-	// 设置锁定回调，用于发送桌面端事件
-	a.core.SetLockCallback(func() {
-		if a.ctx != nil {
-			runtime.EventsEmit(a.ctx, "app:locked")
-		}
-	})
+	a.startCoreInitialization(ctx)
 
 	runtime.EventsOn(a.ctx, "frontend:ready", func(optionalData ...interface{}) {
 		a.startWindowWatcherOnce()
@@ -79,6 +65,78 @@ func (a *App) startup(ctx context.Context) {
 	})
 }
 
+func (a *App) startCoreInitialization(ctx context.Context) {
+	go func() {
+		c, err := core.New(a.dataDir)
+		if err != nil {
+			log.Printf("Failed to initialize core: %v", err)
+			a.coreMu.Lock()
+			a.coreInitErr = err
+			a.coreMu.Unlock()
+			close(a.coreReady)
+			if ctx != nil {
+				runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
+					Type:    runtime.ErrorDialog,
+					Title:   "LockNote",
+					Message: fmt.Sprintf("Failed to initialize: %v", err),
+				})
+			}
+			return
+		}
+
+		a.coreMu.Lock()
+		a.core = c
+
+		// 设置锁定回调，用于发送桌面端事件
+		a.core.SetLockCallback(func() {
+			if a.ctx != nil {
+				runtime.EventsEmit(a.ctx, "app:locked")
+			}
+		})
+		a.coreMu.Unlock()
+		close(a.coreReady)
+	}()
+}
+
+func (a *App) IsCoreReady() bool {
+	select {
+	case <-a.coreReady:
+		a.coreMu.RLock()
+		defer a.coreMu.RUnlock()
+		return a.core != nil && a.coreInitErr == nil
+	default:
+		return false
+	}
+}
+
+func (a *App) GetStartupError() string {
+	select {
+	case <-a.coreReady:
+		a.coreMu.RLock()
+		defer a.coreMu.RUnlock()
+		if a.coreInitErr != nil {
+			return a.coreInitErr.Error()
+		}
+		return ""
+	default:
+		return ""
+	}
+}
+
+func (a *App) getCoreIfReady() *core.Core {
+	select {
+	case <-a.coreReady:
+		a.coreMu.RLock()
+		defer a.coreMu.RUnlock()
+		if a.coreInitErr != nil {
+			return nil
+		}
+		return a.core
+	default:
+		return nil
+	}
+}
+
 func (a *App) startWindowWatcherOnce() {
 	a.windowWatcherOnce.Do(func() {
 		a.startWindowWatcher()
@@ -87,8 +145,8 @@ func (a *App) startWindowWatcherOnce() {
 
 func (a *App) shutdown(ctx context.Context) {
 	a.stopWindowWatcher()
-	if a.core != nil {
-		a.core.Close()
+	if c := a.getCoreIfReady(); c != nil {
+		c.Close()
 	}
 }
 
@@ -124,10 +182,10 @@ func (a *App) checkWindowState() {
 	isMinimized := runtime.WindowIsMinimised(a.ctx)
 
 	if isMinimized && !a.lastMinimized {
-		if a.core.IsUnlocked() {
-			settings, _ := a.core.GetSettings()
+		if c := a.getCoreIfReady(); c != nil && c.IsUnlocked() {
+			settings, _ := c.GetSettings()
 			if settings != nil && settings.LockOnMinimize {
-				a.core.Lock()
+				c.Lock()
 				runtime.EventsEmit(a.ctx, "app:locked")
 			}
 		}
@@ -187,5 +245,5 @@ func (a *App) GetDataDir() string {
 }
 
 func (a *App) GetVersion() string {
-	return "v1.0.5"
+	return "v1.0.6"
 }

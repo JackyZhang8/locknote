@@ -5,7 +5,9 @@ import { useEffect, useState } from 'react';
 import { useStore } from './store';
 import { LockScreen } from './components/LockScreen';
 import { MainLayout } from './components/MainLayout';
+import { OnboardingScreen } from './components/OnboardingScreen';
 import { SetupScreen } from './components/SetupScreen';
+import { StartupProgressScreen } from './components/StartupProgressScreen';
 import * as App from '../wailsjs/go/main/App';
 import { EventsEmit, EventsOn } from '../wailsjs/runtime/runtime';
 
@@ -16,6 +18,8 @@ declare global {
       main?: {
         App?: {
           IsFirstRun?: () => Promise<boolean>;
+          IsCoreReady?: () => Promise<boolean>;
+          GetStartupError?: () => Promise<string>;
           [key: string]: unknown;
         };
         [key: string]: unknown;
@@ -43,18 +47,53 @@ function isWailsRuntimeReady(): boolean {
   );
 }
 
-// Wait for Wails runtime to be ready
-async function waitForWailsRuntime(maxWaitTime = 10000): Promise<boolean> {
+// Wait for Wails runtime to be ready. Windows cold starts can take longer on
+// first launch while WebView2 and the Wails bridge warm up.
+async function waitForWailsRuntime(): Promise<void> {
   const checkInterval = 100; // Check every 100ms
-  const startTime = Date.now();
 
-  while (Date.now() - startTime < maxWaitTime) {
+  for (;;) {
     if (isWailsRuntimeReady()) {
-      return true;
+      return;
     }
     await new Promise(resolve => setTimeout(resolve, checkInterval));
   }
-  return false;
+}
+
+const wailsRuntimeReady = waitForWailsRuntime();
+const FIRST_RUN_STARTUP_MINIMUM_MS = 1400;
+
+async function waitForCoreReady(onStatus?: (message: string) => void): Promise<void> {
+  const retryDelay = 300;
+
+  for (;;) {
+    const ready = await App.IsCoreReady();
+    if (ready) {
+      return;
+    }
+
+    const startupError = await App.GetStartupError();
+    if (startupError) {
+      onStatus?.(`启动失败：${startupError}`);
+    } else {
+      onStatus?.('正在准备本地数据...');
+    }
+
+    await new Promise(resolve => setTimeout(resolve, retryDelay));
+  }
+}
+
+async function waitForMinimumStartupDisplay(startedAt: number, firstRun: boolean): Promise<void> {
+  if (!firstRun) {
+    return;
+  }
+
+  const remaining = FIRST_RUN_STARTUP_MINIMUM_MS - (Date.now() - startedAt);
+  if (remaining <= 0) {
+    return;
+  }
+
+  await new Promise(resolve => setTimeout(resolve, remaining));
 }
 
 // Throttle function to limit how often UpdateActivity is called
@@ -72,55 +111,61 @@ function throttle<T extends (...args: unknown[]) => void>(func: T, limit: number
 function AppRoot() {
   const { isUnlocked, isFirstRun, setUnlocked, setFirstRun, setVersion, setDataDir } = useStore();
   const [loading, setLoading] = useState(true);
+  const [startupMessage, setStartupMessage] = useState('正在启动应用核心...');
+  const [startupProgress, setStartupProgress] = useState(8);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     // Only emit frontend:ready after runtime is ready
     const emitReady = async () => {
-      const ready = await waitForWailsRuntime();
-      if (ready) {
-        EventsEmit('frontend:ready');
-      }
+      await wailsRuntimeReady;
+      EventsEmit('frontend:ready');
     };
     emitReady();
   }, []);
 
   useEffect(() => {
     const init = async (retryCount = 0): Promise<void> => {
-      const maxRetries = 5;
+      const startupStartedAt = Date.now();
       const retryDelay = 500; // ms
 
       try {
         // First, wait for Wails runtime to be ready
-        const runtimeReady = await waitForWailsRuntime();
-        if (!runtimeReady) {
-          console.error('Wails runtime not ready after timeout');
-          setLoading(false);
-          return;
-        }
+        setStartupProgress(18);
+        await wailsRuntimeReady;
+        setStartupProgress(34);
+        await waitForCoreReady(setStartupMessage);
 
+        setStartupMessage('正在读取本地数据...');
+        setStartupProgress(68);
         const firstRun = await App.IsFirstRun();
         setFirstRun(firstRun);
+        setShowOnboarding(firstRun);
 
         const unlocked = await App.IsUnlocked();
         setUnlocked(unlocked);
 
+        setStartupProgress(84);
         const version = await App.GetVersion();
         setVersion(version);
 
         const dataDir = await App.GetDataDir();
         setDataDir(dataDir);
 
+        if (firstRun) {
+          setStartupMessage('正在初始化...');
+        }
+        setStartupProgress(92);
+        await waitForMinimumStartupDisplay(startupStartedAt, firstRun);
+        setStartupProgress(100);
         setLoading(false);
       } catch (error) {
         console.error('Init error:', error);
-        // Retry on failure - WebView2 may still be initializing on Windows first run
-        if (retryCount < maxRetries) {
-          console.log(`Retrying initialization (${retryCount + 1}/${maxRetries})...`);
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
-          return init(retryCount + 1);
-        }
-        // After max retries, still set loading to false to show error state
-        setLoading(false);
+        // Retry on failure - WebView2 may still be initializing on Windows first run.
+        setStartupMessage(`正在启动应用核心... (${retryCount + 1})`);
+        setStartupProgress(12);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        return init(retryCount + 1);
       }
     };
 
@@ -225,10 +270,12 @@ function AppRoot() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
-      </div>
+      <StartupProgressScreen message={startupMessage} progress={startupProgress} />
     );
+  }
+
+  if (isFirstRun && showOnboarding) {
+    return <OnboardingScreen onStart={() => setShowOnboarding(false)} />;
   }
 
   if (isFirstRun) {

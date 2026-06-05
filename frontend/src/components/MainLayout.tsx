@@ -9,6 +9,7 @@ import { SettingsView } from './SettingsView';
 import { CommandPalette } from './CommandPalette';
 import { TodoWorkspace } from './TodoWorkspace';
 import { ImageManager } from './ImageManager';
+import { CalendarView } from './CalendarView';
 import * as App from '../../wailsjs/go/main/App';
 
 export function MainLayout() {
@@ -106,6 +107,8 @@ export function MainLayout() {
         return <TagsView />;
       case 'todos':
         return <TodoWorkspace />;
+      case 'calendar':
+        return <CalendarView />;
       case 'images':
         return <ImageManager />;
       case 'settings':

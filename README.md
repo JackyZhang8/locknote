@@ -20,10 +20,13 @@
 - **Markdown import/export** - Import Markdown files and export notes as Markdown; notes with images export with a timestamped assets folder
 - **Notes organization** - Manage notebooks, tags, recent notes, pinned notes, and filters for structured writing
 - **Todos** - Manage standalone tasks with priorities, due dates, subtasks, filters, and inline editing
+- **Calendar view** - View note creation/edit activity, due todos, and completed todos by date
+- **HeatMap activity view** - GitHub-style activity heatmap based on note activity and completed todos
 - **Full-text search** - Search note titles, content, and tags
 - **History versions** - Automatic history snapshots with rollback
 - **Trash** - Deleted notes move to trash and can be restored or permanently deleted
 - **Backup & restore** - Create encrypted backups, restore data, and import backups with a data key
+- **Startup experience** - Faster Windows cold-start flow, startup progress, and first-run feature introduction
 - **Security settings** - Auto-lock options, password changes, data-key recovery, themes, and language switching
 
 ## Tech Stack
@@ -119,7 +122,7 @@ locknote/
 
 ## Version
 
-v1.0.5
+v1.0.6
 
 ## License
 

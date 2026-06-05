@@ -71,6 +71,8 @@ export function GetSettings():Promise<database.Settings>;
 
 export function GetSmartView(arg1:string):Promise<smartviews.SmartView>;
 
+export function GetStartupError():Promise<string>;
+
 export function GetTodo(arg1:string):Promise<todos.Todo>;
 
 export function GetVersion():Promise<string>;
@@ -80,6 +82,8 @@ export function ImportBackupWithKey(arg1:string):Promise<number>;
 export function ImportImage(arg1:string):Promise<attachments.Attachment>;
 
 export function ImportMarkdown():Promise<notes.Note>;
+
+export function IsCoreReady():Promise<boolean>;
 
 export function IsFirstRun():Promise<boolean>;
 

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { notes, tags, database, notebooks } from '../../wailsjs/go/models';
 
-export type ViewType = 'notes' | 'search' | 'tags' | 'settings' | 'recent' | 'todos' | 'images';
+export type ViewType = 'notes' | 'search' | 'tags' | 'settings' | 'recent' | 'todos' | 'images' | 'calendar';
 export type EditorMode = 'edit' | 'preview' | 'split';
 
 interface AppState {
@@ -85,7 +85,7 @@ const initialState = {
   searchProgress: 0,
   selectedTagId: null as string | null,
   settings: null as database.Settings | null,
-  version: 'v1.0.5',
+  version: 'v1.0.6',
   dataDir: '',
   isCommandPaletteOpen: false,
   isMultiSelectMode: false,

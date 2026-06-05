@@ -126,6 +126,10 @@ export function GetSmartView(arg1) {
   return window['go']['main']['App']['GetSmartView'](arg1);
 }
 
+export function GetStartupError() {
+  return window['go']['main']['App']['GetStartupError']();
+}
+
 export function GetTodo(arg1) {
   return window['go']['main']['App']['GetTodo'](arg1);
 }
@@ -144,6 +148,10 @@ export function ImportImage(arg1) {
 
 export function ImportMarkdown() {
   return window['go']['main']['App']['ImportMarkdown']();
+}
+
+export function IsCoreReady() {
+  return window['go']['main']['App']['IsCoreReady']();
 }
 
 export function IsFirstRun() {
