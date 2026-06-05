@@ -8,7 +8,7 @@
 
  Author: LockNote.app <support@locknote.app>
 
- ![LockNote.app Screenshot](./screenshot/screen.png)
+ ![LockNote.app Screenshot](./screenshot/locknote-screen-en.png)
 
 ## Features
 
