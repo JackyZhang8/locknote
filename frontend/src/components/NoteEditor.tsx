@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import type { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useStore, EditorMode } from '../store';
-import { useI18n } from '../i18n';
+import { formatMessage, useI18n } from '../i18n';
 import { attachmentMarkdown, fileToDataURL, markdownUrlTransform, parseAttachmentId } from '../imageAttachments';
 import { notes, tags } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
@@ -67,10 +67,26 @@ const markdownComponents: Components = {
   img: AttachmentImage,
 };
 
-export function NoteEditor() {
+interface NoteEditorProps {
+  variant?: 'workspace' | 'modal';
+  note?: notes.Note | null;
+  onNoteChange?: (note: notes.Note | null) => void;
+  onNotesReloaded?: (notes: notes.Note[]) => void;
+  onRequestClose?: () => void;
+  closeRequestToken?: number;
+}
+
+export function NoteEditor({
+  variant = 'workspace',
+  note,
+  onNoteChange,
+  onNotesReloaded,
+  onRequestClose,
+  closeRequestToken,
+}: NoteEditorProps = {}) {
   const {
-    selectedNote,
-    setSelectedNote,
+    selectedNote: storeSelectedNote,
+    setSelectedNote: setStoreSelectedNote,
     editorMode,
     setEditorMode,
     tags: allTags,
@@ -78,6 +94,8 @@ export function NoteEditor() {
   } = useStore();
 
   const { t, language } = useI18n();
+  const isControlledNote = note !== undefined;
+  const selectedNote = isControlledNote ? note : storeSelectedNote;
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -91,6 +109,14 @@ export function NoteEditor() {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tagMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const updateSelectedNote = useCallback((nextNote: notes.Note | null) => {
+    if (isControlledNote) {
+      onNoteChange?.(nextNote);
+      return;
+    }
+    setStoreSelectedNote(nextNote);
+  }, [isControlledNote, onNoteChange, setStoreSelectedNote]);
 
   useEffect(() => {
     if (selectedNote) {
@@ -169,22 +195,26 @@ export function NoteEditor() {
     };
   }, [showHistory, confirmRestoreId]);
 
-  const saveNote = useCallback(async () => {
-    if (!selectedNote) return;
+  const saveNote = useCallback(async (): Promise<boolean> => {
+    if (!selectedNote) return true;
 
     setIsSaving(true);
     try {
       const updated = await App.UpdateNote(selectedNote.id, title, content);
-      setSelectedNote(updated);
+      updateSelectedNote(updated);
       const notesList = await App.ListNotes();
-      setNotes(notesList || []);
+      const safeNotes = notesList || [];
+      setNotes(safeNotes);
+      onNotesReloaded?.(safeNotes);
+      return true;
     } catch (error) {
       console.error('Failed to save note:', error);
       alert(`${t.common.error}：${String(error)}`);
+      return false;
     } finally {
       setIsSaving(false);
     }
-  }, [selectedNote, title, content, setSelectedNote, setNotes]);
+  }, [selectedNote, title, content, updateSelectedNote, setNotes, onNotesReloaded, t.common.error]);
 
   useEffect(() => {
     if (!selectedNote) return;
@@ -212,9 +242,11 @@ export function NoteEditor() {
     try {
       await App.AddTagToNote(selectedNote.id, tag.id);
       const updated = await App.GetNote(selectedNote.id);
-      setSelectedNote(updated);
+      updateSelectedNote(updated);
       const notesList = await App.ListNotes();
-      setNotes(notesList || []);
+      const safeNotes = notesList || [];
+      setNotes(safeNotes);
+      onNotesReloaded?.(safeNotes);
     } catch (error) {
       console.error('Failed to add tag:', error);
     }
@@ -226,9 +258,11 @@ export function NoteEditor() {
     try {
       await App.RemoveTagFromNote(selectedNote.id, tagId);
       const updated = await App.GetNote(selectedNote.id);
-      setSelectedNote(updated);
+      updateSelectedNote(updated);
       const notesList = await App.ListNotes();
-      setNotes(notesList || []);
+      const safeNotes = notesList || [];
+      setNotes(safeNotes);
+      onNotesReloaded?.(safeNotes);
     } catch (error) {
       console.error('Failed to remove tag:', error);
     }
@@ -255,7 +289,7 @@ export function NoteEditor() {
 
     try {
       const restored = await App.RestoreNoteFromHistory(selectedNote.id, confirmRestoreId);
-      setSelectedNote(restored);
+      updateSelectedNote(restored);
       setTitle(restored.title);
       setContent(restored.content);
       setConfirmRestoreId(null);
@@ -488,6 +522,25 @@ export function NoteEditor() {
     });
   };
 
+  const handleRequestClose = async () => {
+    if (!onRequestClose) return;
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    if (selectedNote && (title !== selectedNote.title || content !== selectedNote.content)) {
+      const saved = await saveNote();
+      if (!saved) return;
+    }
+    onRequestClose();
+  };
+
+  useEffect(() => {
+    if (!closeRequestToken) return;
+    handleRequestClose();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closeRequestToken]);
+
   const modeButtons: { mode: EditorMode; icon: React.ReactNode; label: string }[] = [
     { mode: 'edit', icon: <Edit3 className="w-4 h-4" />, label: t.editor.edit },
     { mode: 'preview', icon: <Eye className="w-4 h-4" />, label: t.editor.preview },
@@ -512,13 +565,14 @@ export function NoteEditor() {
   const contentFontSize = `${0.875 * fontScale}rem`;
   const previewFontSize = `${1 * fontScale}rem`;
   const fontPercent = `${Math.round(fontScale * 100)}%`;
+  const bodyCharacterCount = content.trim().length;
 
   const handleCreateNewNote = async () => {
     try {
       const note = await App.CreateNote(t.noteList.newNote, '');
       const updatedNotes = await App.ListNotes();
       setNotes(updatedNotes || []);
-      setSelectedNote(note);
+      updateSelectedNote(note);
       setEditorMode('edit');
     } catch (error) {
       console.error('Failed to create note:', error);
@@ -528,25 +582,27 @@ export function NoteEditor() {
 
   if (!selectedNote) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50 relative">
+      <div className={`${variant === 'modal' ? 'flex h-full min-h-0' : 'flex-1 flex'} items-center justify-center bg-gray-50 relative`}>
         <div className="text-center text-gray-400">
           <Edit3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p>{t.editor.selectNote}</p>
           <p className="text-sm mt-1">{t.editor.selectNoteTip}</p>
         </div>
-        <button
-          onClick={handleCreateNewNote}
-          className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-accent text-white shadow-lg hover:bg-primary-600 hover:shadow-xl transition-all flex items-center justify-center group"
-          title={t.noteList.newNote}
-        >
-          <Plus className="w-6 h-6 group-hover:scale-110 transition-transform" />
-        </button>
+        {variant === 'workspace' ? (
+          <button
+            onClick={handleCreateNewNote}
+            className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-accent text-white shadow-lg hover:bg-primary-600 hover:shadow-xl transition-all flex items-center justify-center group"
+            title={t.noteList.newNote}
+          >
+            <Plus className="w-6 h-6 group-hover:scale-110 transition-transform" />
+          </button>
+        ) : null}
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className={`${variant === 'modal' ? 'flex h-full min-h-0' : 'flex-1 flex'} flex-col bg-white`}>
       <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2">
           {modeButtons.map((btn) => (
@@ -567,6 +623,10 @@ export function NoteEditor() {
 
         <div className="flex items-center gap-2">
           {isSaving && <span className="text-xs text-gray-400">{t.common.loading}</span>}
+
+          <span className="whitespace-nowrap text-xs font-medium text-gray-400 select-none">
+            {formatMessage(t.editor.wordCount, { count: bodyCharacterCount })}
+          </span>
 
           <button
             onClick={handleZoomOut}
@@ -672,6 +732,7 @@ export function NoteEditor() {
           >
             <Download className="w-4 h-4" />
           </button>
+
         </div>
       </div>
 

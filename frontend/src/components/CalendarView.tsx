@@ -9,9 +9,12 @@ import {
   FileText,
   Plus,
   RefreshCw,
+  X,
 } from 'lucide-react';
 import { formatMessage, useI18n } from '../i18n';
 import { useStore } from '../store';
+import { NoteEditor } from './NoteEditor';
+import { TodoDetailEditor } from './TodoDetailEditor';
 import {
   buildCalendarDayIndex,
   buildHeatMapWeeks,
@@ -117,13 +120,12 @@ function priorityDotClass(priority: string): string {
 
 export function CalendarView() {
   const {
-    setCurrentView,
+    editorMode,
     setEditorMode,
     setNotes,
     setSelectedNoteId,
     setSelectedNotebookId,
     setSelectedTagId,
-    setSelectedTodoId,
   } = useStore();
   const { t, language } = useI18n();
 
@@ -154,8 +156,18 @@ export function CalendarView() {
   const [isCreatingTodo, setIsCreatingTodo] = useState(false);
   const [showHeatMap, setShowHeatMap] = useState(false);
   const heatMapContainerRef = useRef<HTMLDivElement | null>(null);
+  const previousEditorModeRef = useRef(editorMode);
   const [heatMapColumnCount, setHeatMapColumnCount] = useState(() => getHeatMapColumnCapacity(0));
   const [hoveredHeatMapDay, setHoveredHeatMapDay] = useState<CalendarDaySummary | null>(null);
+  const modalNoteRequestRef = useRef(0);
+  const [modalHeaderNote, setModalHeaderNote] = useState<notes.Note | null>(null);
+  const [modalNote, setModalNote] = useState<notes.Note | null>(null);
+  const [isLoadingModalNote, setIsLoadingModalNote] = useState(false);
+  const [modalNoteError, setModalNoteError] = useState<string | null>(null);
+  const [noteModalCloseRequest, setNoteModalCloseRequest] = useState(0);
+  const [modalTodo, setModalTodo] = useState<todos.Todo | null>(null);
+  const [modalTodoError, setModalTodoError] = useState<string | null>(null);
+  const [isLoadingModalTodo, setIsLoadingModalTodo] = useState(false);
 
   const loadCalendarData = async () => {
     setLoading(true);
@@ -238,16 +250,71 @@ export function CalendarView() {
   };
 
   const openNote = (note: notes.Note) => {
-    setSelectedTagId(null);
-    setSelectedNotebookId(null);
-    setSelectedNoteId(note.id);
-    setEditorMode('edit');
-    setCurrentView('notes');
+    const requestId = ++modalNoteRequestRef.current;
+    previousEditorModeRef.current = editorMode;
+    setEditorMode('preview');
+    setModalHeaderNote(note);
+    setModalNote(null);
+    setModalNoteError(null);
+    setIsLoadingModalNote(true);
+    App.GetNote(note.id)
+      .then((fullNote) => {
+        if (requestId !== modalNoteRequestRef.current) return;
+        setModalHeaderNote(fullNote);
+        setModalNote(fullNote);
+      })
+      .catch((noteError) => {
+        if (requestId !== modalNoteRequestRef.current) return;
+        setModalNoteError(String(noteError));
+      })
+      .finally(() => {
+        if (requestId !== modalNoteRequestRef.current) return;
+        setIsLoadingModalNote(false);
+      });
+  };
+
+  const closeNoteModal = () => {
+    ++modalNoteRequestRef.current;
+    setModalHeaderNote(null);
+    setModalNote(null);
+    setIsLoadingModalNote(false);
+    setModalNoteError(null);
+    setEditorMode(previousEditorModeRef.current);
+    loadCalendarData();
+  };
+
+  const handleRequestCloseNoteModal = () => {
+    setNoteModalCloseRequest((value) => value + 1);
   };
 
   const openTodo = (todo: todos.Todo) => {
-    setSelectedTodoId(todo.id);
-    setCurrentView('todos');
+    setModalTodo(todo);
+    setModalTodoError(null);
+    setIsLoadingModalTodo(true);
+    App.GetTodo(todo.id)
+      .then((fullTodo) => {
+        setModalTodo(fullTodo);
+      })
+      .catch((todoError) => {
+        setModalTodoError(String(todoError));
+      })
+      .finally(() => {
+        setIsLoadingModalTodo(false);
+      });
+  };
+
+  const closeTodoModal = () => {
+    setModalTodo(null);
+    setModalTodoError(null);
+    setIsLoadingModalTodo(false);
+    loadCalendarData();
+  };
+
+  const handleReloadModalTodo = async (preferredTodoId?: string | null) => {
+    const todosList = await App.ListTodos();
+    setTodoItems(todosList || []);
+    const nextTodo = (todosList || []).find((todo) => todo.id === (preferredTodoId || modalTodo?.id)) || null;
+    setModalTodo(nextTodo);
   };
 
   const handleCreateNote = async () => {
@@ -262,8 +329,12 @@ export function CalendarView() {
       setSelectedTagId(null);
       setSelectedNotebookId(null);
       setSelectedNoteId(created.id);
+      ++modalNoteRequestRef.current;
+      previousEditorModeRef.current = editorMode;
       setEditorMode('edit');
-      setCurrentView('notes');
+      setModalHeaderNote(created);
+      setModalNote(created);
+      setModalNoteError(null);
     } catch (createError) {
       setError(String(createError));
     } finally {
@@ -280,7 +351,7 @@ export function CalendarView() {
       const created = await App.CreateTodo(title, 'medium', selectedDateKey);
       const todosList = await App.ListTodos();
       setTodoItems(todosList || []);
-      setSelectedTodoId(created.id);
+      setModalTodo(created);
       setNewTodoTitle('');
       setShowNewTodoInput(false);
     } catch (createError) {
@@ -639,6 +710,91 @@ export function CalendarView() {
           </div>
         </div>
       </div>
+      {modalHeaderNote ? (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-gray-900/45 p-4"
+        >
+          <div className="flex h-[min(86vh,820px)] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+              <div className="min-w-0">
+                <div className="text-xs font-medium uppercase text-gray-400">{t.calendar.notePreview}</div>
+                <div className="line-clamp-1 text-sm font-semibold text-gray-900">
+                  {(modalNote || modalHeaderNote).title || t.noteList.untitled}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleRequestCloseNoteModal}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                title={t.common.close}
+                aria-label={t.common.close}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1">
+              {isLoadingModalNote && !modalNote ? (
+                <div className="flex h-full items-center justify-center bg-white text-sm text-gray-400">
+                  {t.common.loading}
+                </div>
+              ) : modalNoteError ? (
+                <div className="flex h-full items-center justify-center bg-white px-6 text-sm text-red-600">
+                  {t.calendar.loadFailed}: {modalNoteError}
+                </div>
+              ) : (
+                <NoteEditor
+                  variant="modal"
+                  note={modalNote}
+                  onNoteChange={setModalNote}
+                  onNotesReloaded={setNoteItems}
+                  onRequestClose={closeNoteModal}
+                  closeRequestToken={noteModalCloseRequest}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {modalTodo ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-gray-900/45 p-4">
+          <div className="flex h-[min(82vh,720px)] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+              <div className="min-w-0">
+                <div className="text-xs font-medium uppercase text-gray-400">{t.calendar.todoPreview}</div>
+                <div className="line-clamp-1 text-sm font-semibold text-gray-900">
+                  {modalTodo.title || t.todos.newTodo}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeTodoModal}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                title={t.common.close}
+                aria-label={t.common.close}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1">
+              {isLoadingModalTodo ? (
+                <div className="flex h-full items-center justify-center bg-white text-sm text-gray-400">
+                  {t.common.loading}
+                </div>
+              ) : modalTodoError ? (
+                <div className="flex h-full items-center justify-center bg-white px-6 text-sm text-red-600">
+                  {t.calendar.loadFailed}: {modalTodoError}
+                </div>
+              ) : (
+                <TodoDetailEditor
+                  todo={modalTodo}
+                  emptyClassName="h-full"
+                  onReload={handleReloadModalTodo}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

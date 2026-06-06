@@ -9,3 +9,4 @@
 /tests
 /.tmp-go-build-cache/
 /dev.sh
+.relaycat/
