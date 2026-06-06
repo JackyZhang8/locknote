@@ -109,6 +109,7 @@ export function NoteEditor({
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tagMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const previousCloseRequestTokenRef = useRef(closeRequestToken);
 
   const updateSelectedNote = useCallback((nextNote: notes.Note | null) => {
     if (isControlledNote) {
@@ -536,6 +537,8 @@ export function NoteEditor({
   };
 
   useEffect(() => {
+    if (closeRequestToken === previousCloseRequestTokenRef.current) return;
+    previousCloseRequestTokenRef.current = closeRequestToken;
     if (!closeRequestToken) return;
     handleRequestClose();
   // eslint-disable-next-line react-hooks/exhaustive-deps

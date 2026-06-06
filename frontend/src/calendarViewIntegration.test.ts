@@ -75,6 +75,17 @@ test('calendar note modal owns the close button in the title bar', () => {
   assert.equal(editorCloseStart, -1);
 });
 
+test('modal note editor ignores a stale close request token from a previous mount', () => {
+  assert.equal(/const previousCloseRequestTokenRef = useRef\(closeRequestToken\)/.test(noteEditorSource), true);
+
+  const closeTokenEffectStart = noteEditorSource.indexOf('useEffect(() => {\n    if (closeRequestToken === previousCloseRequestTokenRef.current) return;');
+  assert.equal(closeTokenEffectStart !== -1, true);
+  const closeTokenEffectEnd = noteEditorSource.indexOf('  }, [closeRequestToken', closeTokenEffectStart);
+  const closeTokenEffectSource = noteEditorSource.slice(closeTokenEffectStart, closeTokenEffectEnd);
+  assert.equal(/previousCloseRequestTokenRef\.current = closeRequestToken/.test(closeTokenEffectSource), true);
+  assert.equal(/handleRequestClose\(\)/.test(closeTokenEffectSource), true);
+});
+
 test('calendar todo rows open an in-place editor modal instead of navigating to todos', () => {
   assert.equal(/const \[modalTodo, setModalTodo\]/.test(calendarViewSource), true);
   assert.equal(/const \[modalTodoError, setModalTodoError\]/.test(calendarViewSource), true);
