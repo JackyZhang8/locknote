@@ -4,7 +4,6 @@ import { Sidebar } from './Sidebar';
 import { NoteList } from './NoteList';
 import { NoteEditor } from './NoteEditor';
 import { SearchView } from './SearchView';
-import { TagsView } from './TagsView';
 import { SettingsView } from './SettingsView';
 import { CommandPalette } from './CommandPalette';
 import { TodoWorkspace } from './TodoWorkspace';
@@ -103,8 +102,6 @@ export function MainLayout() {
         );
       case 'search':
         return <SearchView />;
-      case 'tags':
-        return <TagsView />;
       case 'todos':
         return <TodoWorkspace />;
       case 'calendar':

@@ -3,6 +3,7 @@ import { Search, X, Loader2, Folder } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useStore } from '../store';
 import { formatMessage, useI18n } from '../i18n';
+import { TagsPanel } from './TagsView';
 import { notes as notesModel } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
 
@@ -109,144 +110,149 @@ export function SearchView() {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
-      <div className="p-6 border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              ref={searchRef}
-              type="text"
-              value={localQuery}
-              onChange={(e) => setLocalQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-              placeholder={t.search.placeholder}
-            />
-            {localQuery && (
-              <button
-                onClick={() => {
-                  setLocalQuery('');
-                  setSearchResults([]);
-                }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
+    <div className="flex-1 grid min-h-0 bg-white lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+      <section className="min-w-0 flex flex-col overflow-hidden">
+        <div className="p-6 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                ref={searchRef}
+                type="text"
+                value={localQuery}
+                onChange={(e) => setLocalQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+                placeholder={t.search.placeholder}
+              />
+              {localQuery && (
+                <button
+                  onClick={() => {
+                    setLocalQuery('');
+                    setSearchResults([]);
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={handleSearch}
+              disabled={isSearching || !localQuery.trim()}
+              className="px-6 py-3 bg-accent text-white rounded-xl font-medium hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {t.common.search}
+            </button>
           </div>
-          <button
-            onClick={handleSearch}
-            disabled={isSearching || !localQuery.trim()}
-            className="px-6 py-3 bg-accent text-white rounded-xl font-medium hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {t.common.search}
-          </button>
+
+          {isSearching && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {t.search.searching} {searchProgress}%
+                </div>
+                <button onClick={handleCancel} className="text-sm text-red-500 hover:text-red-600">
+                  {t.common.cancel}
+                </button>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                <div
+                  className="bg-accent h-1.5 rounded-full transition-all"
+                  style={{ width: `${searchProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          <p className="text-sm text-gray-500 mt-3">
+            {formatMessage(t.search.shortcutTip, { shortcut: 'Cmd/Ctrl+K' })}
+          </p>
         </div>
 
-        {isSearching && (
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {t.search.searching} {searchProgress}%
-              </div>
-              <button onClick={handleCancel} className="text-sm text-red-500 hover:text-red-600">
-                {t.common.cancel}
-              </button>
+        <div className="flex-1 overflow-y-auto p-6" ref={listContainerRef}>
+          {searchResults.length === 0 && searchQuery && !isSearching ? (
+            <div className="text-center text-gray-400 py-12">
+              <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>{t.search.noResults}</p>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-1.5">
+          ) : searchResults.length > 0 ? (
+            <div>
+              <p className="text-sm text-gray-500 mb-4">
+                {formatMessage(t.search.resultsCount, { count: searchResults.length })}
+              </p>
               <div
-                className="bg-accent h-1.5 rounded-full transition-all"
-                style={{ width: `${searchProgress}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        <p className="text-sm text-gray-500 mt-3">
-          {formatMessage(t.search.shortcutTip, { shortcut: 'Cmd/Ctrl+K' })}
-        </p>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-6" ref={listContainerRef}>
-        {searchResults.length === 0 && searchQuery && !isSearching ? (
-          <div className="text-center text-gray-400 py-12">
-            <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>{t.search.noResults}</p>
-          </div>
-        ) : searchResults.length > 0 ? (
-          <div>
-            <p className="text-sm text-gray-500 mb-4">
-              {formatMessage(t.search.resultsCount, { count: searchResults.length })}
-            </p>
-            <div
-              style={{
-                height: `${virtualizer.getTotalSize()}px`,
-                width: '100%',
-                position: 'relative',
-              }}
-            >
-              {virtualizer.getVirtualItems().map((virtualRow) => {
-                const note = searchResults[virtualRow.index];
-                const notebookName = getNotebookName(note.notebookId);
-                return (
-                  <div
-                    key={note.id}
-                    data-index={virtualRow.index}
-                    ref={virtualizer.measureElement}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
-                  >
+                style={{
+                  height: `${virtualizer.getTotalSize()}px`,
+                  width: '100%',
+                  position: 'relative',
+                }}
+              >
+                {virtualizer.getVirtualItems().map((virtualRow) => {
+                  const note = searchResults[virtualRow.index];
+                  const notebookName = getNotebookName(note.notebookId);
+                  return (
                     <div
-                      onClick={() => handleSelectNote(note)}
-                      className="p-4 mb-3 border border-gray-200 rounded-xl hover:border-accent hover:bg-primary-50 cursor-pointer transition-all"
+                      key={note.id}
+                      data-index={virtualRow.index}
+                      ref={virtualizer.measureElement}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
                     >
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-gray-800 flex-1">
-                          {highlightText(note.title || t.noteList.untitled, localQuery)}
-                        </h3>
-                        {notebookName && (
-                          <span className="text-xs text-gray-400 flex items-center gap-1">
-                            <Folder className="w-3 h-3" />
-                            {notebookName}
-                          </span>
+                      <div
+                        onClick={() => handleSelectNote(note)}
+                        className="p-4 mb-3 border border-gray-200 rounded-xl hover:border-accent hover:bg-primary-50 cursor-pointer transition-all"
+                      >
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-gray-800 flex-1">
+                            {highlightText(note.title || t.noteList.untitled, localQuery)}
+                          </h3>
+                          {notebookName && (
+                            <span className="text-xs text-gray-400 flex items-center gap-1">
+                              <Folder className="w-3 h-3" />
+                              {notebookName}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-500 mt-2 line-clamp-2">
+                          {highlightText(note.content?.substring(0, 200) || t.noteList.noContent, localQuery)}
+                        </p>
+                        {note.tags && note.tags.length > 0 && (
+                          <div className="flex gap-1 mt-2">
+                            {note.tags.map((tag) => (
+                              <span
+                                key={tag.id}
+                                className="text-xs px-2 py-0.5 rounded"
+                                style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                              >
+                                {tag.name}
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </div>
-                      <p className="text-sm text-gray-500 mt-2 line-clamp-2">
-                        {highlightText(note.content?.substring(0, 200) || t.noteList.noContent, localQuery)}
-                      </p>
-                      {note.tags && note.tags.length > 0 && (
-                        <div className="flex gap-1 mt-2">
-                          {note.tags.map((tag) => (
-                            <span
-                              key={tag.id}
-                              className="text-xs px-2 py-0.5 rounded"
-                              style={{ backgroundColor: tag.color + '20', color: tag.color }}
-                            >
-                              {tag.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="text-center text-gray-400 py-12">
-            <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>{t.search.startSearch}</p>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="text-center text-gray-400 py-12">
+              <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>{t.search.startSearch}</p>
+            </div>
+          )}
+        </div>
+      </section>
+      <aside className="min-w-0 border-t border-gray-100 bg-gray-50/60 lg:border-l lg:border-t-0">
+        <TagsPanel embedded />
+      </aside>
     </div>
   );
 }

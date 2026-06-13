@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, X, Check } from 'lucide-react';
 import { useStore } from '../store';
-import { formatMessage, useI18n } from '../i18n';
+import { useI18n } from '../i18n';
 import * as App from '../../wailsjs/go/main/App';
 
 const COLORS = [
@@ -9,25 +9,52 @@ const COLORS = [
   '#ef4444', '#06b6d4', '#84cc16', '#6366f1', '#f97316',
 ];
 
-export function TagsView() {
+interface TagsPanelProps {
+  embedded?: boolean;
+}
+
+export function TagsPanel({ embedded = false }: TagsPanelProps) {
   const { tags, notes, setTags, setCurrentView, setSelectedTagId, setNotes, selectedNote, setSelectedNote } = useStore();
   const { t } = useI18n();
-  const [showCreate, setShowCreate] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [tagDialogMode, setTagDialogMode] = useState<'create' | 'edit' | null>(null);
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [color, setColor] = useState(COLORS[0]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isEditingTags, setIsEditingTags] = useState(false);
 
   const getNoteCountForTag = (tagId: string) => {
     return notes.filter((n) => n.tags?.some((t) => t.id === tagId)).length;
   };
 
+  const closeTagDialog = () => {
+    setTagDialogMode(null);
+    setEditingTagId(null);
+    setName('');
+    setColor(COLORS[0]);
+  };
+
+  const openCreateDialog = () => {
+    setTagDialogMode('create');
+    setEditingTagId(null);
+    setName('');
+    setColor(COLORS[0]);
+  };
+
+  const openEditDialog = (tag: { id: string; name: string; color: string }) => {
+    setTagDialogMode('edit');
+    setEditingTagId(tag.id);
+    setName(tag.name);
+    setColor(tag.color);
+  };
+
   useEffect(() => {
-    if (!confirmDeleteId) return;
+    if (!confirmDeleteId && !tagDialogMode) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setConfirmDeleteId(null);
+        if (confirmDeleteId) setConfirmDeleteId(null);
+        if (tagDialogMode) closeTagDialog();
       }
     };
 
@@ -35,41 +62,39 @@ export function TagsView() {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [confirmDeleteId]);
+  }, [confirmDeleteId, tagDialogMode]);
+
+  const refreshTagPageData = async () => {
+    const updatedTags = await App.ListTags();
+    setTags(updatedTags || []);
+    const notesList = await App.ListNotes();
+    setNotes(notesList || []);
+    if (selectedNote) {
+      const updated = await App.GetNote(selectedNote.id);
+      setSelectedNote(updated);
+    }
+  };
 
   const handleCreate = async () => {
     if (!name.trim()) return;
 
     try {
       await App.CreateTag(name.trim(), color);
-      const updatedTags = await App.ListTags();
-      setTags(updatedTags || []);
-      setName('');
-      setColor(COLORS[0]);
-      setShowCreate(false);
+      await refreshTagPageData();
+      closeTagDialog();
     } catch (error) {
       console.error('Failed to create tag:', error);
       alert(`${t.common.error}：${String(error)}`);
     }
   };
 
-  const handleUpdate = async (id: string) => {
-    if (!name.trim()) return;
+  const handleUpdate = async () => {
+    if (!editingTagId || !name.trim()) return;
 
     try {
-      await App.UpdateTag(id, name.trim(), color);
-      const updatedTags = await App.ListTags();
-      setTags(updatedTags || []);
-      const notesList = await App.ListNotes();
-      setNotes(notesList || []);
-      // 如果当前有选中的笔记，刷新它以更新标签信息
-      if (selectedNote) {
-        const updated = await App.GetNote(selectedNote.id);
-        setSelectedNote(updated);
-      }
-      setEditingId(null);
-      setName('');
-      setColor(COLORS[0]);
+      await App.UpdateTag(editingTagId, name.trim(), color);
+      await refreshTagPageData();
+      closeTagDialog();
     } catch (error) {
       console.error('Failed to update tag:', error);
       alert(`${t.common.error}：${String(error)}`);
@@ -87,26 +112,11 @@ export function TagsView() {
 
     try {
       await App.DeleteTag(tagId);
-      const updatedTags = await App.ListTags();
-      setTags(updatedTags || []);
-      const notesList = await App.ListNotes();
-      setNotes(notesList || []);
-      // 如果当前有选中的笔记，刷新它以更新标签信息
-      if (selectedNote) {
-        const updated = await App.GetNote(selectedNote.id);
-        setSelectedNote(updated);
-      }
+      await refreshTagPageData();
     } catch (error) {
       console.error('Failed to delete tag:', error);
       alert(`${t.common.error}：${String(error)}`);
     }
-  };
-
-  const startEdit = (tag: { id: string; name: string; color: string }) => {
-    setEditingId(tag.id);
-    setName(tag.name);
-    setColor(tag.color);
-    setShowCreate(false);
   };
 
   const handleViewNotes = (tagId: string) => {
@@ -115,37 +125,124 @@ export function TagsView() {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
-      <div className="p-6 border-b border-gray-100">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-800">{t.tags.title}</h2>
+    <div className={`${embedded ? 'h-full' : 'flex-1'} flex flex-col bg-white`}>
+      <div className={`${embedded ? 'p-5' : 'p-6'} border-b border-gray-100`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className={`${embedded ? 'text-lg' : 'text-xl'} font-semibold text-gray-800`}>{t.tags.title}</h2>
             <p className="text-sm text-gray-500 mt-1">{t.tags.subtitle}</p>
           </div>
-          <button
-            onClick={() => {
-              setShowCreate(true);
-              setEditingId(null);
-              setName('');
-              setColor(COLORS[0]);
-            }}
-            className="px-4 py-2 bg-accent text-white rounded-lg font-medium hover:bg-primary-600 transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            {t.tags.newTag}
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {tags.length > 0 && (
+              <button
+                onClick={() => setIsEditingTags((editing) => !editing)}
+                aria-pressed={isEditingTags}
+                className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  isEditingTags
+                    ? 'border-accent bg-primary-50 text-accent'
+                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {isEditingTags ? t.common.finish : t.common.edit}
+              </button>
+            )}
+            <button
+              onClick={openCreateDialog}
+              className="flex items-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600"
+            >
+              <Plus className="w-4 h-4" />
+              {t.tags.newTag}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        {(showCreate || editingId) && (
-          <div className="mb-6 p-3 border border-gray-200 rounded-xl bg-gray-50">
-            <h3 className="text-sm font-medium text-gray-800 mb-3">
-              {editingId ? t.tags.editTag : t.tags.newTag}
-            </h3>
-            <div className="space-y-3">
+      <div className={`${embedded ? 'p-5' : 'p-6'} flex-1 overflow-y-auto`}>
+        {tags.length === 0 ? (
+          <div className="text-center text-gray-400 py-12">
+            <p>{t.tags.noTags}</p>
+            <p className="text-sm mt-1">{t.tags.createTagTip}</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {tags.map((tag) => (
+              <div
+                key={tag.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => handleViewNotes(tag.id)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  handleViewNotes(tag.id);
+                }}
+                className="group flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-gray-200 hover:bg-gray-50"
+              >
+                <span
+                  className="h-3.5 w-3.5 flex-shrink-0 rounded-full"
+                  style={{ backgroundColor: tag.color }}
+                />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800">{tag.name}</span>
+                <span className="min-w-[2rem] text-right text-xs tabular-nums text-gray-400">
+                  {getNoteCountForTag(tag.id)}篇
+                </span>
+                {isEditingTags && (
+                  <span className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openEditDialog(tag);
+                      }}
+                      className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleDeleteClick(tag.id);
+                      }}
+                      className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {tagDialogMode && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
+          onClick={closeTagDialog}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-[420px] bg-white rounded-xl shadow-xl border border-gray-200 p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <h3 className="text-sm font-semibold text-gray-900">
+                {tagDialogMode === 'edit' ? t.tags.editTag : t.tags.newTag}
+              </h3>
+              <button
+                onClick={closeTagDialog}
+                title={t.common.close}
+                aria-label={t.common.close}
+                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t.tags.tagName}</label>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700">{t.tags.tagName}</label>
                 <input
                   type="text"
                   value={name}
@@ -153,110 +250,60 @@ export function TagsView() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      if (editingId) {
-                        handleUpdate(editingId);
+                      if (tagDialogMode === 'edit') {
+                        handleUpdate();
                       } else {
                         handleCreate();
                       }
                     }
                     if (e.key === 'Escape') {
                       e.preventDefault();
-                      setShowCreate(false);
-                      setEditingId(null);
-                      setName('');
-                      setColor(COLORS[0]);
+                      closeTagDialog();
                     }
                   }}
-                  className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent"
                   placeholder={t.tags.tagNamePlaceholder}
                   autoFocus
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t.tags.tagColor}</label>
-                <div className="flex gap-2 flex-wrap">
+                <label className="mb-2 block text-xs font-medium text-gray-700">{t.tags.tagColor}</label>
+                <div className="flex flex-wrap gap-2">
                   {COLORS.map((c) => (
                     <button
                       key={c}
+                      type="button"
                       onClick={() => setColor(c)}
-                      className={`w-6 h-6 rounded-full transition-all ${
+                      className={`h-7 w-7 rounded-full transition-all ${
                         color === c ? 'ring-2 ring-offset-2 ring-gray-400' : ''
                       }`}
                       style={{ backgroundColor: c }}
+                      aria-label={c}
                     />
                   ))}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <button
-                  onClick={() => (editingId ? handleUpdate(editingId) : handleCreate())}
-                  disabled={!name.trim()}
-                  className="px-3 py-1.5 text-sm bg-accent text-white rounded-md font-medium hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+                  onClick={closeTagDialog}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100"
                 >
-                  <Check className="w-3.5 h-3.5" />
-                  {editingId ? t.common.save : t.common.create}
+                  <X className="h-3.5 w-3.5" />
+                  {t.common.cancel}
                 </button>
                 <button
-                  onClick={() => {
-                    setShowCreate(false);
-                    setEditingId(null);
-                    setName('');
-                    setColor(COLORS[0]);
-                  }}
-                  className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded-md transition-colors flex items-center gap-1.5"
+                  onClick={() => (tagDialogMode === 'edit' ? handleUpdate() : handleCreate())}
+                  disabled={!name.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <X className="w-3.5 h-3.5" />
-                  {t.common.cancel}
+                  <Check className="h-3.5 w-3.5" />
+                  {tagDialogMode === 'edit' ? t.common.save : t.common.create}
                 </button>
               </div>
             </div>
           </div>
-        )}
-
-        {tags.length === 0 ? (
-          <div className="text-center text-gray-400 py-12">
-            <p>{t.tags.noTags}</p>
-            <p className="text-sm mt-1">{t.tags.createTagTip}</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {tags.map((tag) => (
-              <div
-                key={tag.id}
-                className="p-4 border border-gray-200 rounded-xl hover:border-gray-300 transition-colors"
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <span
-                    className="w-4 h-4 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: tag.color }}
-                  />
-                  <span className="font-medium text-gray-800 truncate">{tag.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleViewNotes(tag.id)}
-                    className="flex-1 px-3 py-1.5 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    {formatMessage(t.tags.notesWithTag, { count: getNoteCountForTag(tag.id) })}
-                  </button>
-                  <button
-                    onClick={() => startEdit(tag)}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteClick(tag.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {confirmDeleteId && (
         <div
@@ -288,4 +335,8 @@ export function TagsView() {
       )}
     </div>
   );
+}
+
+export function TagsView() {
+  return <TagsPanel />;
 }

@@ -165,6 +165,7 @@ export function CalendarView() {
   const [isLoadingModalNote, setIsLoadingModalNote] = useState(false);
   const [modalNoteError, setModalNoteError] = useState<string | null>(null);
   const [noteModalCloseRequest, setNoteModalCloseRequest] = useState(0);
+  const modalTodoRequestRef = useRef(0);
   const [modalTodo, setModalTodo] = useState<todos.Todo | null>(null);
   const [modalTodoError, setModalTodoError] = useState<string | null>(null);
   const [isLoadingModalTodo, setIsLoadingModalTodo] = useState(false);
@@ -288,22 +289,27 @@ export function CalendarView() {
   };
 
   const openTodo = (todo: todos.Todo) => {
+    const requestId = ++modalTodoRequestRef.current;
     setModalTodo(todo);
     setModalTodoError(null);
     setIsLoadingModalTodo(true);
     App.GetTodo(todo.id)
       .then((fullTodo) => {
+        if (requestId !== modalTodoRequestRef.current) return;
         setModalTodo(fullTodo);
       })
       .catch((todoError) => {
+        if (requestId !== modalTodoRequestRef.current) return;
         setModalTodoError(String(todoError));
       })
       .finally(() => {
+        if (requestId !== modalTodoRequestRef.current) return;
         setIsLoadingModalTodo(false);
       });
   };
 
   const closeTodoModal = () => {
+    ++modalTodoRequestRef.current;
     setModalTodo(null);
     setModalTodoError(null);
     setIsLoadingModalTodo(false);

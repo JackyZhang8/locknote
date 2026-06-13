@@ -12,6 +12,10 @@ import * as App from '../../wailsjs/go/main/App';
 const FONT_SCALE_STORAGE_KEY = 'locknote-editor-font-scale';
 const MIN_FONT_SCALE = 0.8;
 const MAX_FONT_SCALE = 1.8;
+const TAG_COLORS = [
+  '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b',
+  '#ef4444', '#06b6d4', '#84cc16', '#6366f1', '#f97316',
+];
 
 function AttachmentImage({ src, alt, title }: ImgHTMLAttributes<HTMLImageElement>) {
   const attachmentId = parseAttachmentId(src);
@@ -90,6 +94,7 @@ export function NoteEditor({
     editorMode,
     setEditorMode,
     tags: allTags,
+    setTags,
     setNotes,
   } = useStore();
 
@@ -101,6 +106,9 @@ export function NoteEditor({
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showTagMenu, setShowTagMenu] = useState(false);
+  const [showCreateTagDialog, setShowCreateTagDialog] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0]);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<notes.Note[]>([]);
   const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(null);
@@ -118,6 +126,12 @@ export function NoteEditor({
     }
     setStoreSelectedNote(nextNote);
   }, [isControlledNote, onNoteChange, setStoreSelectedNote]);
+
+  const closeCreateTagDialog = () => {
+    setShowCreateTagDialog(false);
+    setNewTagName('');
+    setNewTagColor(TAG_COLORS[0]);
+  };
 
   useEffect(() => {
     if (selectedNote) {
@@ -154,6 +168,7 @@ export function NoteEditor({
     if (!showTagMenu) return;
 
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      if (showCreateTagDialog) return;
       const container = tagMenuContainerRef.current;
       if (!container) return;
       if (container.contains(event.target as Node)) return;
@@ -161,6 +176,7 @@ export function NoteEditor({
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (showCreateTagDialog) return;
       if (event.key === 'Escape') {
         setShowTagMenu(false);
       }
@@ -175,7 +191,22 @@ export function NoteEditor({
       document.removeEventListener('touchstart', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [showTagMenu]);
+  }, [showTagMenu, showCreateTagDialog]);
+
+  useEffect(() => {
+    if (!showCreateTagDialog) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeCreateTagDialog();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showCreateTagDialog]);
 
   useEffect(() => {
     if (!showHistory && !confirmRestoreId) return;
@@ -266,6 +297,28 @@ export function NoteEditor({
       onNotesReloaded?.(safeNotes);
     } catch (error) {
       console.error('Failed to remove tag:', error);
+    }
+  };
+
+  const handleCreateTagFromEditor = async () => {
+    if (!selectedNote || !newTagName.trim()) return;
+
+    try {
+      const createdTag = await App.CreateTag(newTagName.trim(), newTagColor);
+      const updatedTags = await App.ListTags();
+      setTags(updatedTags || []);
+      await App.AddTagToNote(selectedNote.id, createdTag.id);
+      const updated = await App.GetNote(selectedNote.id);
+      updateSelectedNote(updated);
+      const notesList = await App.ListNotes();
+      const safeNotes = notesList || [];
+      setNotes(safeNotes);
+      onNotesReloaded?.(safeNotes);
+      closeCreateTagDialog();
+      setShowTagMenu(true);
+    } catch (error) {
+      console.error('Failed to create tag:', error);
+      alert(`${t.common.error}：${String(error)}`);
     }
   };
 
@@ -671,7 +724,7 @@ export function NoteEditor({
             </button>
 
             {showTagMenu && (
-              <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-20 min-w-[200px]">
+              <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-20 min-w-[220px]">
                 <div className="px-3 pb-2 border-b border-gray-100">
                   <p className="text-xs text-gray-500 font-medium">{t.editor.currentTags}</p>
                   <div className="flex flex-wrap gap-1 mt-2">
@@ -697,25 +750,39 @@ export function NoteEditor({
                   </div>
                 </div>
 
-                {availableTags.length > 0 && (
-                  <div className="px-3 pt-2">
-                    <p className="text-xs text-gray-500 font-medium mb-2">{t.editor.addTag}</p>
-                    {availableTags.map((tag) => (
-                      <button
-                        key={tag.id}
-                        onClick={() => handleAddTag(tag)}
-                        className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded flex items-center gap-2"
-                      >
-                        <span
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: tag.color }}
-                        />
-                        {tag.name}
-                        <Plus className="w-3 h-3 ml-auto text-gray-400" />
-                      </button>
-                    ))}
+                <div className="px-3 pt-2">
+                  <p className="text-xs text-gray-500 font-medium mb-2">{t.editor.addTag}</p>
+                  <div className="max-h-[24rem] overflow-y-auto">
+                    {availableTags.length === 0 ? (
+                      <div className="px-2 py-1.5 text-xs text-gray-400">{t.editor.noTags}</div>
+                    ) : (
+                      availableTags.map((tag) => (
+                        <button
+                          key={tag.id}
+                          onClick={() => handleAddTag(tag)}
+                          className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded flex items-center gap-2"
+                        >
+                          <span
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          <span className="min-w-0 flex-1 truncate">{tag.name}</span>
+                          <Plus className="w-3 h-3 ml-auto flex-shrink-0 text-gray-400" />
+                        </button>
+                      ))
+                    )}
                   </div>
-                )}
+                </div>
+
+                <div className="mt-2 border-t border-gray-100 px-3 pt-2">
+                  <button
+                    onClick={() => setShowCreateTagDialog(true)}
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-accent transition-colors hover:bg-primary-50"
+                  >
+                    <Plus className="h-3.5 w-3.5 flex-shrink-0" />
+                    {t.tags.newTag}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -793,6 +860,89 @@ export function NoteEditor({
           </div>
         )}
       </div>
+
+      {showCreateTagDialog && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 px-4"
+          onClick={closeCreateTagDialog}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-[420px] bg-white rounded-xl shadow-xl border border-gray-200 p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <h3 className="text-sm font-semibold text-gray-900">{t.tags.newTag}</h3>
+              <button
+                onClick={closeCreateTagDialog}
+                title={t.common.close}
+                aria-label={t.common.close}
+                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700">{t.tags.tagName}</label>
+                <input
+                  type="text"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleCreateTagFromEditor();
+                    }
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      closeCreateTagDialog();
+                    }
+                  }}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent"
+                  placeholder={t.tags.tagNamePlaceholder}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-medium text-gray-700">{t.tags.tagColor}</label>
+                <div className="flex flex-wrap gap-2">
+                  {TAG_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setNewTagColor(c)}
+                      className={`h-7 w-7 rounded-full transition-all ${
+                        newTagColor === c ? 'ring-2 ring-offset-2 ring-gray-400' : ''
+                      }`}
+                      style={{ backgroundColor: c }}
+                      aria-label={c}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  onClick={closeCreateTagDialog}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  {t.common.cancel}
+                </button>
+                <button
+                  onClick={handleCreateTagFromEditor}
+                  disabled={!newTagName.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  {t.common.create}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showHistory && (
         <div

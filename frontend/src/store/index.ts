@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { notes, tags, database, notebooks } from '../../wailsjs/go/models';
 
-export type ViewType = 'notes' | 'search' | 'tags' | 'settings' | 'recent' | 'todos' | 'images' | 'calendar';
+export type ViewType = 'notes' | 'search' | 'settings' | 'recent' | 'todos' | 'images' | 'calendar';
 export type EditorMode = 'edit' | 'preview' | 'split';
 
 interface AppState {

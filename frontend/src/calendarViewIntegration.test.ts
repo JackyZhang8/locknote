@@ -99,6 +99,22 @@ test('calendar todo rows open an in-place editor modal instead of navigating to 
   assert.equal(/App\.GetTodo\(todo\.id\)/.test(openTodoSource), true);
 });
 
+test('calendar todo modal ignores stale todo load results', () => {
+  assert.equal(/const modalTodoRequestRef = useRef\(0\)/.test(calendarViewSource), true);
+
+  const openTodoStart = calendarViewSource.indexOf('const openTodo = ');
+  const openTodoEnd = calendarViewSource.indexOf('const handleCreateNote = ', openTodoStart);
+  const openTodoSource = calendarViewSource.slice(openTodoStart, openTodoEnd);
+
+  assert.equal(/const requestId = \+\+modalTodoRequestRef\.current/.test(openTodoSource), true);
+  assert.equal(/if \(requestId !== modalTodoRequestRef\.current\) return;/.test(openTodoSource), true);
+
+  const closeTodoStart = calendarViewSource.indexOf('const closeTodoModal = ');
+  const closeTodoEnd = calendarViewSource.indexOf('const handleReloadModalTodo = ', closeTodoStart);
+  const closeTodoSource = calendarViewSource.slice(closeTodoStart, closeTodoEnd);
+  assert.equal(/\+\+modalTodoRequestRef\.current/.test(closeTodoSource), true);
+});
+
 test('calendar view keeps the month grid compact and moves activity details to the right side', () => {
   assert.equal(/lg:grid-cols-\[minmax\(260px,1fr\)_minmax\(0,3fr\)\]/.test(calendarViewSource), true);
 

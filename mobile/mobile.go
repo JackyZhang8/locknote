@@ -8,6 +8,7 @@ import (
 	"locknote/internal/core"
 	"locknote/internal/database"
 	"locknote/internal/notes"
+	"locknote/internal/smartviews"
 	"locknote/internal/tags"
 	"locknote/internal/todos"
 	"sync"
@@ -38,8 +39,8 @@ func mobileCall[T any](operation string, zero T, fn func() (T, error)) (value T,
 
 func mobileCallRead[T any](operation string, zero T, fn func() (T, error)) (value T, err error) {
 	value = zero
-	mobileMu.RLock()
-	defer mobileMu.RUnlock()
+	mobileMu.Lock()
+	defer mobileMu.Unlock()
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			value = zero
@@ -62,8 +63,8 @@ func mobileCallError(operation string, fn func() error) (err error) {
 
 func mobileCallValue[T any](operation string, fallback T, fn func() T) (value T) {
 	value = fallback
-	mobileMu.RLock()
-	defer mobileMu.RUnlock()
+	mobileMu.Lock()
+	defer mobileMu.Unlock()
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			fmt.Printf("locknote mobile %s panic: %v\n", operation, recovered)
@@ -533,6 +534,161 @@ func SetNotebookPinned(id string, pinned bool) error {
 	})
 }
 
+// ReorderNotebooks 按 JSON 字符串中的 ID 数组重排笔记本
+func ReorderNotebooks(idsJSON string) error {
+	return mobileCallError("ReorderNotebooks", func() error {
+		if coreInstance == nil {
+			return errNotInitialized
+		}
+		ids, err := parseStringArray(idsJSON)
+		if err != nil {
+			return err
+		}
+		return coreInstance.Notebooks().ReorderNotebooks(ids)
+	})
+}
+
+// SetNotesNotebook 批量设置笔记所属笔记本，notebookID 为空表示移出笔记本
+func SetNotesNotebook(noteIDsJSON, notebookID string) error {
+	return mobileCallError("SetNotesNotebook", func() error {
+		if coreInstance == nil {
+			return errNotInitialized
+		}
+		noteIDs, err := parseStringArray(noteIDsJSON)
+		if err != nil {
+			return err
+		}
+		var nbID *string
+		if notebookID != "" {
+			nbID = &notebookID
+		}
+		return coreInstance.Notes().SetNotesNotebook(noteIDs, nbID)
+	})
+}
+
+// BatchDeleteNotes 批量软删除笔记
+func BatchDeleteNotes(noteIDsJSON string) error {
+	return mobileCallError("BatchDeleteNotes", func() error {
+		if coreInstance == nil {
+			return errNotInitialized
+		}
+		noteIDs, err := parseStringArray(noteIDsJSON)
+		if err != nil {
+			return err
+		}
+		return coreInstance.Notes().BatchSoftDelete(noteIDs)
+	})
+}
+
+// BatchAddTagToNotes 批量给笔记添加标签
+func BatchAddTagToNotes(noteIDsJSON, tagID string) error {
+	return mobileCallError("BatchAddTagToNotes", func() error {
+		if coreInstance == nil {
+			return errNotInitialized
+		}
+		noteIDs, err := parseStringArray(noteIDsJSON)
+		if err != nil {
+			return err
+		}
+		for _, noteID := range noteIDs {
+			if err := coreInstance.Tags().AddToNote(noteID, tagID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// ReorderNotes 按 JSON 字符串中的 ID 数组重排笔记
+func ReorderNotes(idsJSON string) error {
+	return mobileCallError("ReorderNotes", func() error {
+		if coreInstance == nil {
+			return errNotInitialized
+		}
+		ids, err := parseStringArray(idsJSON)
+		if err != nil {
+			return err
+		}
+		return coreInstance.Notes().ReorderNotes(ids)
+	})
+}
+
+// ============ 智能视图相关 ============
+
+// CreateSmartView 创建智能视图，filterJSON 为 smartviews.Filter 的 JSON 字符串
+func CreateSmartView(name, icon, filterJSON string) (string, error) {
+	return mobileCall("CreateSmartView", "", func() (string, error) {
+		if coreInstance == nil {
+			return "", errNotInitialized
+		}
+		filter, err := parseSmartViewFilter(filterJSON)
+		if err != nil {
+			return "", err
+		}
+		view, err := coreInstance.SmartViews().Create(name, icon, filter)
+		if err != nil {
+			return "", err
+		}
+		return marshalJSON(view)
+	})
+}
+
+// UpdateSmartView 更新智能视图，filterJSON 为 smartviews.Filter 的 JSON 字符串
+func UpdateSmartView(id, name, icon, filterJSON string) (string, error) {
+	return mobileCall("UpdateSmartView", "", func() (string, error) {
+		if coreInstance == nil {
+			return "", errNotInitialized
+		}
+		filter, err := parseSmartViewFilter(filterJSON)
+		if err != nil {
+			return "", err
+		}
+		view, err := coreInstance.SmartViews().Update(id, name, icon, filter)
+		if err != nil {
+			return "", err
+		}
+		return marshalJSON(view)
+	})
+}
+
+// DeleteSmartView 删除智能视图
+func DeleteSmartView(id string) error {
+	return mobileCallError("DeleteSmartView", func() error {
+		if coreInstance == nil {
+			return errNotInitialized
+		}
+		return coreInstance.SmartViews().Delete(id)
+	})
+}
+
+// ListSmartViews 列出智能视图
+func ListSmartViews() (string, error) {
+	return mobileCallRead("ListSmartViews", "", func() (string, error) {
+		if coreInstance == nil {
+			return "", errNotInitialized
+		}
+		views, err := coreInstance.SmartViews().List()
+		if err != nil {
+			return "", err
+		}
+		return marshalJSON(views)
+	})
+}
+
+// GetSmartView 获取智能视图
+func GetSmartView(id string) (string, error) {
+	return mobileCallRead("GetSmartView", "", func() (string, error) {
+		if coreInstance == nil {
+			return "", errNotInitialized
+		}
+		view, err := coreInstance.SmartViews().Get(id)
+		if err != nil {
+			return "", err
+		}
+		return marshalJSON(view)
+	})
+}
+
 // ============ 备份相关 ============
 
 // CreateBackup 创建备份到指定路径
@@ -909,6 +1065,33 @@ func parseOptionalTodoDate(value string) (*time.Time, error) {
 		return nil, err
 	}
 	return &parsed, nil
+}
+
+func parseStringArray(value string) ([]string, error) {
+	var items []string
+	if err := json.Unmarshal([]byte(value), &items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func parseSmartViewFilter(value string) (smartviews.Filter, error) {
+	var filter smartviews.Filter
+	if value == "" {
+		return filter, nil
+	}
+	if err := json.Unmarshal([]byte(value), &filter); err != nil {
+		return filter, err
+	}
+	return filter, nil
+}
+
+func marshalJSON(value any) (string, error) {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func marshalNote(note *notes.Note) (string, error) {
