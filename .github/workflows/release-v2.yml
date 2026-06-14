@@ -1,4 +1,4 @@
-name: Build & Release
+name: Build & Release v2
 
 permissions:
   contents: write
@@ -14,13 +14,21 @@ on:
         required: true
 
 jobs:
-  build-macos:
+  build:
     strategy:
       matrix:
         include:
-          - os: macos-14
+          - os: macos-15
+            platform: darwin
             arch: arm64
-          - os: macos-13
+          - os: macos-15-intel
+            platform: darwin
+            arch: amd64
+          - os: windows-2022
+            platform: windows
+            arch: amd64
+          - os: ubuntu-22.04
+            platform: linux
             arch: amd64
 
     runs-on: ${{ matrix.os }}
@@ -38,129 +46,216 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Install Linux deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zip
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Install frontend deps
+        shell: bash
         working-directory: frontend
         run: |
-          npm ci || npm install
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
 
-      # =========================
-      # Import Apple Certificate
-      # =========================
-      - name: Import Apple Certificate
+      - name: Import Apple certificate
+        if: runner.os == 'macOS'
+        shell: bash
         env:
-          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE }}
-          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
-          echo "$CERTIFICATE_BASE64" | base64 --decode > cert.p12
+          set -euo pipefail
 
-          security create-keychain -p temp build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p temp build.keychain
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="temporary-keychain-password"
+          CERTIFICATE_PATH="$RUNNER_TEMP/apple-certificate.p12"
 
-          security import cert.p12 \
-            -k build.keychain \
-            -P "$CERT_PASSWORD" \
-            -T /usr/bin/codesign
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$CERTIFICATE_PATH"
 
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
           security set-key-partition-list \
-            -S apple-tool:,apple: \
+            -S apple-tool:,apple:,codesign: \
             -s \
-            -k temp \
-            build.keychain
+            -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
 
-      # =========================
-      # Build Wails App
-      # =========================
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
       - name: Build
+        shell: bash
         run: |
-          wails build -clean
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            wails build -clean -platform windows/amd64
+          else
+            wails build -clean
+          fi
 
-      # =========================
-      # Code Sign
-      # =========================
-      - name: Code Sign App
+      - name: Sign and notarize macOS app
+        if: runner.os == 'macOS'
+        shell: bash
         env:
-          SIGN_ID: ${{ secrets.APPLE_SIGN_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          APP=$(find build/bin -name "*.app" | head -n 1)
+          set -euo pipefail
+
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          APP_PATH="$(find build/bin -maxdepth 1 -name "*.app" -type d | head -n 1)"
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app bundle found in build/bin" >&2
+            exit 1
+          fi
+
+          SIGN_ID="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F '"' '/Developer ID Application/ { print $2; exit }')"
+          if [ -z "$SIGN_ID" ]; then
+            echo "No Developer ID Application signing identity found in imported certificate." >&2
+            security find-identity -v -p codesigning "$KEYCHAIN_PATH" >&2
+            exit 1
+          fi
 
           codesign \
             --force \
             --deep \
             --timestamp \
             --options runtime \
+            --keychain "$KEYCHAIN_PATH" \
             --sign "$SIGN_ID" \
-            "$APP"
+            "$APP_PATH"
 
-          codesign --verify --deep --strict "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
-      # =========================
-      # Create DMG
-      # =========================
-      - name: Create DMG
-        run: |
-          brew install create-dmg
+          NOTARY_ZIP="$RUNNER_TEMP/locknote-notary.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$NOTARY_ZIP"
 
-          APP=$(find build/bin -name "*.app" | head -n 1)
-
-          create-dmg \
-            --overwrite \
-            --dmg-title="LockNote" \
-            dist/locknote-${{ matrix.arch }}.dmg \
-            "$APP"
-
-      # =========================
-      # Notarization
-      # =========================
-      - name: Notarize DMG
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          xcrun notarytool submit \
-            dist/*.dmg \
+          xcrun notarytool submit "$NOTARY_ZIP" \
             --apple-id "$APPLE_ID" \
-            --password "$APPLE_PASSWORD" \
-            --team-id "$TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
             --wait
 
-      # =========================
-      # Staple
-      # =========================
-      - name: Staple
-        run: |
-          xcrun stapler staple dist/*.dmg
+          xcrun stapler staple "$APP_PATH"
+          xcrun stapler validate "$APP_PATH"
+          spctl --assess --type execute --verbose "$APP_PATH"
 
-      # =========================
-      # Upload artifact
-      # =========================
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir dist
+          @'
+          Windows 下载/运行说明（重要）
+
+          你从 GitHub Release 下载的 .zip/.exe 可能会被 Windows 标记为“来自互联网”(MOTW)，导致：
+          - 弹出“Windows 已保护你的电脑”(SmartScreen)
+          - 第一次启动较慢/卡住（安全扫描 + WebView2 初始化）
+
+          解决办法（任选其一）：
+
+          1) 推荐：先对 zip 解除锁定，再解压
+             - 右键 zip -> 属性 -> 勾选/点击“解除锁定(Unblock)” -> 应用
+
+          2) 或者：解压后对 exe 解除锁定
+             - 右键 exe -> 属性 -> “解除锁定(Unblock)” -> 应用
+
+          3) PowerShell（可选）：
+             Unblock-File .\LockNote.exe
+             或对整个文件夹：
+             Get-ChildItem -Recurse | Unblock-File
+          '@ | Out-File -Encoding utf8 dist/README-WINDOWS.txt
+
+          Compress-Archive -Path build/bin/*,dist/README-WINDOWS.txt -DestinationPath dist/locknote-${{ matrix.platform }}-${{ matrix.arch }}.zip
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          APP_PATH="$(find build/bin -maxdepth 1 -name "*.app" -type d | head -n 1)"
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app bundle found in build/bin" >&2
+            exit 1
+          fi
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "dist/locknote-${{ matrix.platform }}-${{ matrix.arch }}.zip"
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist
+          cd build/bin
+          zip -r ../../dist/locknote-${{ matrix.platform }}-${{ matrix.arch }}.zip .
+
       - uses: actions/upload-artifact@v4
         with:
-          name: locknote-${{ matrix.arch }}
-          path: dist/*.dmg
+          name: locknote-${{ matrix.platform }}-${{ matrix.arch }}
+          path: dist/*.zip
 
   release:
-    needs: build-macos
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Determine tag
-        id: tag
+      - name: Determine release tag
+        id: reltag
+        shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             v="${{ inputs.version }}"
-            [[ "$v" == v* ]] && echo "tag=$v" >> $GITHUB_OUTPUT || echo "tag=v$v" >> $GITHUB_OUTPUT
+            if [[ "$v" == v* ]]; then
+              echo "tag=$v" >> "$GITHUB_OUTPUT"
+            else
+              echo "tag=v$v" >> "$GITHUB_OUTPUT"
+            fi
           else
-            echo "tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Create and push tag (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          TAG="${{ steps.reltag.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists locally."
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists on origin."
+          else
+            git push origin "refs/tags/$TAG"
+          fi
+
+      - uses: actions/download-artifact@v4
 
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.tag }}
-          files: "**/*.dmg"
+          tag_name: ${{ steps.reltag.outputs.tag }}
+          files: "**/*.zip"
