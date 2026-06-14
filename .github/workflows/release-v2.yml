@@ -1,0 +1,166 @@
+name: Build & Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.0.2 or v1.0.2)"
+        required: true
+
+jobs:
+  build-macos:
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            arch: arm64
+          - os: macos-13
+            arch: amd64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: |
+          npm ci || npm install
+
+      # =========================
+      # Import Apple Certificate
+      # =========================
+      - name: Import Apple Certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$CERTIFICATE_BASE64" | base64 --decode > cert.p12
+
+          security create-keychain -p temp build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p temp build.keychain
+
+          security import cert.p12 \
+            -k build.keychain \
+            -P "$CERT_PASSWORD" \
+            -T /usr/bin/codesign
+
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s \
+            -k temp \
+            build.keychain
+
+      # =========================
+      # Build Wails App
+      # =========================
+      - name: Build
+        run: |
+          wails build -clean
+
+      # =========================
+      # Code Sign
+      # =========================
+      - name: Code Sign App
+        env:
+          SIGN_ID: ${{ secrets.APPLE_SIGN_ID }}
+        run: |
+          APP=$(find build/bin -name "*.app" | head -n 1)
+
+          codesign \
+            --force \
+            --deep \
+            --timestamp \
+            --options runtime \
+            --sign "$SIGN_ID" \
+            "$APP"
+
+          codesign --verify --deep --strict "$APP"
+
+      # =========================
+      # Create DMG
+      # =========================
+      - name: Create DMG
+        run: |
+          brew install create-dmg
+
+          APP=$(find build/bin -name "*.app" | head -n 1)
+
+          create-dmg \
+            --overwrite \
+            --dmg-title="LockNote" \
+            dist/locknote-${{ matrix.arch }}.dmg \
+            "$APP"
+
+      # =========================
+      # Notarization
+      # =========================
+      - name: Notarize DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool submit \
+            dist/*.dmg \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$TEAM_ID" \
+            --wait
+
+      # =========================
+      # Staple
+      # =========================
+      - name: Staple
+        run: |
+          xcrun stapler staple dist/*.dmg
+
+      # =========================
+      # Upload artifact
+      # =========================
+      - uses: actions/upload-artifact@v4
+        with:
+          name: locknote-${{ matrix.arch }}
+          path: dist/*.dmg
+
+  release:
+    needs: build-macos
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            v="${{ inputs.version }}"
+            [[ "$v" == v* ]] && echo "tag=$v" >> $GITHUB_OUTPUT || echo "tag=v$v" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: "**/*.dmg"
