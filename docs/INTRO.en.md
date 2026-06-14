@@ -25,7 +25,7 @@ Your notes are encrypted locally using modern cryptography:
   - Notes are inaccessible before unlocking
   - Manual lock is supported
 - **Markdown editing**
-  - Markdown authoring with preview
+  - Markdown authoring with preview, split mode, and optional line numbers
 - **Image attachments**
   - Paste, insert, manage, and reference encrypted local images
 - **Tags & organization**
@@ -44,6 +44,8 @@ Your notes are encrypted locally using modern cryptography:
   - Manual backups under your control
 - **Startup experience**
   - Windows cold-start progress and a first-run feature introduction
+- **Settings**
+  - Theme and language preferences, password changes, auto-lock, and recovery key controls
 
 ## Security notes (summary)
 
@@ -91,4 +93,4 @@ For multi-platform builds and additional flags, see `build.md` and `build.sh` in
 
 ## Version
 
-v1.0.6
+v1.0.7

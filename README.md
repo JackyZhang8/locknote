@@ -14,7 +14,7 @@
 
 - **Encrypted local storage** - Notes and local image attachments are encrypted with AES-256-GCM; keys are derived via Argon2id
 - **Offline-first** - Data is stored locally and works without a network connection
-- **Markdown editor** - Markdown editing with edit, preview, and split modes, plus convenient formatting controls
+- **Markdown editor** - Markdown editing with edit, preview, and split modes, optional line numbers, and convenient formatting controls
 - **Encrypted image attachments** - Paste, drag, or insert local images into notes; images are decrypted only for in-app display
 - **Image manager** - Browse encrypted local images in a compact, virtualized grid; add, copy references, insert into notes, or delete images
 - **Markdown import/export** - Import Markdown files and export notes as Markdown; notes with images export with a timestamped assets folder
@@ -27,7 +27,7 @@
 - **Trash** - Deleted notes move to trash and can be restored or permanently deleted
 - **Backup & restore** - Create encrypted backups, restore data, and import backups with a data key
 - **Startup experience** - Faster Windows cold-start flow, startup progress, and first-run feature introduction
-- **Security settings** - Auto-lock options, password changes, data-key recovery, themes, and language switching
+- **Security settings** - Auto-lock dialog, password change dialog, data-key recovery, themes, and language switching
 
 ## Tech Stack
 
@@ -122,7 +122,7 @@ locknote/
 
 ## Version
 
-v1.0.6
+v1.0.7
 
 ## License
 
