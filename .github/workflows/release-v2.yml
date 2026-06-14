@@ -98,6 +98,15 @@ jobs:
           security default-keychain -s "$KEYCHAIN_PATH"
 
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+          SIGN_ID="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F '"' '/Developer ID Application/ { print $2; exit }')"
+          if [ -z "$SIGN_ID" ]; then
+            echo "No Developer ID Application signing identity found in APPLE_CERTIFICATE." >&2
+            echo "This workflow is for notarized GitHub Release builds, so APPLE_CERTIFICATE must be a Developer ID Application .p12 certificate, not an Apple Development certificate." >&2
+            security find-identity -v -p codesigning "$KEYCHAIN_PATH" >&2
+            exit 1
+          fi
+
+          echo "MACOS_SIGN_ID=$SIGN_ID" >> "$GITHUB_ENV"
 
       - name: Build
         shell: bash
@@ -125,20 +134,13 @@ jobs:
             exit 1
           fi
 
-          SIGN_ID="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F '"' '/Developer ID Application/ { print $2; exit }')"
-          if [ -z "$SIGN_ID" ]; then
-            echo "No Developer ID Application signing identity found in imported certificate." >&2
-            security find-identity -v -p codesigning "$KEYCHAIN_PATH" >&2
-            exit 1
-          fi
-
           codesign \
             --force \
             --deep \
             --timestamp \
             --options runtime \
             --keychain "$KEYCHAIN_PATH" \
-            --sign "$SIGN_ID" \
+            --sign "$MACOS_SIGN_ID" \
             "$APP_PATH"
 
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
