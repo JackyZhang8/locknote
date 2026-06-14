@@ -81,7 +81,7 @@ export function MainLayout() {
       case 'notes':
       case 'recent':
         return (
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex min-w-0 flex-1 overflow-hidden">
             {!isNoteListCollapsed && <NoteList />}
             <div className="relative flex items-stretch">
               <div className="w-px h-full bg-primary-100" />
@@ -118,7 +118,7 @@ export function MainLayout() {
   return (
     <div className="h-screen flex bg-background">
       <Sidebar />
-      <main className="flex-1 flex overflow-hidden">
+      <main className="min-w-0 flex-1 flex overflow-hidden">
         {renderContent()}
       </main>
       {isCommandPaletteOpen && <CommandPalette />}

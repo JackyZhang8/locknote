@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, type ClipboardEvent as ReactClipboardEvent, type DragEvent as ReactDragEvent, type ImgHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { Eye, Edit3, Columns, Tag, History, Download, X, Plus, Check, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Bold, Italic, Heading1, Heading2, List, ListOrdered, Quote, Code, Link2, Image as ImageIcon } from 'lucide-react';
+import { Eye, Edit3, Columns, Tag, History, Download, X, Plus, Check, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Bold, Italic, Heading1, Heading2, List, ListOrdered, Quote, Code, Link2, Image as ImageIcon, Pilcrow } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -10,6 +10,8 @@ import { notes, tags } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
 
 const FONT_SCALE_STORAGE_KEY = 'locknote-editor-font-scale';
+const LINE_NUMBERS_STORAGE_KEY = 'locknote-editor-show-line-numbers';
+const LINE_NUMBERS_CHANGE_EVENT = 'locknote-editor-show-line-numbers-change';
 const MIN_FONT_SCALE = 0.8;
 const MAX_FONT_SCALE = 1.8;
 const TAG_COLORS = [
@@ -114,9 +116,11 @@ export function NoteEditor({
   const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(null);
   const [fontScale, setFontScale] = useState(1);
   const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
+  const [showLineNumbers, setShowLineNumbers] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tagMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const lineNumbersRef = useRef<HTMLDivElement | null>(null);
   const previousCloseRequestTokenRef = useRef(closeRequestToken);
 
   const updateSelectedNote = useCallback((nextNote: notes.Note | null) => {
@@ -163,6 +167,41 @@ export function NoteEditor({
       // ignore localStorage write errors
     }
   }, [fontScale]);
+
+  useEffect(() => {
+    const readLineNumberPreference = () => {
+      try {
+        const saved = localStorage.getItem(LINE_NUMBERS_STORAGE_KEY);
+        setShowLineNumbers(saved !== 'false');
+      } catch {
+        setShowLineNumbers(true);
+      }
+    };
+
+    readLineNumberPreference();
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === LINE_NUMBERS_STORAGE_KEY) {
+        readLineNumberPreference();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener(LINE_NUMBERS_CHANGE_EVENT, readLineNumberPreference);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener(LINE_NUMBERS_CHANGE_EVENT, readLineNumberPreference);
+    };
+  }, []);
+
+  const persistShowLineNumbers = (value: boolean) => {
+    setShowLineNumbers(value);
+    try {
+      localStorage.setItem(LINE_NUMBERS_STORAGE_KEY, value ? 'true' : 'false');
+      window.dispatchEvent(new Event(LINE_NUMBERS_CHANGE_EVENT));
+    } catch {
+      // ignore localStorage write errors
+    }
+  };
 
   useEffect(() => {
     if (!showTagMenu) return;
@@ -576,6 +615,13 @@ export function NoteEditor({
     });
   };
 
+  const handleContentScroll = () => {
+    const textarea = contentTextareaRef.current;
+    const lineNumbers = lineNumbersRef.current;
+    if (!textarea || !lineNumbers) return;
+    lineNumbers.scrollTop = textarea.scrollTop;
+  };
+
   const handleRequestClose = async () => {
     if (!onRequestClose) return;
     if (saveTimeoutRef.current) {
@@ -622,6 +668,7 @@ export function NoteEditor({
   const previewFontSize = `${1 * fontScale}rem`;
   const fontPercent = `${Math.round(fontScale * 100)}%`;
   const bodyCharacterCount = content.trim().length;
+  const editorLineNumbers = content.split('\n');
 
   const handleCreateNewNote = async () => {
     try {
@@ -658,7 +705,7 @@ export function NoteEditor({
   }
 
   return (
-    <div className={`${variant === 'modal' ? 'flex h-full min-h-0' : 'flex-1 flex'} flex-col bg-white`}>
+    <div className={`${variant === 'modal' ? 'flex h-full min-h-0 min-w-0' : 'flex-1 flex min-h-0 min-w-0 overflow-hidden'} flex-col bg-white`}>
       <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2">
           {modeButtons.map((btn) => (
@@ -818,12 +865,32 @@ export function NoteEditor({
               {action.icon}
             </button>
           ))}
+          <button
+            onClick={() => persistShowLineNumbers(!showLineNumbers)}
+            className={`p-2 rounded-lg transition-colors border ${
+              showLineNumbers
+                ? 'border-primary-100 bg-white text-accent'
+                : 'border-transparent text-gray-600 hover:bg-white hover:text-accent hover:border-gray-200'
+            }`}
+            title={t.settings.showLineNumbers}
+            aria-pressed={showLineNumbers}
+          >
+            <Pilcrow className="w-4 h-4" />
+          </button>
         </div>
       )}
 
-      <div className="flex-1 flex overflow-hidden">
+      <div
+        className={`min-h-0 min-w-0 flex-1 overflow-hidden ${editorMode === 'split' ? 'grid' : 'flex'}`}
+        style={{
+          gridTemplateColumns: editorMode === 'split' ? 'minmax(0, 1fr) minmax(0, 1fr)' : undefined,
+        }}
+      >
         {(editorMode === 'edit' || editorMode === 'split') && (
-          <div className={`flex flex-col ${editorMode === 'split' ? 'w-1/2 border-r border-gray-100' : 'flex-1'}`}>
+          <div
+            data-editor-pane="markdown"
+            className={`flex flex-col ${editorMode === 'split' ? 'min-w-0 border-r border-gray-100' : 'min-w-0 flex-1'}`}
+          >
             <input
               type="text"
               value={title}
@@ -832,23 +899,43 @@ export function NoteEditor({
               style={{ fontSize: titleFontSize }}
               placeholder={t.editor.titlePlaceholder}
             />
-            <textarea
-              ref={contentTextareaRef}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              onKeyDown={handleContentKeyDown}
-              onPaste={handleContentPaste}
-              onDrop={handleContentDrop}
-              onDragOver={(event) => event.preventDefault()}
-              className="flex-1 px-6 py-4 resize-none focus:outline-none font-mono leading-relaxed"
-              style={{ fontSize: contentFontSize }}
-              placeholder={t.editor.contentPlaceholder}
-            />
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              {showLineNumbers && (
+                <div
+                  ref={lineNumbersRef}
+                  aria-hidden="true"
+                  className="select-none overflow-hidden border-r border-gray-100 bg-gray-50 px-3 py-4 text-right font-mono leading-relaxed text-gray-400"
+                  style={{ fontSize: contentFontSize }}
+                >
+                  {editorLineNumbers.map((_, index) => (
+                    <div key={index} className="min-w-[2.25rem] tabular-nums">
+                      {index + 1}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <textarea
+                ref={contentTextareaRef}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                onKeyDown={handleContentKeyDown}
+                onPaste={handleContentPaste}
+                onDrop={handleContentDrop}
+                onScroll={handleContentScroll}
+                onDragOver={(event) => event.preventDefault()}
+                className={`min-w-0 flex-1 resize-none py-4 pr-6 focus:outline-none font-mono leading-relaxed ${showLineNumbers ? 'pl-4' : 'px-6'}`}
+                style={{ fontSize: contentFontSize }}
+                placeholder={t.editor.contentPlaceholder}
+              />
+            </div>
           </div>
         )}
 
         {(editorMode === 'preview' || editorMode === 'split') && (
-          <div className={`flex flex-col overflow-y-auto ${editorMode === 'split' ? 'w-1/2' : 'flex-1'}`}>
+          <div
+            data-editor-pane="preview"
+            className={`flex flex-col overflow-y-auto ${editorMode === 'split' ? 'min-w-0' : 'min-w-0 flex-1'}`}
+          >
             <div className="px-6 py-4 border-b border-gray-100">
               <h1 className="font-bold text-gray-800" style={{ fontSize: titleFontSize }}>
                 {title || t.noteList.untitled}

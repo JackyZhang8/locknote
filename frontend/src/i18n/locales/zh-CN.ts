@@ -323,6 +323,8 @@ export const zhCN = {
     languageChinese: '简体中文',
     languageTraditionalChinese: '繁體中文',
     languageEnglish: 'English',
+    editor: '编辑器',
+    showLineNumbers: '显示行号',
 
     // 数据目录
     dataDir: '数据目录',

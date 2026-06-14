@@ -110,14 +110,44 @@ test('global font stack avoids macOS private system font aliases', () => {
   assert.equal(/html\[lang='en-US'\]\s+body/.test(cssSource), true);
 });
 
-test('password form and auto lock keep the original vertical settings layout', () => {
+test('theme and language settings appear before password management', () => {
+  const themeStart = settingsSource.indexOf('{t.settings.theme}');
+  const languageStart = settingsSource.indexOf('{t.settings.language}');
+  const passwordStart = settingsSource.indexOf('{t.settings.password}');
+
+  assert.equal(themeStart >= 0, true);
+  assert.equal(languageStart >= 0, true);
+  assert.equal(passwordStart >= 0, true);
+  assert.equal(themeStart < passwordStart, true);
+  assert.equal(languageStart < passwordStart, true);
+});
+
+test('password management opens a modal dialog instead of expanding inline', () => {
   assert.equal(/textInputControlClassName/.test(settingsSource), true);
   assert.equal(/sm:flex-row sm:items-center sm:justify-between[\s\S]*<Key className="w-5 h-5 text-accent" \/>/.test(settingsSource), true);
-  assert.equal(/showChangePassword && \([\s\S]*<div className="mt-5 space-y-4">/.test(settingsSource), true);
+  assert.equal(/onClick=\{\(\) => setShowChangePassword\(true\)\}/.test(settingsSource), true);
+  assert.equal(/showChangePassword && \([\s\S]*role="dialog"[\s\S]*aria-modal="true"[\s\S]*\{t\.settings\.changePassword\}/.test(settingsSource), true);
+  assert.equal(/closeChangePasswordDialog/.test(settingsSource), true);
+  assert.equal(/showChangePassword && \([\s\S]*<div className="mt-5 space-y-4">/.test(settingsSource), false);
   assert.equal(/grid gap-4 md:grid-cols-2/.test(settingsSource), false);
+});
+
+test('auto lock opens a modal dialog for editing lock settings', () => {
+  assert.equal(/const \[showAutoLockDialog, setShowAutoLockDialog\] = useState\(false\)/.test(settingsSource), true);
+  assert.equal(/onClick=\{\(\) => setShowAutoLockDialog\(true\)\}/.test(settingsSource), true);
+  assert.equal(/showAutoLockDialog && \([\s\S]*role="dialog"[\s\S]*aria-modal="true"[\s\S]*\{t\.settings\.autoLock\}/.test(settingsSource), true);
   assert.equal(/<Clock className="w-5 h-5 text-accent" \/>[\s\S]*<div className="space-y-4">[\s\S]*max-w-sm/.test(settingsSource), true);
   assert.equal(/grid gap-3 md:grid-cols-2/.test(settingsSource), false);
   assert.equal(/justify-end border-t border-gray-100 pt-4/.test(settingsSource), false);
+});
+
+test('settings view persists the editor line number preference', () => {
+  assert.equal(/const LINE_NUMBERS_STORAGE_KEY = 'locknote-editor-show-line-numbers';/.test(settingsSource), true);
+  assert.equal(/const \[showLineNumbers, setShowLineNumbers\] = useState\(true\)/.test(settingsSource), true);
+  assert.equal(/localStorage\.setItem\(LINE_NUMBERS_STORAGE_KEY, value \? 'true' : 'false'\)/.test(settingsSource), true);
+  assert.equal(/window\.dispatchEvent\(new Event\(LINE_NUMBERS_CHANGE_EVENT\)\)/.test(settingsSource), true);
+  assert.equal(/checked=\{showLineNumbers\}/.test(settingsSource), true);
+  assert.equal(/\{t\.settings\.showLineNumbers\}/.test(settingsSource), true);
 });
 
 test('backup and trash views support embedded tab rendering', () => {

@@ -325,6 +325,8 @@ export const enUS: Translations = {
     languageChinese: '简体中文',
     languageTraditionalChinese: '繁體中文',
     languageEnglish: 'English',
+    editor: 'Editor',
+    showLineNumbers: 'Show line numbers',
 
     // Data Directory
     dataDir: 'Data Directory',

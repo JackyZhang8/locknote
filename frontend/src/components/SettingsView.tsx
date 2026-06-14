@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Settings, Key, Clock, Monitor, Moon, Folder, Info, Check, AlertCircle, Globe, Palette, HardDrive, Trash2, ChevronDown, type LucideIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AlertCircle, Check, ChevronDown, Clock, Folder, Globe, HardDrive, Info, Key, Monitor, Moon, Palette, Settings, Trash2, type LucideIcon } from 'lucide-react';
 import { useStore } from '../store';
 import { formatMessage, useI18n, type Language } from '../i18n';
 import { themeOptions, useTheme } from '../theme';
@@ -16,6 +16,8 @@ interface SettingsTabItem {
   icon: LucideIcon;
 }
 
+const LINE_NUMBERS_STORAGE_KEY = 'locknote-editor-show-line-numbers';
+const LINE_NUMBERS_CHANGE_EVENT = 'locknote-editor-show-line-numbers-change';
 const selectControlClassName = 'w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-11 text-sm font-medium text-gray-800 shadow-sm transition-all hover:border-primary-300 focus:border-accent focus:outline-none focus:ring-4 focus:ring-primary-100';
 const textInputControlClassName = 'w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm transition-all placeholder:text-gray-400 hover:border-primary-300 focus:border-accent focus:outline-none focus:ring-4 focus:ring-primary-100';
 
@@ -26,11 +28,12 @@ export function SettingsView() {
   const [autoLockMinutes, setAutoLockMinutes] = useState(5);
   const [lockOnMinimize, setLockOnMinimize] = useState(false);
   const [lockOnSleep, setLockOnSleep] = useState(true);
+  const [showLineNumbers, setShowLineNumbers] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<SettingsTab>('settings');
-
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showAutoLockDialog, setShowAutoLockDialog] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -69,6 +72,15 @@ export function SettingsView() {
     }
   }, [settings]);
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LINE_NUMBERS_STORAGE_KEY);
+      setShowLineNumbers(saved !== 'false');
+    } catch {
+      setShowLineNumbers(true);
+    }
+  }, []);
+
   const themeLabels = {
     themeApple: t.settings.themeApple,
     themeLobster: t.settings.themeLobster,
@@ -81,6 +93,24 @@ export function SettingsView() {
     { id: 'trash', label: t.settings.tabTrash, icon: Trash2 },
   ];
 
+  const closeChangePasswordDialog = () => {
+    setShowChangePassword(false);
+    setOldPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setNewHint('');
+  };
+
+  const handleToggleLineNumbers = (value: boolean) => {
+    setShowLineNumbers(value);
+    try {
+      localStorage.setItem(LINE_NUMBERS_STORAGE_KEY, value ? 'true' : 'false');
+      window.dispatchEvent(new Event(LINE_NUMBERS_CHANGE_EVENT));
+    } catch {
+      // localStorage not available
+    }
+  };
+
   const handleSaveSettings = async () => {
     setSaving(true);
     setMessage(null);
@@ -90,6 +120,7 @@ export function SettingsView() {
       const newSettings = await App.GetSettings();
       setSettings(newSettings);
       setMessage({ type: 'success', text: t.settings.saved });
+      setShowAutoLockDialog(false);
     } catch (error) {
       setMessage({ type: 'error', text: `${t.settings.saveFailed}：${String(error)}` });
     } finally {
@@ -115,11 +146,7 @@ export function SettingsView() {
     try {
       await App.ChangePassword(oldPassword, newPassword, newHint);
       setMessage({ type: 'success', text: t.settings.passwordChanged });
-      setShowChangePassword(false);
-      setOldPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setNewHint('');
+      closeChangePasswordDialog();
     } catch (error) {
       setMessage({ type: 'error', text: `${t.settings.passwordChangeFailed}：${String(error)}` });
     } finally {
@@ -170,9 +197,9 @@ export function SettingsView() {
             {message && (
               <div
                 className={`mb-6 p-4 rounded-xl flex items-start gap-3 ${message.type === 'success'
-                    ? 'bg-green-50 border border-green-200'
-                    : 'bg-red-50 border border-red-200'
-                  }`}
+                  ? 'bg-green-50 border border-green-200'
+                  : 'bg-red-50 border border-red-200'
+                }`}
               >
                 {message.type === 'success' ? (
                   <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
@@ -186,103 +213,320 @@ export function SettingsView() {
             )}
 
             <div className="space-y-6">
-          <div className="p-6 border border-gray-200 rounded-xl">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="p-6 border border-gray-200 rounded-xl">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <Palette className="w-5 h-5 text-accent" />
+                      <h3 className="font-semibold text-gray-800">{t.settings.theme}</h3>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-2">{t.settings.themeDesc}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-3 sm:justify-end">
+                    {themeOptions.map((option) => {
+                      const isSelected = option.id === theme;
+                      const themeSwatchLabel = themeLabels[option.nameKey];
+
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => setTheme(option.id)}
+                          className={`relative h-11 w-11 rounded-xl border transition-all focus:outline-none focus:ring-4 focus:ring-primary-100 ${
+                            isSelected
+                              ? 'border-white shadow-md ring-2 ring-accent'
+                              : 'border-white/80 shadow-sm ring-1 ring-black/10 hover:-translate-y-0.5 hover:shadow-md'
+                          }`}
+                          style={{ backgroundColor: option.swatch }}
+                          aria-label={themeSwatchLabel}
+                          aria-pressed={isSelected}
+                          title={themeSwatchLabel}
+                        >
+                          <span className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/35 via-white/5 to-black/10" />
+                          {isSelected && (
+                            <span className="absolute inset-0 flex items-center justify-center text-white drop-shadow">
+                              <Check className="h-5 w-5 stroke-[3]" />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border border-gray-200 rounded-xl">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <Globe className="w-5 h-5 text-accent" />
+                      <h3 className="font-semibold text-gray-800">{t.settings.language}</h3>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-500">{t.settings.languageDesc}</p>
+                  </div>
+                  <div className="relative w-full sm:w-[220px]">
+                    <select
+                      value={language}
+                      onChange={(e) => setLanguage(e.target.value as Language)}
+                      className={selectControlClassName}
+                    >
+                      <option value="zh-CN">{t.settings.languageChinese}</option>
+                      <option value="zh-TW">{t.settings.languageTraditionalChinese}</option>
+                      <option value="en-US">{t.settings.languageEnglish}</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border border-gray-200 rounded-xl">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <Settings className="w-5 h-5 text-accent" />
+                    <h3 className="font-semibold text-gray-800">{t.settings.editor}</h3>
+                  </div>
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={showLineNumbers}
+                      onChange={(e) => handleToggleLineNumbers(e.target.checked)}
+                      className="h-5 w-5 rounded border-gray-300 text-accent focus:ring-accent"
+                    />
+                    <span className="text-sm text-gray-700">{t.settings.showLineNumbers}</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="p-6 border border-gray-200 rounded-xl">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <Key className="w-5 h-5 text-accent" />
+                    <h3 className="font-semibold text-gray-800">{t.settings.password}</h3>
+                  </div>
+                  <button
+                    onClick={() => setShowChangePassword(true)}
+                    className="self-start rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-600 sm:self-center"
+                  >
+                    {t.settings.changePassword}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 border border-gray-200 rounded-xl">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-5 h-5 text-accent" />
+                    <h3 className="font-semibold text-gray-800">{t.settings.autoLock}</h3>
+                  </div>
+                  <button
+                    onClick={() => setShowAutoLockDialog(true)}
+                    className="self-start rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-600 sm:self-center"
+                  >
+                    {t.common.edit}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 border border-gray-200 rounded-xl">
+                <div className="flex items-center gap-3 mb-4">
+                  <Folder className="w-5 h-5 text-accent" />
+                  <h3 className="font-semibold text-gray-800">{t.settings.dataDir}</h3>
+                </div>
+                <p className="text-sm text-gray-600 font-mono bg-gray-100 px-3 py-2 rounded-lg break-all">
+                  {dataDir}
+                </p>
+              </div>
+
+              <div className="p-6 border border-gray-200 rounded-xl">
+                <div className="flex items-center gap-3 mb-4">
+                  <Settings className="w-5 h-5 text-accent" />
+                  <h3 className="font-semibold text-gray-800">{t.settings.shortcuts}</h3>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{t.settings.shortcutSearch}</span>
+                    <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-mono">Cmd/Ctrl + K</kbd>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{t.settings.shortcutLock}</span>
+                    <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-mono">Cmd/Ctrl + L</kbd>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{t.settings.shortcutNewNote}</span>
+                    <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-mono">Cmd/Ctrl + N</kbd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border border-gray-200 rounded-xl">
+                <div className="flex items-center gap-3 mb-4">
+                  <Info className="w-5 h-5 text-accent" />
+                  <h3 className="font-semibold text-gray-800">{t.settings.about}</h3>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{t.settings.version}</span>
+                    <span className="text-gray-800 font-medium">{version}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{t.settings.mode}</span>
+                    <span className="text-gray-800 font-medium">{t.settings.modePrivate}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">{t.settings.website}</span>
+                    <button
+                      onClick={() => BrowserOpenURL('https://locknote.app')}
+                      className="text-sm text-gray-600 hover:text-accent hover:underline font-medium"
+                    >
+                      https://locknote.app
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                  <div className="text-sm font-semibold text-gray-800">{t.settings.legal}</div>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => BrowserOpenURL('https://locknote.app/privacy')}
+                      className="text-sm text-gray-600 hover:text-accent hover:underline"
+                    >
+                      {t.settings.privacy}
+                    </button>
+                    <button
+                      onClick={() => BrowserOpenURL('https://locknote.app/terms')}
+                      className="text-sm text-gray-600 hover:text-accent hover:underline"
+                    >
+                      {t.settings.terms}
+                    </button>
+                    <button
+                      onClick={() => BrowserOpenURL('https://locknote.app/disclaimer')}
+                      className="text-sm text-gray-600 hover:text-accent hover:underline"
+                    >
+                      {t.settings.disclaimer}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'backup' && <BackupView embedded />}
+        {activeTab === 'trash' && <TrashView embedded />}
+      </div>
+
+      {showChangePassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4" onClick={closeChangePasswordDialog}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-[460px] rounded-xl border border-gray-200 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-5 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <Key className="w-5 h-5 text-accent" />
-                <h3 className="font-semibold text-gray-800">{t.settings.password}</h3>
+                <h3 className="font-semibold text-gray-800">{t.settings.changePassword}</h3>
               </div>
-
-              {!showChangePassword && (
-                <button
-                  onClick={() => setShowChangePassword(true)}
-                  className="self-start rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-600 sm:self-center"
-                >
-                  {t.settings.changePassword}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={closeChangePasswordDialog}
+                className="rounded-lg px-2 py-1 text-sm text-gray-500 transition-colors hover:bg-gray-100"
+              >
+                {t.common.close}
+              </button>
             </div>
 
-            {showChangePassword && (
-              <div className="mt-5 space-y-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">{t.settings.currentPassword}</label>
-                  <input
-                    type="password"
-                    value={oldPassword}
-                    onChange={(e) => setOldPassword(e.target.value)}
-                    className={textInputControlClassName}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">{t.settings.newPassword}</label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className={textInputControlClassName}
-                    placeholder={t.settings.passwordMinLength}
-                  />
-                  {(() => {
-                    const s = getPasswordStrength(newPassword);
-                    const width = `${(s.score / 3) * 100}%`;
-                    return (
-                      <div className="mt-2">
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
-                          <div className={`h-full ${s.color} transition-all`} style={{ width }} />
-                        </div>
-                        <div className="mt-1 text-xs text-gray-500">{t.settings.passwordStrength}：{s.label}</div>
-                      </div>
-                    );
-                  })()}
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">{t.settings.confirmPassword}</label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className={textInputControlClassName}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">{t.settings.passwordHint}</label>
-                  <input
-                    type="text"
-                    value={newHint}
-                    onChange={(e) => setNewHint(e.target.value)}
-                    className={textInputControlClassName}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleChangePassword}
-                    disabled={changingPassword || !oldPassword || !newPassword || !confirmPassword}
-                    className="rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {changingPassword ? t.common.loading : t.common.confirm}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowChangePassword(false);
-                      setOldPassword('');
-                      setNewPassword('');
-                      setConfirmPassword('');
-                      setNewHint('');
-                    }}
-                    className="rounded-xl px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
-                  >
-                    {t.common.cancel}
-                  </button>
-                </div>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">{t.settings.currentPassword}</label>
+                <input
+                  type="password"
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  className={textInputControlClassName}
+                />
               </div>
-            )}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">{t.settings.newPassword}</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className={textInputControlClassName}
+                  placeholder={t.settings.passwordMinLength}
+                />
+                {(() => {
+                  const s = getPasswordStrength(newPassword);
+                  const width = `${(s.score / 3) * 100}%`;
+                  return (
+                    <div className="mt-2">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                        <div className={`h-full ${s.color} transition-all`} style={{ width }} />
+                      </div>
+                      <div className="mt-1 text-xs text-gray-500">{t.settings.passwordStrength}：{s.label}</div>
+                    </div>
+                  );
+                })()}
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">{t.settings.confirmPassword}</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={textInputControlClassName}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">{t.settings.passwordHint}</label>
+                <input
+                  type="text"
+                  value={newHint}
+                  onChange={(e) => setNewHint(e.target.value)}
+                  className={textInputControlClassName}
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleChangePassword}
+                  disabled={changingPassword || !oldPassword || !newPassword || !confirmPassword}
+                  className="rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {changingPassword ? t.common.loading : t.common.confirm}
+                </button>
+                <button
+                  onClick={closeChangePasswordDialog}
+                  className="rounded-xl px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
+                >
+                  {t.common.cancel}
+                </button>
+              </div>
+            </div>
           </div>
+        </div>
+      )}
 
-          <div className="p-6 border border-gray-200 rounded-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <Clock className="w-5 h-5 text-accent" />
-              <h3 className="font-semibold text-gray-800">{t.settings.autoLock}</h3>
+      {showAutoLockDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4" onClick={() => setShowAutoLockDialog(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-[440px] rounded-xl border border-gray-200 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-accent" />
+                <h3 className="font-semibold text-gray-800">{t.settings.autoLock}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAutoLockDialog(false)}
+                className="rounded-lg px-2 py-1 text-sm text-gray-500 transition-colors hover:bg-gray-100"
+              >
+                {t.common.close}
+              </button>
             </div>
 
             <div className="space-y-4">
@@ -334,169 +578,25 @@ export function SettingsView() {
                 </div>
               </label>
 
-              <button
-                onClick={handleSaveSettings}
-                disabled={saving}
-                className="rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {saving ? t.common.loading : t.common.save}
-              </button>
-            </div>
-          </div>
-
-          <div className="p-6 border border-gray-200 rounded-xl">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex items-center gap-3">
-                  <Palette className="w-5 h-5 text-accent" />
-                  <h3 className="font-semibold text-gray-800">{t.settings.theme}</h3>
-                </div>
-                <p className="text-sm text-gray-500 mt-2">{t.settings.themeDesc}</p>
-              </div>
-              <div className="flex flex-wrap gap-3 sm:justify-end">
-                {themeOptions.map((option) => {
-                  const isSelected = option.id === theme;
-                  const themeSwatchLabel = themeLabels[option.nameKey];
-
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setTheme(option.id)}
-                      className={`relative h-11 w-11 rounded-xl border transition-all focus:outline-none focus:ring-4 focus:ring-primary-100 ${
-                        isSelected
-                          ? 'border-white shadow-md ring-2 ring-accent'
-                          : 'border-white/80 shadow-sm ring-1 ring-black/10 hover:-translate-y-0.5 hover:shadow-md'
-                      }`}
-                      style={{ backgroundColor: option.swatch }}
-                      aria-label={themeSwatchLabel}
-                      aria-pressed={isSelected}
-                      title={themeSwatchLabel}
-                    >
-                      <span className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/35 via-white/5 to-black/10" />
-                      {isSelected && (
-                        <span className="absolute inset-0 flex items-center justify-center text-white drop-shadow">
-                          <Check className="h-5 w-5 stroke-[3]" />
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6 border border-gray-200 rounded-xl">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex items-center gap-3">
-                  <Globe className="w-5 h-5 text-accent" />
-                  <h3 className="font-semibold text-gray-800">{t.settings.language}</h3>
-                </div>
-                <p className="mt-2 text-sm text-gray-500">{t.settings.languageDesc}</p>
-              </div>
-              <div className="relative w-full sm:w-[220px]">
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value as Language)}
-                  className={selectControlClassName}
-                >
-                  <option value="zh-CN">{t.settings.languageChinese}</option>
-                  <option value="zh-TW">{t.settings.languageTraditionalChinese}</option>
-                  <option value="en-US">{t.settings.languageEnglish}</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6 border border-gray-200 rounded-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <Folder className="w-5 h-5 text-accent" />
-              <h3 className="font-semibold text-gray-800">{t.settings.dataDir}</h3>
-            </div>
-            <p className="text-sm text-gray-600 font-mono bg-gray-100 px-3 py-2 rounded-lg break-all">
-              {dataDir}
-            </p>
-          </div>
-
-          <div className="p-6 border border-gray-200 rounded-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <Settings className="w-5 h-5 text-accent" />
-              <h3 className="font-semibold text-gray-800">{t.settings.shortcuts}</h3>
-            </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">{t.settings.shortcutSearch}</span>
-                <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-mono">Cmd/Ctrl + K</kbd>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">{t.settings.shortcutLock}</span>
-                <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-mono">Cmd/Ctrl + L</kbd>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">{t.settings.shortcutNewNote}</span>
-                <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-mono">Cmd/Ctrl + N</kbd>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6 border border-gray-200 rounded-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <Info className="w-5 h-5 text-accent" />
-              <h3 className="font-semibold text-gray-800">{t.settings.about}</h3>
-            </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">{t.settings.version}</span>
-                <span className="text-gray-800 font-medium">{version}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">{t.settings.mode}</span>
-                <span className="text-gray-800 font-medium">{t.settings.modePrivate}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">{t.settings.website}</span>
+              <div className="flex gap-2">
                 <button
-                  onClick={() => BrowserOpenURL('https://locknote.app')}
-                  className="text-sm text-gray-600 hover:text-accent hover:underline font-medium"
+                  onClick={handleSaveSettings}
+                  disabled={saving}
+                  className="rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  https://locknote.app
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-              <div className="text-sm font-semibold text-gray-800">{t.settings.legal}</div>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => BrowserOpenURL('https://locknote.app/privacy')}
-                  className="text-sm text-gray-600 hover:text-accent hover:underline"
-                >
-                  {t.settings.privacy}
+                  {saving ? t.common.loading : t.common.save}
                 </button>
                 <button
-                  onClick={() => BrowserOpenURL('https://locknote.app/terms')}
-                  className="text-sm text-gray-600 hover:text-accent hover:underline"
+                  onClick={() => setShowAutoLockDialog(false)}
+                  className="rounded-xl px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
                 >
-                  {t.settings.terms}
-                </button>
-                <button
-                  onClick={() => BrowserOpenURL('https://locknote.app/disclaimer')}
-                  className="text-sm text-gray-600 hover:text-accent hover:underline"
-                >
-                  {t.settings.disclaimer}
+                  {t.common.cancel}
                 </button>
               </div>
             </div>
           </div>
-            </div>
-          </>
-        )}
-
-        {activeTab === 'backup' && <BackupView embedded />}
-        {activeTab === 'trash' && <TrashView embedded />}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

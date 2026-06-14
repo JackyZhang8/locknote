@@ -325,6 +325,8 @@ export const zhTW: Translations = {
     languageChinese: '简体中文',
     languageTraditionalChinese: '繁體中文',
     languageEnglish: 'English',
+    editor: '編輯器',
+    showLineNumbers: '顯示行號',
 
     // 資料目錄
     dataDir: '資料目錄',
