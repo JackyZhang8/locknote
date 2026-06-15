@@ -235,6 +235,10 @@ const (
 	historyMaxCount    = 20
 )
 
+func isUneditedEmptyInitialNote(meta *database.NoteMeta, content NoteContent) bool {
+	return content.Content == "" && meta.CreatedAt.Equal(meta.UpdatedAt)
+}
+
 func (s *Service) Update(id, title, content string) (*Note, error) {
 	key, err := s.getMasterKey()
 	if err != nil {
@@ -260,7 +264,7 @@ func (s *Service) Update(id, title, content string) (*Note, error) {
 		contentChanged = oldContent.Title != title || oldContent.Content != content
 
 		if contentChanged {
-			shouldCreateHistory := true
+			shouldCreateHistory := !isUneditedEmptyInitialNote(meta, oldContent)
 
 			existingHistory, _ := s.db.GetNoteHistory(id)
 			if len(existingHistory) > 0 {

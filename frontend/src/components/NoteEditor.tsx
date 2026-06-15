@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, type ClipboardEvent as ReactClipboardEvent, type DragEvent as ReactDragEvent, type ImgHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useState, useEffect, useCallback, useRef, type ClipboardEvent as ReactClipboardEvent, type DragEvent as ReactDragEvent, type ImgHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type UIEvent as ReactUIEvent } from 'react';
 import { Eye, Edit3, Columns, Tag, History, Download, X, Plus, Check, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Bold, Italic, Heading1, Heading2, List, ListOrdered, Quote, Code, Link2, Image as ImageIcon, Pilcrow } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { Components } from 'react-markdown';
@@ -12,12 +12,22 @@ import * as App from '../../wailsjs/go/main/App';
 const FONT_SCALE_STORAGE_KEY = 'locknote-editor-font-scale';
 const LINE_NUMBERS_STORAGE_KEY = 'locknote-editor-show-line-numbers';
 const LINE_NUMBERS_CHANGE_EVENT = 'locknote-editor-show-line-numbers-change';
+const MAX_TITLE_LENGTH = 80;
+const HISTORY_BATCH_SIZE = 8;
 const MIN_FONT_SCALE = 0.8;
 const MAX_FONT_SCALE = 1.8;
 const TAG_COLORS = [
   '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b',
   '#ef4444', '#06b6d4', '#84cc16', '#6366f1', '#f97316',
 ];
+
+const getLimitedTitle = (value: string) => value.slice(0, MAX_TITLE_LENGTH);
+const getTitleFontSize = (titleLength: number, scale: number) => {
+  if (titleLength > 60) return `${1.25 * scale}rem`;
+  if (titleLength > 40) return `${1.5 * scale}rem`;
+  if (titleLength > 20) return `${1.75 * scale}rem`;
+  return `${2 * scale}rem`;
+};
 
 function AttachmentImage({ src, alt, title }: ImgHTMLAttributes<HTMLImageElement>) {
   const attachmentId = parseAttachmentId(src);
@@ -113,6 +123,8 @@ export function NoteEditor({
   const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0]);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<notes.Note[]>([]);
+  const [visibleHistoryCount, setVisibleHistoryCount] = useState(HISTORY_BATCH_SIZE);
+  const [previewHistory, setPreviewHistory] = useState<notes.Note | null>(null);
   const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(null);
   const [fontScale, setFontScale] = useState(1);
   const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
@@ -139,7 +151,7 @@ export function NoteEditor({
 
   useEffect(() => {
     if (selectedNote) {
-      setTitle(selectedNote.title || '');
+      setTitle(getLimitedTitle(selectedNote.title || ''));
       setContent(selectedNote.content || '');
     } else {
       setTitle('');
@@ -367,6 +379,8 @@ export function NoteEditor({
     try {
       const historyList = await App.GetNoteHistory(selectedNote.id);
       setHistory(historyList || []);
+      setVisibleHistoryCount(HISTORY_BATCH_SIZE);
+      setPreviewHistory(null);
       setShowHistory(true);
     } catch (error) {
       console.error('Failed to load history:', error);
@@ -386,6 +400,7 @@ export function NoteEditor({
       setTitle(restored.title);
       setContent(restored.content);
       setConfirmRestoreId(null);
+      setPreviewHistory(null);
       setShowHistory(false);
     } catch (error) {
       console.error('Failed to restore history:', error);
@@ -615,6 +630,10 @@ export function NoteEditor({
     });
   };
 
+  const handleTitleChange = (value: string) => {
+    setTitle(getLimitedTitle(value));
+  };
+
   const handleContentScroll = () => {
     const textarea = contentTextareaRef.current;
     const lineNumbers = lineNumbersRef.current;
@@ -663,12 +682,21 @@ export function NoteEditor({
     { title: '链接', icon: <Link2 className="w-4 h-4" />, onClick: () => applyMarkdown('[', '](https://)', 'link') },
     { title: '图片', icon: <ImageIcon className="w-4 h-4" />, onClick: handleInsertImage },
   ];
-  const titleFontSize = `${2 * fontScale}rem`;
+  const titleFontSize = getTitleFontSize(title.length, fontScale);
   const contentFontSize = `${0.875 * fontScale}rem`;
   const previewFontSize = `${1 * fontScale}rem`;
   const fontPercent = `${Math.round(fontScale * 100)}%`;
   const bodyCharacterCount = content.trim().length;
   const editorLineNumbers = content.split('\n');
+  const visibleHistory = history.slice(0, visibleHistoryCount);
+  const hasMoreHistory = visibleHistoryCount < history.length;
+
+  const handleHistoryScroll = (event: ReactUIEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+    if (distanceFromBottom > 48 || !hasMoreHistory) return;
+    setVisibleHistoryCount((count) => Math.min(count + HISTORY_BATCH_SIZE, history.length));
+  };
 
   const handleCreateNewNote = async () => {
     try {
@@ -734,7 +762,8 @@ export function NoteEditor({
           <button
             onClick={handleZoomOut}
             className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-            title={`缩小字体（当前 ${fontPercent}）`}
+            title={formatMessage(t.editor.zoomOutTooltip, { percent: fontPercent })}
+            aria-label={formatMessage(t.editor.zoomOutTooltip, { percent: fontPercent })}
           >
             <ZoomOut className="w-4 h-4" />
           </button>
@@ -746,7 +775,8 @@ export function NoteEditor({
           <button
             onClick={handleZoomIn}
             className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-            title={`放大字体（当前 ${fontPercent}）`}
+            title={formatMessage(t.editor.zoomInTooltip, { percent: fontPercent })}
+            aria-label={formatMessage(t.editor.zoomInTooltip, { percent: fontPercent })}
           >
             <ZoomIn className="w-4 h-4" />
           </button>
@@ -755,7 +785,8 @@ export function NoteEditor({
             <button
               onClick={() => setShowMarkdownToolbar((prev) => !prev)}
               className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-              title={showMarkdownToolbar ? '收起 Markdown 工具栏' : '展开 Markdown 工具栏'}
+              title={showMarkdownToolbar ? t.editor.collapseMarkdownToolbar : t.editor.expandMarkdownToolbar}
+              aria-label={showMarkdownToolbar ? t.editor.collapseMarkdownToolbar : t.editor.expandMarkdownToolbar}
             >
               {showMarkdownToolbar ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
@@ -765,7 +796,8 @@ export function NoteEditor({
             <button
               onClick={() => setShowTagMenu(!showTagMenu)}
               className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-              title={t.noteList.tag}
+              title={t.editor.tagsTooltip}
+              aria-label={t.editor.tagsTooltip}
             >
               <Tag className="w-4 h-4" />
             </button>
@@ -837,7 +869,8 @@ export function NoteEditor({
           <button
             onClick={handleShowHistory}
             className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-            title={t.editor.history}
+            title={t.editor.historyTooltip}
+            aria-label={t.editor.historyTooltip}
           >
             <History className="w-4 h-4" />
           </button>
@@ -845,7 +878,8 @@ export function NoteEditor({
           <button
             onClick={handleExport}
             className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-            title={t.editor.export}
+            title={t.editor.exportTooltip}
+            aria-label={t.editor.exportTooltip}
           >
             <Download className="w-4 h-4" />
           </button>
@@ -894,7 +928,8 @@ export function NoteEditor({
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => handleTitleChange(e.target.value)}
+              maxLength={MAX_TITLE_LENGTH}
               className="px-6 py-4 font-bold border-b border-gray-100 focus:outline-none"
               style={{ fontSize: titleFontSize }}
               placeholder={t.editor.titlePlaceholder}
@@ -1033,50 +1068,116 @@ export function NoteEditor({
 
       {showHistory && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={() => setShowHistory(false)}
+          className="fixed inset-0 z-50 flex justify-end bg-black/40"
+          onClick={() => {
+            setPreviewHistory(null);
+            setShowHistory(false);
+          }}
         >
-          <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] overflow-hidden"
+          <aside
+            role="dialog"
+            aria-modal="true"
+            className="flex h-full w-full max-w-[420px] flex-col bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-800">{t.editor.historyTitle}</h3>
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4">
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold text-gray-800">{t.editor.historyTitle}</h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  {formatMessage(t.editor.historyCount, { count: history.length })}
+                </p>
+              </div>
               <button
-                onClick={() => setShowHistory(false)}
-                className="p-1 rounded hover:bg-gray-100"
+                onClick={() => {
+                  setPreviewHistory(null);
+                  setShowHistory(false);
+                }}
+                className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100"
+                title={t.common.close}
+                aria-label={t.common.close}
               >
-                <X className="w-5 h-5 text-gray-500" />
+                <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="overflow-y-auto max-h-[60vh]">
+            <div className="min-h-0 flex-1 overflow-y-scroll" onScroll={handleHistoryScroll}>
               {history.length === 0 ? (
-                <div className="p-6 text-center text-gray-400">
+                <div className="p-6 text-center text-sm text-gray-400">
                   <p>{t.editor.historyEmpty}</p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
-                  {history.map((h) => (
-                    <div key={h.id} className="p-4 hover:bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-gray-800">{h.title || t.noteList.untitled}</p>
-                          <p className="text-sm text-gray-500 mt-1">
+                  {visibleHistory.map((h) => (
+                    <div key={h.id} className="p-4 transition-colors hover:bg-gray-50">
+                      <div className="flex items-start gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-gray-800">{h.title || t.noteList.untitled}</p>
+                          <p className="mt-1 text-xs text-gray-500">
                             {new Date(h.createdAt).toLocaleString(language)}
                           </p>
                         </div>
-                        <button
-                          onClick={() => handleRestoreClick(h.id)}
-                          className="px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-primary-600 flex items-center gap-1"
-                        >
-                          <Check className="w-4 h-4" />
-                          {t.editor.historyRestore}
-                        </button>
+                        <div className="flex flex-shrink-0 items-center gap-2">
+                          <button
+                            onClick={() => setPreviewHistory(h)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-white hover:text-accent"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            {t.editor.historyPreview}
+                          </button>
+                          <button
+                            onClick={() => handleRestoreClick(h.id)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-accent px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-600"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            {t.editor.historyRestore}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
+                  {hasMoreHistory && (
+                    <div className="px-4 py-3 text-center text-xs text-gray-400">
+                      {t.editor.historyLoadMore}
+                    </div>
+                  )}
                 </div>
               )}
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {previewHistory && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 px-4"
+          onClick={() => setPreviewHistory(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="flex max-h-[82vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-gray-500">{t.editor.historyPreview}</p>
+                <h3 className="mt-1 truncate text-base font-semibold text-gray-900">
+                  {previewHistory.title || t.noteList.untitled}
+                </h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  {t.editor.historyBackupTime}：{new Date(previewHistory.createdAt).toLocaleString(language)}
+                </p>
+              </div>
+              <button
+                onClick={() => setPreviewHistory(null)}
+                className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100"
+                title={t.common.close}
+                aria-label={t.common.close}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 markdown-preview" style={{ fontSize: previewFontSize }}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents} urlTransform={markdownUrlTransform}>{previewHistory.content || `*${t.noteList.noContent}*`}</ReactMarkdown>
             </div>
           </div>
         </div>
