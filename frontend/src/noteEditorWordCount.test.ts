@@ -73,8 +73,23 @@ test('note editor limits long titles and scales the title font by length', () =>
   assert.equal(/if \(titleLength > 40\) return `\$\{1\.5 \* scale\}rem`;/.test(editorSource), true);
   assert.equal(/if \(titleLength > 20\) return `\$\{1\.75 \* scale\}rem`;/.test(editorSource), true);
   assert.equal(/return `\$\{2 \* scale\}rem`;/.test(editorSource), true);
-  assert.equal(/const handleTitleChange = \(value: string\) => \{\s*setTitle\(getLimitedTitle\(value\)\);\s*\};/.test(editorSource), true);
+  assert.equal(/const handleTitleChange = \(value: string\) => \{\s*const nextTitle = getLimitedTitle\(value\);/.test(editorSource), true);
+  assert.equal(/if \(nextTitle === title\) return;[\s\S]*pushUndoSnapshot\(\);[\s\S]*setTitle\(nextTitle\);/.test(editorSource), true);
   assert.equal(/onChange=\{\(e\) => handleTitleChange\(e\.target\.value\)\}/.test(editorSource), true);
+});
+
+test('editor undo shortcut falls back to native undo when no internal snapshot is available', () => {
+  const shortcutStart = editorSource.indexOf('const handleEditorUndoShortcut = ');
+  const shortcutEnd = editorSource.indexOf('const handleTitleKeyDown', shortcutStart);
+  const shortcutSource = editorSource.slice(shortcutStart, shortcutEnd);
+
+  assert.equal(/const didUndo = undoLastEdit\(event\.currentTarget\);/.test(shortcutSource), true);
+  assert.equal(/if \(!didUndo\) return false;/.test(shortcutSource), true);
+  assert.equal(
+    shortcutSource.indexOf('undoLastEdit(event.currentTarget)') < shortcutSource.indexOf('event.preventDefault()'),
+    true,
+  );
+  assert.equal(shortcutSource.includes('return undoLastEdit(event.currentTarget);'), false);
 });
 
 test('history versions open in a right drawer with a scrollable list', () => {

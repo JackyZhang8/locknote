@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef, type ClipboardEvent as ReactClipboardEvent, type DragEvent as ReactDragEvent, type ImgHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type UIEvent as ReactUIEvent } from 'react';
-import { Eye, Edit3, Columns, Tag, History, Download, X, Plus, Check, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Bold, Italic, Heading1, Heading2, List, ListOrdered, Quote, Code, Link2, Image as ImageIcon, Pilcrow } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef, type ClipboardEvent as ReactClipboardEvent, type DragEvent as ReactDragEvent, type ImgHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type UIEvent as ReactUIEvent } from 'react';
+import { Eye, Edit3, Columns, Tag, History, Download, X, Plus, Check, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Bold, Italic, Heading1, Heading2, List, ListOrdered, Quote, Code, Link2, Image as ImageIcon, Pilcrow, Copy, Scissors, Clipboard } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -8,6 +8,7 @@ import { formatMessage, useI18n } from '../i18n';
 import { attachmentMarkdown, fileToDataURL, markdownUrlTransform, parseAttachmentId } from '../imageAttachments';
 import { notes, tags } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
+import { ClipboardGetText, ClipboardSetText } from '../../wailsjs/runtime/runtime';
 
 const FONT_SCALE_STORAGE_KEY = 'locknote-editor-font-scale';
 const LINE_NUMBERS_STORAGE_KEY = 'locknote-editor-show-line-numbers';
@@ -16,18 +17,68 @@ const MAX_TITLE_LENGTH = 80;
 const HISTORY_BATCH_SIZE = 8;
 const MIN_FONT_SCALE = 0.8;
 const MAX_FONT_SCALE = 1.8;
+const CONTEXT_MENU_WIDTH = 220;
+const CONTEXT_MENU_EDIT_HEIGHT = 416;
+const CONTEXT_MENU_PREVIEW_HEIGHT = 192;
 const TAG_COLORS = [
   '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b',
   '#ef4444', '#06b6d4', '#84cc16', '#6366f1', '#f97316',
 ];
 
 const getLimitedTitle = (value: string) => value.slice(0, MAX_TITLE_LENGTH);
+type EditableContextTarget = HTMLInputElement | HTMLTextAreaElement;
+type EditorContextMenu = {
+  x: number;
+  y: number;
+  mode: 'editable' | 'preview';
+};
+type EditorSnapshot = {
+  title: string;
+  content: string;
+};
+type ContextMenuButtonProps = {
+  icon: ReactNode;
+  children: ReactNode;
+  onClick: () => void | Promise<void>;
+};
+
 const getTitleFontSize = (titleLength: number, scale: number) => {
   if (titleLength > 60) return `${1.25 * scale}rem`;
   if (titleLength > 40) return `${1.5 * scale}rem`;
   if (titleLength > 20) return `${1.75 * scale}rem`;
   return `${2 * scale}rem`;
 };
+
+const isEditableContextTarget = (target: EventTarget | null): target is EditableContextTarget => {
+  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+};
+
+const getBoundedContextMenuPosition = (clientX: number, clientY: number, estimatedHeight: number) => {
+  const margin = 8;
+  const maxX = Math.max(margin, window.innerWidth - CONTEXT_MENU_WIDTH - margin);
+  const maxY = Math.max(margin, window.innerHeight - estimatedHeight - margin);
+  return {
+    x: Math.min(Math.max(clientX, margin), maxX),
+    y: Math.min(Math.max(clientY, margin), maxY),
+  };
+};
+
+function ContextMenuButton({ icon, children, onClick }: ContextMenuButtonProps) {
+  return (
+    <button
+      role="menuitem"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+function ContextMenuDivider() {
+  return <div className="my-1 h-px bg-gray-100" />;
+}
 
 function AttachmentImage({ src, alt, title }: ImgHTMLAttributes<HTMLImageElement>) {
   const attachmentId = parseAttachmentId(src);
@@ -129,10 +180,15 @@ export function NoteEditor({
   const [fontScale, setFontScale] = useState(1);
   const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
   const [showLineNumbers, setShowLineNumbers] = useState(true);
+  const [contextMenu, setContextMenu] = useState<EditorContextMenu | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tagMenuContainerRef = useRef<HTMLDivElement | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const lineNumbersRef = useRef<HTMLDivElement | null>(null);
+  const contextMenuTargetRef = useRef<EditableContextTarget | null>(null);
+  const undoStackRef = useRef<EditorSnapshot[]>([]);
   const previousCloseRequestTokenRef = useRef(closeRequestToken);
 
   const updateSelectedNote = useCallback((nextNote: notes.Note | null) => {
@@ -150,6 +206,7 @@ export function NoteEditor({
   };
 
   useEffect(() => {
+    undoStackRef.current = [];
     if (selectedNote) {
       setTitle(getLimitedTitle(selectedNote.title || ''));
       setContent(selectedNote.content || '');
@@ -158,6 +215,43 @@ export function NoteEditor({
       setContent('');
     }
   }, [selectedNote]);
+
+  const pushUndoSnapshot = () => {
+    const snapshot: EditorSnapshot = { title, content };
+    const stack = undoStackRef.current;
+    const last = stack[stack.length - 1];
+    if (last && last.title === snapshot.title && last.content === snapshot.content) return;
+    undoStackRef.current = [...stack.slice(-49), snapshot];
+  };
+
+  const undoLastEdit = (target: EditableContextTarget | null) => {
+    const previous = undoStackRef.current.pop();
+    if (!previous) return false;
+
+    setTitle(previous.title);
+    setContent(previous.content);
+    if (target) {
+      const nextValue = target === titleInputRef.current ? previous.title : previous.content;
+      restoreEditableSelection(target, nextValue.length, nextValue.length);
+    }
+    return true;
+  };
+
+  const handleEditorUndoShortcut = (event: ReactKeyboardEvent<EditableContextTarget>) => {
+    const isUndoShortcut =
+      (event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'z';
+    if (!isUndoShortcut) return false;
+
+    const didUndo = undoLastEdit(event.currentTarget);
+    if (!didUndo) return false;
+
+    event.preventDefault();
+    return true;
+  };
+
+  const handleTitleKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (handleEditorUndoShortcut(event)) return;
+  };
 
   useEffect(() => {
     try {
@@ -243,6 +337,40 @@ export function NoteEditor({
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [showTagMenu, showCreateTagDialog]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+
+    const closeContextMenu = () => {
+      setContextMenu(null);
+    };
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const container = contextMenuRef.current;
+      if (container?.contains(event.target as Node)) return;
+      closeContextMenu();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeContextMenu();
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('scroll', closeContextMenu, true);
+    window.addEventListener('resize', closeContextMenu);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('scroll', closeContextMenu, true);
+      window.removeEventListener('resize', closeContextMenu);
+    };
+  }, [contextMenu]);
 
   useEffect(() => {
     if (!showCreateTagDialog) return;
@@ -420,6 +548,139 @@ export function NoteEditor({
     }
   };
 
+  const writeTextToClipboard = async (value: string) => {
+    if (!value) return;
+    try {
+      await ClipboardSetText(value);
+    } catch {
+      await navigator.clipboard?.writeText?.(value);
+    }
+  };
+
+  const readTextFromClipboard = async () => {
+    try {
+      return await ClipboardGetText();
+    } catch {
+      return await navigator.clipboard?.readText?.() ?? '';
+    }
+  };
+
+  const getEditableSelection = (target: EditableContextTarget) => {
+    const start = target.selectionStart ?? target.value.length;
+    const end = target.selectionEnd ?? start;
+    return {
+      start,
+      end,
+      text: target.value.slice(start, end),
+    };
+  };
+
+  const restoreEditableSelection = (
+    target: EditableContextTarget,
+    selectionStart: number,
+    selectionEnd: number,
+  ) => {
+    requestAnimationFrame(() => {
+      const safeStart = Math.min(selectionStart, target.value.length);
+      const safeEnd = Math.min(selectionEnd, target.value.length);
+      target.focus();
+      target.setSelectionRange(safeStart, safeEnd);
+    });
+  };
+
+  const replaceEditableSelection = (target: EditableContextTarget, replacement: string) => {
+    const { start, end } = getEditableSelection(target);
+    const nextRawValue = `${target.value.slice(0, start)}${replacement}${target.value.slice(end)}`;
+    const nextValue = target === titleInputRef.current ? getLimitedTitle(nextRawValue) : nextRawValue;
+    const nextCursorPosition = Math.min(start + replacement.length, nextValue.length);
+
+    if (nextValue === target.value) return;
+    pushUndoSnapshot();
+    if (target === titleInputRef.current) {
+      setTitle(nextValue);
+    } else {
+      setContent(nextValue);
+    }
+    restoreEditableSelection(target, nextCursorPosition, nextCursorPosition);
+  };
+
+  const handleEditorContextMenu = (event: ReactMouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const target = event.target;
+    const editableTarget = isEditableContextTarget(target) ? target : null;
+    const mode = editableTarget ? 'editable' : 'preview';
+    const position = getBoundedContextMenuPosition(
+      event.clientX,
+      event.clientY,
+      mode === 'editable' ? CONTEXT_MENU_EDIT_HEIGHT : CONTEXT_MENU_PREVIEW_HEIGHT,
+    );
+
+    contextMenuTargetRef.current = editableTarget;
+    setContextMenu({ ...position, mode });
+  };
+
+  const handleCopyFromContextMenu = async () => {
+    const target = contextMenuTargetRef.current;
+    const text = target ? getEditableSelection(target).text : window.getSelection()?.toString() ?? '';
+    await writeTextToClipboard(text);
+    setContextMenu(null);
+  };
+
+  const handleCutFromContextMenu = async () => {
+    const target = contextMenuTargetRef.current;
+    if (!target) {
+      setContextMenu(null);
+      return;
+    }
+
+    const selection = getEditableSelection(target);
+    await writeTextToClipboard(selection.text);
+    if (selection.text) {
+      replaceEditableSelection(target, '');
+    }
+    setContextMenu(null);
+  };
+
+  const handlePasteFromContextMenu = async () => {
+    const target = contextMenuTargetRef.current;
+    if (!target) {
+      setContextMenu(null);
+      return;
+    }
+
+    const clipboardText = await readTextFromClipboard();
+    if (clipboardText) {
+      replaceEditableSelection(target, clipboardText);
+    }
+    setContextMenu(null);
+  };
+
+  const handleSelectAllFromContextMenu = () => {
+    const target = contextMenuTargetRef.current;
+    if (target) {
+      target.focus();
+      target.select();
+    }
+    setContextMenu(null);
+  };
+
+  const handleCopyMarkdownFromContextMenu = async () => {
+    await writeTextToClipboard(content);
+    setContextMenu(null);
+  };
+
+  const handleShowHistoryFromContextMenu = () => {
+    setContextMenu(null);
+    handleShowHistory();
+  };
+
+  const handleExportFromContextMenu = () => {
+    setContextMenu(null);
+    handleExport();
+  };
+
   const handleZoomIn = () => {
     setFontScale((prev) => Math.min(prev + 0.1, MAX_FONT_SCALE));
   };
@@ -439,6 +700,7 @@ export function NoteEditor({
     textarea.focus();
     textarea.setRangeText(insertText, start, end, 'select');
     const nextContent = textarea.value;
+    pushUndoSnapshot();
     setContent(nextContent);
 
     requestAnimationFrame(() => {
@@ -453,6 +715,7 @@ export function NoteEditor({
     const textarea = contentTextareaRef.current;
     const insertion = content && !content.endsWith('\n') ? `\n${markdown}\n` : `${markdown}\n`;
     if (!textarea) {
+      pushUndoSnapshot();
       setContent((current) => current + insertion);
       return;
     }
@@ -462,6 +725,7 @@ export function NoteEditor({
     textarea.focus();
     textarea.setRangeText(insertion, start, end, 'end');
     const nextContent = textarea.value;
+    pushUndoSnapshot();
     setContent(nextContent);
   };
 
@@ -497,6 +761,7 @@ export function NoteEditor({
   ) => {
     textarea.value = nextValue;
     textarea.setSelectionRange(selectionStart, selectionEnd);
+    pushUndoSnapshot();
     setContent(nextValue);
   };
 
@@ -589,6 +854,8 @@ export function NoteEditor({
   };
 
   const handleContentKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (handleEditorUndoShortcut(event)) return;
+
     const textarea = event.currentTarget;
 
     if (event.key === 'Tab') {
@@ -631,7 +898,16 @@ export function NoteEditor({
   };
 
   const handleTitleChange = (value: string) => {
-    setTitle(getLimitedTitle(value));
+    const nextTitle = getLimitedTitle(value);
+    if (nextTitle === title) return;
+    pushUndoSnapshot();
+    setTitle(nextTitle);
+  };
+
+  const handleContentChange = (value: string) => {
+    if (value === content) return;
+    pushUndoSnapshot();
+    setContent(value);
   };
 
   const handleContentScroll = () => {
@@ -733,7 +1009,11 @@ export function NoteEditor({
   }
 
   return (
-    <div className={`${variant === 'modal' ? 'flex h-full min-h-0 min-w-0' : 'flex-1 flex min-h-0 min-w-0 overflow-hidden'} flex-col bg-white`}>
+    <div
+      data-note-editor-surface="true"
+      onContextMenu={handleEditorContextMenu}
+      className={`${variant === 'modal' ? 'flex h-full min-h-0 min-w-0' : 'flex-1 flex min-h-0 min-w-0 overflow-hidden'} flex-col bg-white`}
+    >
       <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2">
           {modeButtons.map((btn) => (
@@ -926,9 +1206,11 @@ export function NoteEditor({
             className={`flex flex-col ${editorMode === 'split' ? 'min-w-0 border-r border-gray-100' : 'min-w-0 flex-1'}`}
           >
             <input
+              ref={titleInputRef}
               type="text"
               value={title}
               onChange={(e) => handleTitleChange(e.target.value)}
+              onKeyDown={handleTitleKeyDown}
               maxLength={MAX_TITLE_LENGTH}
               className="px-6 py-4 font-bold border-b border-gray-100 focus:outline-none"
               style={{ fontSize: titleFontSize }}
@@ -952,7 +1234,7 @@ export function NoteEditor({
               <textarea
                 ref={contentTextareaRef}
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={(e) => handleContentChange(e.target.value)}
                 onKeyDown={handleContentKeyDown}
                 onPaste={handleContentPaste}
                 onDrop={handleContentDrop}
@@ -982,6 +1264,144 @@ export function NoteEditor({
           </div>
         )}
       </div>
+
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          role="menu"
+          data-note-editor-context-menu="true"
+          className="fixed z-[1000] w-[220px] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={(event) => event.stopPropagation()}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+        >
+          {contextMenu.mode === 'editable' ? (
+            <>
+              <ContextMenuButton
+                icon={<Copy className="h-4 w-4 text-gray-400" />}
+                onClick={handleCopyFromContextMenu}
+              >
+                {t.editor.contextCopy}
+              </ContextMenuButton>
+              <ContextMenuButton
+                icon={<Scissors className="h-4 w-4 text-gray-400" />}
+                onClick={handleCutFromContextMenu}
+              >
+                {t.editor.contextCut}
+              </ContextMenuButton>
+              <ContextMenuButton
+                icon={<Clipboard className="h-4 w-4 text-gray-400" />}
+                onClick={handlePasteFromContextMenu}
+              >
+                {t.editor.contextPaste}
+              </ContextMenuButton>
+              <ContextMenuButton
+                icon={<Check className="h-4 w-4 text-gray-400" />}
+                onClick={handleSelectAllFromContextMenu}
+              >
+                {t.editor.contextSelectAll}
+              </ContextMenuButton>
+
+              {contextMenuTargetRef.current === contentTextareaRef.current && (
+                <>
+                  <ContextMenuDivider />
+                  <ContextMenuButton
+                    icon={<Bold className="h-4 w-4 text-gray-400" />}
+                    onClick={() => {
+                      applyMarkdown('**', '**', 'bold');
+                      setContextMenu(null);
+                    }}
+                  >
+                    {t.editor.contextBold}
+                  </ContextMenuButton>
+                  <ContextMenuButton
+                    icon={<Italic className="h-4 w-4 text-gray-400" />}
+                    onClick={() => {
+                      applyMarkdown('*', '*', 'italic');
+                      setContextMenu(null);
+                    }}
+                  >
+                    {t.editor.contextItalic}
+                  </ContextMenuButton>
+                  <ContextMenuButton
+                    icon={<Heading1 className="h-4 w-4 text-gray-400" />}
+                    onClick={() => {
+                      applyMarkdown('# ', '', t.editor.titlePlaceholder);
+                      setContextMenu(null);
+                    }}
+                  >
+                    {t.editor.contextHeading}
+                  </ContextMenuButton>
+                  <ContextMenuButton
+                    icon={<List className="h-4 w-4 text-gray-400" />}
+                    onClick={() => {
+                      applyMarkdown('- ', '', t.noteList.newNote);
+                      setContextMenu(null);
+                    }}
+                  >
+                    {t.editor.contextList}
+                  </ContextMenuButton>
+                  <ContextMenuButton
+                    icon={<ImageIcon className="h-4 w-4 text-gray-400" />}
+                    onClick={() => {
+                      setContextMenu(null);
+                      handleInsertImage();
+                    }}
+                  >
+                    {t.editor.contextInsertImage}
+                  </ContextMenuButton>
+                </>
+              )}
+
+              <ContextMenuDivider />
+              <ContextMenuButton
+                icon={<History className="h-4 w-4 text-gray-400" />}
+                onClick={handleShowHistoryFromContextMenu}
+              >
+                {t.editor.contextShowHistory}
+              </ContextMenuButton>
+              <ContextMenuButton
+                icon={<Download className="h-4 w-4 text-gray-400" />}
+                onClick={handleExportFromContextMenu}
+              >
+                {t.editor.contextExportMd}
+              </ContextMenuButton>
+            </>
+          ) : (
+            <>
+              <ContextMenuButton
+                icon={<Copy className="h-4 w-4 text-gray-400" />}
+                onClick={handleCopyFromContextMenu}
+              >
+                {t.editor.contextCopy}
+              </ContextMenuButton>
+              <ContextMenuButton
+                icon={<Clipboard className="h-4 w-4 text-gray-400" />}
+                onClick={handleCopyMarkdownFromContextMenu}
+              >
+                {t.editor.contextCopyMarkdown}
+              </ContextMenuButton>
+              <ContextMenuDivider />
+              <ContextMenuButton
+                icon={<History className="h-4 w-4 text-gray-400" />}
+                onClick={handleShowHistoryFromContextMenu}
+              >
+                {t.editor.contextShowHistory}
+              </ContextMenuButton>
+              <ContextMenuButton
+                icon={<Download className="h-4 w-4 text-gray-400" />}
+                onClick={handleExportFromContextMenu}
+              >
+                {t.editor.contextExportMd}
+              </ContextMenuButton>
+            </>
+          )}
+        </div>
+      )}
 
       {showCreateTagDialog && (
         <div

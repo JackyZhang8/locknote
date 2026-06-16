@@ -114,6 +114,18 @@ export const zhCN = {
     historyRestore: '恢复此版本',
     historyRestoreConfirm: '确定要恢复到此版本吗？当前内容将被覆盖。',
     historyDeleteConfirm: '确定要删除此历史版本吗？',
+    contextCopy: '复制',
+    contextCut: '剪切',
+    contextPaste: '粘贴',
+    contextSelectAll: '全选',
+    contextBold: '加粗',
+    contextItalic: '斜体',
+    contextHeading: '一级标题',
+    contextList: '无序列表',
+    contextInsertImage: '插入图片',
+    contextCopyMarkdown: '复制 Markdown',
+    contextShowHistory: '历史版本',
+    contextExportMd: '导出md文件',
   },
 
   todos: {

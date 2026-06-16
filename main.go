@@ -45,7 +45,7 @@ func main() {
 		Linux: &linux.Options{
 			WindowIsTranslucent: false,
 		},
-		EnableDefaultContextMenu: true,
+		EnableDefaultContextMenu: false,
 	})
 
 	if err != nil {

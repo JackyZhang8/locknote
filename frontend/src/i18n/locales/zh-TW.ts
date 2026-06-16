@@ -116,6 +116,18 @@ export const zhTW: Translations = {
     historyRestore: '還原此版本',
     historyRestoreConfirm: '確定要還原到此版本嗎？目前內容將被覆蓋。',
     historyDeleteConfirm: '確定要刪除此歷史版本嗎？',
+    contextCopy: '複製',
+    contextCut: '剪下',
+    contextPaste: '貼上',
+    contextSelectAll: '全選',
+    contextBold: '粗體',
+    contextItalic: '斜體',
+    contextHeading: '一級標題',
+    contextList: '無序列表',
+    contextInsertImage: '插入圖片',
+    contextCopyMarkdown: '複製 Markdown',
+    contextShowHistory: '歷史版本',
+    contextExportMd: '匯出md檔案',
   },
 
   todos: {

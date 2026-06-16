@@ -116,6 +116,18 @@ export const enUS: Translations = {
     historyRestore: 'Restore this version',
     historyRestoreConfirm: 'Are you sure you want to restore this version? Current content will be overwritten.',
     historyDeleteConfirm: 'Are you sure you want to delete this history version?',
+    contextCopy: 'Copy',
+    contextCut: 'Cut',
+    contextPaste: 'Paste',
+    contextSelectAll: 'Select All',
+    contextBold: 'Bold',
+    contextItalic: 'Italic',
+    contextHeading: 'Heading 1',
+    contextList: 'Bullet List',
+    contextInsertImage: 'Insert Image',
+    contextCopyMarkdown: 'Copy Markdown',
+    contextShowHistory: 'Version history',
+    contextExportMd: 'Export MD file',
   },
 
   todos: {

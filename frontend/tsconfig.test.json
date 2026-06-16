@@ -24,6 +24,7 @@
     "src/imageGrid.test.ts",
     "src/imageGrid.ts",
     "src/appStartup.test.ts",
+    "src/contextMenuPolicy.test.ts",
     "src/noteEditorTagsMenu.test.ts",
     "src/noteEditorWordCount.test.ts",
     "src/noteListRecent.test.ts",

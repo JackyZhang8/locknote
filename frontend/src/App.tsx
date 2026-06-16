@@ -116,6 +116,15 @@ function AppRoot() {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
+    const suppressDefaultContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+    };
+
+    window.addEventListener('contextmenu', suppressDefaultContextMenu, { capture: true });
+    return () => window.removeEventListener('contextmenu', suppressDefaultContextMenu, { capture: true });
+  }, []);
+
+  useEffect(() => {
     // Only emit frontend:ready after runtime is ready
     const emitReady = async () => {
       await wailsRuntimeReady;
