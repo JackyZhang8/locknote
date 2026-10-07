@@ -231,6 +231,9 @@ export function NoteEditor({
   const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
   const [showLineNumbers, setShowLineNumbers] = useState(true);
   const [contextMenu, setContextMenu] = useState<EditorContextMenu | null>(null);
+  const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const latestDraftRef = useRef({ selectedNote, title, content });
+  latestDraftRef.current = { selectedNote, title, content };
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tagMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
@@ -459,22 +462,33 @@ export function NoteEditor({
   const saveNote = useCallback(async (): Promise<boolean> => {
     if (!selectedNote) return true;
 
-    setIsSaving(true);
-    try {
-      const updated = await App.UpdateNote(selectedNote.id, title, content);
-      updateSelectedNote(updated);
-      const notesList = await App.ListNotes();
-      const safeNotes = notesList || [];
-      setNotes(safeNotes);
-      onNotesReloaded?.(safeNotes);
-      return true;
-    } catch (error) {
-      console.error('Failed to save note:', error);
-      alert(`${t.common.error}：${String(error)}`);
-      return false;
-    } finally {
-      setIsSaving(false);
-    }
+    const snapshot = { selectedNote, title, content };
+    const save = async (): Promise<boolean> => {
+      setIsSaving(true);
+      try {
+        const updated = await App.UpdateNote(selectedNote.id, title, content);
+        const current = latestDraftRef.current;
+        if (current.selectedNote === snapshot.selectedNote &&
+            current.title === snapshot.title && current.content === snapshot.content) {
+          updateSelectedNote(updated);
+        }
+        const notesList = await App.ListNotes();
+        const safeNotes = notesList || [];
+        setNotes(safeNotes);
+        onNotesReloaded?.(safeNotes);
+        return true;
+      } catch (error) {
+        console.error('Failed to save note:', error);
+        alert(`${t.common.error}：${String(error)}`);
+        return false;
+      } finally {
+        setIsSaving(false);
+      }
+    };
+    // Serialize database writes, including close-time saves.
+    const pending = saveQueueRef.current.then(save);
+    saveQueueRef.current = pending.catch(() => undefined);
+    return pending;
   }, [selectedNote, title, content, updateSelectedNote, setNotes, onNotesReloaded, t.common.error]);
 
   useEffect(() => {
@@ -973,7 +987,7 @@ export function NoteEditor({
       clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = null;
     }
-    if (selectedNote && (title !== selectedNote.title || content !== selectedNote.content)) {
+    if (selectedNote) {
       const saved = await saveNote();
       if (!saved) return;
     }
