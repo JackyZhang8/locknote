@@ -1,4 +1,5 @@
-import { useState, useLayoutEffect, useEffect, useCallback, useRef, type ClipboardEvent as ReactClipboardEvent, type DragEvent as ReactDragEvent, type ImgHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type ComponentProps, type UIEvent as ReactUIEvent } from 'react';
+import { indexMarkdownHeadings } from '../markdownHeadings';
+import { useId, useState, useLayoutEffect, useEffect, useCallback, useRef, type ClipboardEvent as ReactClipboardEvent, type DragEvent as ReactDragEvent, type ImgHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type ComponentProps, type UIEvent as ReactUIEvent } from 'react';
 import { Eye, Edit3, Columns, Tag, History, Download, X, Plus, Check, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Bold, Italic, Heading1, Heading2, List, ListOrdered, Quote, Code, Link2, Image as ImageIcon, Pilcrow, Copy, Scissors, Clipboard } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { Components, ExtraProps } from 'react-markdown';
@@ -150,19 +151,15 @@ const markdownComponents: Components = {
 };
 
 function PreviewMarkdown({ markdown, fontSize, collapsedByDefault = false }: { markdown: string; fontSize: string; collapsedByDefault?: boolean }) {
+  const headingPrefix = useId();
   const [tocOpen, setTocOpen] = useState(!collapsedByDefault);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
   const [toc, setToc] = useState<Array<{ id: string; text: string; level: number; element: HTMLElement }>>([]);
   useLayoutEffect(() => {
     const headings = articleRef.current?.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6');
-    setToc(Array.from(headings ?? []).map((element, index) => ({
-      id: `heading-${index}`,
-      text: element.textContent ?? '',
-      level: Number(element.tagName.slice(1)),
-      element,
-    })));
-  }, [markdown]);
+    setToc(indexMarkdownHeadings(headings ?? [], headingPrefix));
+  }, [markdown, headingPrefix]);
   const jumpToHeading = (event: ReactMouseEvent<HTMLAnchorElement>, id: string) => {
     event.preventDefault();
     const headingElement = toc.find((item) => item.id === id)?.element;
