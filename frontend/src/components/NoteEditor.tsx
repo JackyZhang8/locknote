@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback, useRef, type ClipboardEvent as ReactClipboardEvent, type DragEvent as ReactDragEvent, type ImgHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type UIEvent as ReactUIEvent } from 'react';
+import { useState, useLayoutEffect, useEffect, useCallback, useRef, type ClipboardEvent as ReactClipboardEvent, type DragEvent as ReactDragEvent, type ImgHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type ComponentProps, type UIEvent as ReactUIEvent } from 'react';
 import { Eye, Edit3, Columns, Tag, History, Download, X, Plus, Check, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Bold, Italic, Heading1, Heading2, List, ListOrdered, Quote, Code, Link2, Image as ImageIcon, Pilcrow, Copy, Scissors, Clipboard } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import type { Components } from 'react-markdown';
+import type { Components, ExtraProps } from 'react-markdown';
+import { MermaidDiagram } from './MermaidDiagram';
+import { remarkFlowchartFences } from '../mermaid';
 import remarkGfm from 'remark-gfm';
 import { useStore, EditorMode } from '../store';
 import { formatMessage, useI18n } from '../i18n';
@@ -130,9 +132,57 @@ function AttachmentImage({ src, alt, title }: ImgHTMLAttributes<HTMLImageElement
   );
 }
 
+function PreviewCodeBlock({ node, children, ...props }: ComponentProps<'pre'> & ExtraProps) {
+  const codeNode = node?.children.find((child) => child.type === 'element' && child.tagName === 'code');
+  if (codeNode?.type === 'element') {
+    const classes = codeNode.properties.className;
+    if (Array.isArray(classes) && classes.some((name) => name === 'language-mermaid' || name === 'language-flowchart')) {
+      const code = codeNode.children.map((child) => child.type === 'text' ? child.value : '').join('').replace(/\n$/, '');
+      return <MermaidDiagram code={code} />;
+    }
+  }
+  return <pre {...props}>{children}</pre>;
+}
+
 const markdownComponents: Components = {
   img: AttachmentImage,
+  pre: PreviewCodeBlock,
 };
+
+function PreviewMarkdown({ markdown, fontSize, collapsedByDefault = false }: { markdown: string; fontSize: string; collapsedByDefault?: boolean }) {
+  const [tocOpen, setTocOpen] = useState(!collapsedByDefault);
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const articleRef = useRef<HTMLElement | null>(null);
+  const [toc, setToc] = useState<Array<{ id: string; text: string; level: number; element: HTMLElement }>>([]);
+  useLayoutEffect(() => {
+    const headings = articleRef.current?.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6');
+    setToc(Array.from(headings ?? []).map((element, index) => ({
+      id: `heading-${index}`,
+      text: element.textContent ?? '',
+      level: Number(element.tagName.slice(1)),
+      element,
+    })));
+  }, [markdown]);
+  const jumpToHeading = (event: ReactMouseEvent<HTMLAnchorElement>, id: string) => {
+    event.preventDefault();
+    const headingElement = toc.find((item) => item.id === id)?.element;
+    let scrollContainer = previewRef.current?.parentElement ?? null;
+    while (scrollContainer && scrollContainer !== document.body) {
+      const overflowY = window.getComputedStyle(scrollContainer).overflowY;
+      if (overflowY === 'auto' || overflowY === 'scroll') break;
+      scrollContainer = scrollContainer.parentElement;
+    }
+    if (headingElement && scrollContainer) {
+      const article = articleRef.current;
+      if (article) article.style.paddingBottom = `${scrollContainer.clientHeight}px`;
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const headingRect = headingElement.getBoundingClientRect();
+      const targetTop = scrollContainer.scrollTop + headingRect.top - containerRect.top - scrollContainer.clientTop;
+      scrollContainer.scrollTo({ top: targetTop, behavior: 'instant' as ScrollBehavior });
+    }
+  };
+  return <div ref={previewRef} className="flex min-w-0 gap-6" style={{ fontSize }}><article ref={articleRef} className="min-w-0 flex-1"><ReactMarkdown remarkPlugins={[remarkGfm, remarkFlowchartFences]} components={markdownComponents} urlTransform={markdownUrlTransform}>{markdown}</ReactMarkdown></article>{toc.length > 0 && <aside className={`${tocOpen ? 'w-48 border-l pl-4' : 'w-8'} shrink-0 border-gray-100`}><div className="sticky top-4"><button type="button" className="mb-2 text-xs font-semibold text-gray-500" onClick={() => setTocOpen((open) => !open)} title={tocOpen ? '收起目录' : '展开目录'}>{tocOpen ? '目录 ‹' : '目录 ›'}</button>{tocOpen && <nav className="space-y-1">{toc.map((item) => <a key={item.id} href={`#${item.id}`} onClick={(event) => jumpToHeading(event, item.id)} className="block truncate text-sm text-gray-500 hover:text-gray-700" style={{ paddingLeft: `${(item.level - 1) * 10}px` }}>{item.text}</a>)}</nav>}</div></aside>}</div>;
+}
 
 interface NoteEditorProps {
   variant?: 'workspace' | 'modal';
@@ -1251,15 +1301,15 @@ export function NoteEditor({
         {(editorMode === 'preview' || editorMode === 'split') && (
           <div
             data-editor-pane="preview"
-            className={`flex flex-col overflow-y-auto ${editorMode === 'split' ? 'min-w-0' : 'min-w-0 flex-1'}`}
+            className={`flex min-h-0 flex-col overflow-hidden ${editorMode === 'split' ? 'min-w-0' : 'min-w-0 flex-1'}`}
           >
             <div className="px-6 py-4 border-b border-gray-100">
               <h1 className="font-bold text-gray-800" style={{ fontSize: titleFontSize }}>
                 {title || t.noteList.untitled}
               </h1>
             </div>
-            <div className="flex-1 px-6 py-4 markdown-preview overflow-y-auto" style={{ fontSize: previewFontSize }}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents} urlTransform={markdownUrlTransform}>{content || `*${t.noteList.noContent}*`}</ReactMarkdown>
+            <div className="min-h-0 flex-1 px-6 py-4 markdown-preview overflow-y-auto" style={{ fontSize: previewFontSize }}>
+              <PreviewMarkdown key={editorMode} markdown={content || `*${t.noteList.noContent}*`} fontSize={previewFontSize} collapsedByDefault={editorMode === 'split'} />
             </div>
           </div>
         )}
@@ -1596,8 +1646,8 @@ export function NoteEditor({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 markdown-preview" style={{ fontSize: previewFontSize }}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents} urlTransform={markdownUrlTransform}>{previewHistory.content || `*${t.noteList.noContent}*`}</ReactMarkdown>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 markdown-preview">
+              <PreviewMarkdown markdown={previewHistory.content || `*${t.noteList.noContent}*`} fontSize={previewFontSize} />
             </div>
           </div>
         </div>

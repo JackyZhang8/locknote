@@ -86,6 +86,10 @@ export function DetachAttachmentFromNote(arg1, arg2) {
   return window['go']['main']['App']['DetachAttachmentFromNote'](arg1, arg2);
 }
 
+export function ExportDiagramSVG(arg1) {
+  return window['go']['main']['App']['ExportDiagramSVG'](arg1);
+}
+
 export function ExportNoteAsMarkdown(arg1) {
   return window['go']['main']['App']['ExportNoteAsMarkdown'](arg1);
 }

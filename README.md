@@ -16,6 +16,8 @@ Author: LockNote.app <support@locknote.app>
 - **Encrypted local storage** - Notes and local image attachments are encrypted with AES-256-GCM; keys are derived via Argon2id
 - **Offline-first** - Data is stored locally and works without a network connection
 - **Markdown editor** - Markdown editing with edit, preview, and split modes, optional line numbers, and convenient formatting controls
+- **Preview table of contents** - Automatically builds an h1-h6 table of contents with collapse, expand, and precise navigation; collapsed by default in split mode
+- **Mermaid flowcharts** - Supports `mermaid` and `flowchart` fenced code blocks, diagram/source switching, zoom, reset, and SVG save-as
 - **Encrypted image attachments** - Paste, drag, or insert local images into notes; images are decrypted only for in-app display
 - **Image manager** - Browse encrypted local images in a compact, virtualized grid; add, copy references, insert into notes, or delete images
 - **Markdown import/export** - Import Markdown files and export notes as Markdown; notes with images export with a timestamped assets folder
@@ -59,6 +61,21 @@ cd ..
 
 wails dev
 ```
+
+### Mermaid Flowcharts
+
+Use a `mermaid` or `flowchart` fenced code block in Markdown. A `flowchart` fence can specify a direction after the marker, such as `TD`, `LR`, `BT`, or `RL`; `TD` is used when no direction is provided.
+
+````markdown
+```flowchart TD
+    A[User input] --> B[Parse input]
+    B --> C{Valid?}
+    C -->|yes| D[Continue]
+    C -->|no| E[Return error]
+```
+````
+
+In preview, switch between the rendered diagram and source code, then use zoom or reset controls as needed. Download opens the native Save As dialog and writes the complete SVG file.
 
 ## Build
 

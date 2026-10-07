@@ -126,6 +126,17 @@ export const zhCN = {
     contextCopyMarkdown: '复制 Markdown',
     contextShowHistory: '历史版本',
     contextExportMd: '导出md文件',
+    diagram: {
+      chart: '图表',
+      code: '代码',
+      zoomOut: '缩小',
+      zoomIn: '放大',
+      reset: '重置',
+      save: '下载 SVG',
+      saved: '图表已保存',
+      renderError: '图表渲染失败，请检查 Mermaid 语法',
+      saveError: '图表保存失败',
+    },
   },
 
   todos: {

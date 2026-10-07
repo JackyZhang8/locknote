@@ -210,6 +210,15 @@ html[lang='en-US'] body {
   @apply text-accent hover:text-primary-700 underline;
 }
 
+.markdown-preview aside nav a {
+  color: #6b7280;
+  text-decoration: none;
+}
+
+.markdown-preview aside nav a:hover {
+  color: #374151;
+}
+
 .markdown-preview table {
   @apply w-full border-collapse mb-3;
 }

@@ -119,7 +119,7 @@ test('history drawer can preview a read-only history version', () => {
   assert.equal(/onClick=\{\(\) => setPreviewHistory\(h\)\}/.test(editorSource), true);
   assert.equal(/\{t\.editor\.historyPreview\}/.test(editorSource), true);
   assert.equal(/\{t\.editor\.historyBackupTime\}/.test(editorSource), true);
-  assert.equal(/<ReactMarkdown remarkPlugins=\{\[remarkGfm\]\} components=\{markdownComponents\} urlTransform=\{markdownUrlTransform\}>\{previewHistory\.content \|\| `\*\$\{t\.noteList\.noContent\}\*`\}<\/ReactMarkdown>/.test(editorSource), true);
+  assert.equal(/<PreviewMarkdown markdown=\{previewHistory\.content \|\| `\*\$\{t\.noteList\.noContent\}\*`\} fontSize=\{previewFontSize\} \/>/.test(editorSource), true);
 });
 
 test('history drawer count and preview labels are localized', () => {

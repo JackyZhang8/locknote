@@ -51,6 +51,8 @@ export function DeleteTodoSubtask(arg1:string):Promise<void>;
 
 export function DetachAttachmentFromNote(arg1:string,arg2:string):Promise<void>;
 
+export function ExportDiagramSVG(arg1:string):Promise<string>;
+
 export function ExportNoteAsMarkdown(arg1:string):Promise<string>;
 
 export function GenerateDataKey():Promise<string>;

@@ -11,3 +11,6 @@
 /dev.sh
 .relaycat/
 /certs/
+/docs/superpowers/
+.DS_Store
+/frontend/.playwright-cli/

@@ -128,6 +128,17 @@ export const zhTW: Translations = {
     contextCopyMarkdown: '複製 Markdown',
     contextShowHistory: '歷史版本',
     contextExportMd: '匯出md檔案',
+    diagram: {
+      chart: '圖表',
+      code: '程式碼',
+      zoomOut: '縮小',
+      zoomIn: '放大',
+      reset: '重設',
+      save: '下載 SVG',
+      saved: '圖表已儲存',
+      renderError: '圖表繪製失敗，請檢查 Mermaid 語法',
+      saveError: '圖表儲存失敗',
+    },
   },
 
   todos: {

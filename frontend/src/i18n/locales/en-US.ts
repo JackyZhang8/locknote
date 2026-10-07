@@ -128,6 +128,17 @@ export const enUS: Translations = {
     contextCopyMarkdown: 'Copy Markdown',
     contextShowHistory: 'Version history',
     contextExportMd: 'Export MD file',
+    diagram: {
+      chart: 'Diagram',
+      code: 'Code',
+      zoomOut: 'Zoom out',
+      zoomIn: 'Zoom in',
+      reset: 'Reset',
+      save: 'Download SVG',
+      saved: 'Diagram saved',
+      renderError: 'Cannot render diagram. Check the Mermaid syntax',
+      saveError: 'Cannot save diagram',
+    },
   },
 
   todos: {
