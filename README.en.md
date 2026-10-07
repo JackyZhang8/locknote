@@ -200,7 +200,7 @@ Source contract tests live in tests/source/: run go test ./tests/source, or go t
 
 ## Version
 
-v1.0.7
+v1.0.9
 
 ## License
 
