@@ -87,7 +87,7 @@ wails build
 
 ```bash
 ./build.sh darwin arm64
-./build.sh darwin amd64
+./build.sh darwin x86_64
 ./build.sh windows amd64
 ./build.sh linux amd64
 ./build.sh all
@@ -103,7 +103,7 @@ wails build
 | --- | --- | --- |
 | Windows x64 | `locknote-windows-amd64.zip` | 解压后运行 `LockNote.exe` |
 | macOS Apple Silicon | `locknote-darwin-arm64.zip` | 解压后打开 `LockNote.app` |
-| macOS Intel | `locknote-darwin-amd64.zip` | 解压后打开 `LockNote.app` |
+| macOS Intel | `locknote-darwin-x86_64.zip` | 解压后打开 `LockNote.app` |
 | Linux x64 | `locknote-linux-amd64.zip` | 解压后执行 `./LockNote` |
 
 ### Windows 注意事项
@@ -133,7 +133,7 @@ Get-ChildItem -Recurse | Unblock-File
 
 ### macOS 注意事项
 
-- Apple Silicon 机型使用 `locknote-darwin-arm64.zip`，Intel 机型使用 `locknote-darwin-amd64.zip`。
+- Apple Silicon 机型使用 `locknote-darwin-arm64.zip`，Intel 机型使用 `locknote-darwin-x86_64.zip`。
 - 发布包内是 `LockNote.app`。
 - 如果 macOS 仍拦截启动，可在“系统设置 -> 隐私与安全性”中允许打开。请只对官方 Release 页面下载的包执行该操作。
 

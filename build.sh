@@ -11,7 +11,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 PLATFORM="${1:-darwin}"
-ARCH="${2:-}" 
+ARCH="${2:-}"
 CLEAN=false
 DEBUG=false
 
@@ -27,7 +27,7 @@ platform:
   darwin | windows | linux | all
 
 arch (optional):
-  amd64 | arm64
+  x86_64 | arm64 | amd64
 
 flags:
   --clean   pass -clean to wails build

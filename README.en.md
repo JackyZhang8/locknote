@@ -87,7 +87,7 @@ For platform-specific builds, use the helper script:
 
 ```bash
 ./build.sh darwin arm64
-./build.sh darwin amd64
+./build.sh darwin x86_64
 ./build.sh windows amd64
 ./build.sh linux amd64
 ./build.sh all
@@ -103,7 +103,7 @@ Download the zip package for your system from [GitHub Releases](https://github.c
 | --- | --- | --- |
 | Windows x64 | `locknote-windows-amd64.zip` | Extract and run `LockNote.exe` |
 | macOS Apple Silicon | `locknote-darwin-arm64.zip` | Extract and open `LockNote.app` |
-| macOS Intel | `locknote-darwin-amd64.zip` | Extract and open `LockNote.app` |
+| macOS Intel | `locknote-darwin-x86_64.zip` | Extract and open `LockNote.app` |
 | Linux x64 | `locknote-linux-amd64.zip` | Extract and run `./LockNote` |
 
 ### Windows Notes
@@ -133,7 +133,7 @@ Get-ChildItem -Recurse | Unblock-File
 
 ### macOS Notes
 
-- Use `locknote-darwin-arm64.zip` for Apple Silicon Macs and `locknote-darwin-amd64.zip` for Intel Macs.
+- Use `locknote-darwin-arm64.zip` for Apple Silicon Macs and `locknote-darwin-x86_64.zip` for Intel Macs.
 - Release builds are packaged as `LockNote.app`.
 - If macOS still blocks the app, open System Settings -> Privacy & Security and allow the app there. Only use this for packages downloaded from the official release page.
 

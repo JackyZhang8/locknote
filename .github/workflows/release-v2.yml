@@ -23,7 +23,7 @@ jobs:
             arch: arm64
           - os: macos-15-intel
             platform: darwin
-            arch: amd64
+            arch: x86_64
           - os: windows-2022
             platform: windows
             arch: amd64
