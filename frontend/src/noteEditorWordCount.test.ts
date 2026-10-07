@@ -177,3 +177,10 @@ test('editor top-right toolbar hover labels are localized', () => {
   assert.equal(/historyTooltip:\s*'Version history'/.test(enUSSource), true);
   assert.equal(/exportTooltip:\s*'Export'/.test(enUSSource), true);
 });
+
+test('split editor gives both panes a shrinkable grid row and independent scrolling', () => {
+  assert.equal(/grid grid-rows-\[minmax\(0,1fr\)\]/.test(editorSource), true);
+  assert.equal(/className={`flex min-h-0 flex-col \$\{editorMode === 'split'/.test(editorSource), true);
+  assert.equal(/className={`flex min-h-0 flex-col overflow-hidden \$\{editorMode === 'split'/.test(editorSource), true);
+  assert.equal(/className="min-h-0 flex-1 px-6 py-4 markdown-preview overflow-y-auto"/.test(editorSource), true);
+});

@@ -1245,7 +1245,7 @@ export function NoteEditor({
       )}
 
       <div
-        className={`min-h-0 min-w-0 flex-1 overflow-hidden ${editorMode === 'split' ? 'grid' : 'flex'}`}
+        className={`min-h-0 min-w-0 flex-1 overflow-hidden ${editorMode === 'split' ? 'grid grid-rows-[minmax(0,1fr)]' : 'flex'}`}
         style={{
           gridTemplateColumns: editorMode === 'split' ? 'minmax(0, 1fr) minmax(0, 1fr)' : undefined,
         }}
@@ -1253,7 +1253,7 @@ export function NoteEditor({
         {(editorMode === 'edit' || editorMode === 'split') && (
           <div
             data-editor-pane="markdown"
-            className={`flex flex-col ${editorMode === 'split' ? 'min-w-0 border-r border-gray-100' : 'min-w-0 flex-1'}`}
+            className={`flex min-h-0 flex-col ${editorMode === 'split' ? 'min-w-0 border-r border-gray-100' : 'min-w-0 flex-1'}`}
           >
             <input
               ref={titleInputRef}
