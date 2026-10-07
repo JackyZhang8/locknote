@@ -8,6 +8,7 @@ import (
 	"errors"
 	"locknote/internal/attachments"
 	"locknote/internal/database"
+	"locknote/internal/markdown"
 	"locknote/internal/notebooks"
 	"locknote/internal/notes"
 	"locknote/internal/smartviews"
@@ -494,12 +495,12 @@ func (a *App) ImportMarkdown() (*notes.Note, error) {
 		return nil, nil
 	}
 
-	content, err := readFile(openPath)
+	content, err := os.ReadFile(openPath)
 	if err != nil {
 		return nil, err
 	}
 
-	title := extractTitle(openPath, string(content))
+	title := markdown.ExtractTitle(openPath, string(content))
 	return a.core.Notes().Create(title, string(content))
 }
 
@@ -542,7 +543,7 @@ func (a *App) ImportImage(noteID string) (*attachments.Attachment, error) {
 		return nil, nil
 	}
 
-	data, err := readFile(openPath)
+	data, err := os.ReadFile(openPath)
 	if err != nil {
 		return nil, err
 	}
@@ -615,27 +616,15 @@ func (a *App) DetachAttachmentFromNote(noteID, attachmentID string) error {
 
 func writeFileAtomic(path string, data []byte) error {
 	tempPath := path + ".tmp"
-	if err := writeFile(tempPath, data); err != nil {
+	if err := os.WriteFile(tempPath, data, 0600); err != nil {
 		os.Remove(tempPath)
 		return err
 	}
-	if err := renameFile(tempPath, path); err != nil {
+	if err := os.Rename(tempPath, path); err != nil {
 		os.Remove(tempPath)
 		return err
 	}
 	return nil
-}
-
-func writeFile(path string, data []byte) error {
-	return writeFileImpl(path, data)
-}
-
-func readFile(path string) ([]byte, error) {
-	return readFileImpl(path)
-}
-
-func renameFile(oldPath, newPath string) error {
-	return renameFileImpl(oldPath, newPath)
 }
 
 // Notebook APIs

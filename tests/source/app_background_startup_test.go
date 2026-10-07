@@ -1,4 +1,4 @@
-package main
+package source
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 )
 
 func TestStartupInitializesCoreInBackground(t *testing.T) {
-	source, err := os.ReadFile("app.go")
+	source, err := os.ReadFile("../../app.go")
 	if err != nil {
 		t.Fatalf("read app.go: %v", err)
 	}

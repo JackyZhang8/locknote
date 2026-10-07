@@ -6,7 +6,8 @@
 /frontend/node_modules_mac/
 /build/
 /.vscode/
-/tests
+/tests/*
+!/tests/source/
 /.tmp-go-build-cache/
 /dev.sh
 .relaycat/

@@ -1,4 +1,4 @@
-package main
+package source
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 )
 
 func TestMobileExportsTodoAPIs(t *testing.T) {
-	sourceBytes, err := os.ReadFile("mobile/mobile.go")
+	sourceBytes, err := os.ReadFile("../../mobile/mobile.go")
 	if err != nil {
 		t.Fatalf("read mobile source: %v", err)
 	}
