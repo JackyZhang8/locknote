@@ -1008,16 +1008,16 @@ export function NoteEditor({
   const noteTags = selectedNote?.tags || [];
   const availableTags = allTags.filter((t) => !noteTags.some((nt) => nt.id === t.id));
   const markdownActions = [
-    { title: '一级标题', icon: <Heading1 className="w-4 h-4" />, onClick: () => applyMarkdown('# ', '', t.editor.titlePlaceholder) },
-    { title: '二级标题', icon: <Heading2 className="w-4 h-4" />, onClick: () => applyMarkdown('## ', '', t.editor.titlePlaceholder) },
-    { title: '加粗', icon: <Bold className="w-4 h-4" />, onClick: () => applyMarkdown('**', '**', 'bold') },
-    { title: '斜体', icon: <Italic className="w-4 h-4" />, onClick: () => applyMarkdown('*', '*', 'italic') },
-    { title: '无序列表', icon: <List className="w-4 h-4" />, onClick: () => applyMarkdown('- ', '', t.noteList.newNote) },
-    { title: '有序列表', icon: <ListOrdered className="w-4 h-4" />, onClick: () => applyMarkdown('1. ', '', t.noteList.newNote) },
-    { title: '引用', icon: <Quote className="w-4 h-4" />, onClick: () => applyMarkdown('> ', '', t.noteList.noContent) },
-    { title: '行内代码', icon: <Code className="w-4 h-4" />, onClick: () => applyMarkdown('`', '`', 'code') },
-    { title: '链接', icon: <Link2 className="w-4 h-4" />, onClick: () => applyMarkdown('[', '](https://)', 'link') },
-    { title: '图片', icon: <ImageIcon className="w-4 h-4" />, onClick: handleInsertImage },
+    { title: t.editor.markdownToolbar.heading1, icon: <Heading1 className="w-4 h-4" />, onClick: () => applyMarkdown('# ', '', t.editor.titlePlaceholder) },
+    { title: t.editor.markdownToolbar.heading2, icon: <Heading2 className="w-4 h-4" />, onClick: () => applyMarkdown('## ', '', t.editor.titlePlaceholder) },
+    { title: t.editor.markdownToolbar.bold, icon: <Bold className="w-4 h-4" />, onClick: () => applyMarkdown('**', '**', 'bold') },
+    { title: t.editor.markdownToolbar.italic, icon: <Italic className="w-4 h-4" />, onClick: () => applyMarkdown('*', '*', 'italic') },
+    { title: t.editor.markdownToolbar.unorderedList, icon: <List className="w-4 h-4" />, onClick: () => applyMarkdown('- ', '', t.noteList.newNote) },
+    { title: t.editor.markdownToolbar.orderedList, icon: <ListOrdered className="w-4 h-4" />, onClick: () => applyMarkdown('1. ', '', t.noteList.newNote) },
+    { title: t.editor.markdownToolbar.quote, icon: <Quote className="w-4 h-4" />, onClick: () => applyMarkdown('> ', '', t.noteList.noContent) },
+    { title: t.editor.markdownToolbar.inlineCode, icon: <Code className="w-4 h-4" />, onClick: () => applyMarkdown('`', '`', 'code') },
+    { title: t.editor.markdownToolbar.link, icon: <Link2 className="w-4 h-4" />, onClick: () => applyMarkdown('[', '](https://)', 'link') },
+    { title: t.editor.markdownToolbar.image, icon: <ImageIcon className="w-4 h-4" />, onClick: handleInsertImage },
   ];
   const titleFontSize = getTitleFontSize(title.length, fontScale);
   const contentFontSize = `${0.875 * fontScale}rem`;
@@ -1236,6 +1236,7 @@ export function NoteEditor({
               onClick={action.onClick}
               className="p-2 rounded-lg text-gray-600 hover:bg-white hover:text-accent transition-colors border border-transparent hover:border-gray-200"
               title={action.title}
+              aria-label={action.title}
             >
               {action.icon}
             </button>

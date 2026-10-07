@@ -85,6 +85,18 @@ export const enUS: Translations = {
 
   // Note Editor
   editor: {
+    markdownToolbar: {
+      heading1: 'Heading 1',
+      heading2: 'Heading 2',
+      bold: 'Bold',
+      italic: 'Italic',
+      unorderedList: 'Bullet List',
+      orderedList: 'Numbered List',
+      quote: 'Blockquote',
+      inlineCode: 'Inline Code',
+      link: 'Link',
+      image: 'Image',
+    },
     titlePlaceholder: 'Enter title...',
     contentPlaceholder: 'Start writing...',
     edit: 'Edit',

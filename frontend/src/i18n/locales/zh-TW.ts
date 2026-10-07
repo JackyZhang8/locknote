@@ -85,6 +85,18 @@ export const zhTW: Translations = {
 
   // 筆記編輯器
   editor: {
+    markdownToolbar: {
+      heading1: '一級標題',
+      heading2: '二級標題',
+      bold: '粗體',
+      italic: '斜體',
+      unorderedList: '無序列表',
+      orderedList: '有序列表',
+      quote: '引用',
+      inlineCode: '行內程式碼',
+      link: '連結',
+      image: '圖片',
+    },
     titlePlaceholder: '請輸入標題...',
     contentPlaceholder: '開始寫作...',
     edit: '編輯',

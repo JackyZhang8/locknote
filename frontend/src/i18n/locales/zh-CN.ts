@@ -83,6 +83,18 @@ export const zhCN = {
 
   // 笔记编辑器
   editor: {
+    markdownToolbar: {
+      heading1: '一级标题',
+      heading2: '二级标题',
+      bold: '加粗',
+      italic: '斜体',
+      unorderedList: '无序列表',
+      orderedList: '有序列表',
+      quote: '引用',
+      inlineCode: '行内代码',
+      link: '链接',
+      image: '图片',
+    },
     titlePlaceholder: '请输入标题...',
     contentPlaceholder: '开始写作...',
     edit: '编辑',
