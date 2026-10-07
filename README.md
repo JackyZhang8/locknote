@@ -1,58 +1,58 @@
 # LockNote.app
 
-English | [中文](./README.zh-CN.md)
+中文 | [English](./README.en.md)
 
-A simple, reliable, offline-first encrypted note-taking desktop app for Windows, macOS, and Linux.
+一个简单、可靠、离线优先，支持 Windows、macOS 和 Linux 的桌面加密笔记软件。
 
-Official Website: https://locknote.app
+官方网站：https://locknote.app
 
-Author: LockNote.app <support@locknote.app>
+作者：LockNote.app <support@locknote.app>
 
-![LockNote.app Screenshot](./screenshot/locknote-screen-en.png)
+![LockNote.app Screenshot](./screenshot/locknote-screen-cn.png)
 
-## Features
+## 功能特性
 
-- **Cross-platform desktop app** - Release packages are provided for Windows x64, macOS Apple Silicon, macOS Intel, and Linux x64
-- **Encrypted local storage** - Notes and local image attachments are encrypted with AES-256-GCM; keys are derived via Argon2id
-- **Offline-first** - Data is stored locally and works without a network connection
-- **Markdown editor** - Markdown editing with edit, preview, and split modes, optional line numbers, and convenient formatting controls
-- **Preview table of contents** - Automatically builds an h1-h6 table of contents with collapse, expand, and precise navigation; collapsed by default in split mode
-- **Mermaid flowcharts** - Supports `mermaid` and `flowchart` fenced code blocks, diagram/source switching, zoom, reset, and SVG save-as
-- **Encrypted image attachments** - Paste, drag, or insert local images into notes; images are decrypted only for in-app display
-- **Image manager** - Browse encrypted local images in a compact, virtualized grid; add, copy references, insert into notes, or delete images
-- **Markdown import/export** - Import Markdown files and export notes as Markdown; notes with images export with a timestamped assets folder
-- **Notes organization** - Manage notebooks, tags, recent notes, pinned notes, and filters for structured writing
-- **Todos** - Manage standalone tasks with priorities, due dates, subtasks, filters, and inline editing
-- **Calendar view** - View note creation/edit activity, due todos, and completed todos by date
-- **HeatMap activity view** - GitHub-style activity heatmap based on note activity and completed todos
-- **Full-text search** - Search note titles, content, and tags
-- **Version history** - Automatic history snapshots with rollback
-- **Trash** - Deleted notes move to trash and can be restored or permanently deleted
-- **Backup & restore** - Create encrypted backups, restore data, and import backups with a data key
-- **Startup experience** - Faster Windows cold-start flow, startup progress, and first-run feature introduction
-- **Security settings** - Auto-lock dialog, password change dialog, data-key recovery, themes, and language switching
+- **多平台桌面应用** - 发布包覆盖 Windows x64、macOS Apple Silicon、macOS Intel 和 Linux x64
+- **本地加密存储** - 笔记内容和本地图片附件使用 AES-256-GCM 加密，密钥由 Argon2id 派生
+- **离线优先** - 数据存储在本地，无需网络连接也可使用
+- **Markdown 编辑器** - 支持编辑、预览、分屏模式、可选行号，并提供常用格式化工具
+- **预览目录** - 根据 Markdown 标题自动生成 h1-h6 目录，支持折叠、展开和精准跳转；分屏模式默认收起
+- **Mermaid 流程图** - 支持 `mermaid` 和 `flowchart` 代码块，显示流程图与源代码切换，并支持缩放、重置和 SVG 另存为
+- **加密图片附件** - 支持粘贴、拖入或插入本地图片；图片仅在软件内显示时解密
+- **图片管理** - 以紧凑虚拟列表浏览本地加密图片，支持添加、复制引用、插入笔记和删除
+- **Markdown 导入导出** - 支持导入 Markdown；含图片笔记导出时自动生成带时间戳的 assets 文件夹
+- **笔记组织** - 支持笔记本、标签、最近编辑、置顶笔记和筛选管理
+- **待办管理** - 支持独立待办、优先级、截止时间、子任务、筛选和行内编辑
+- **日历视图** - 按日期查看笔记创建/编辑动态、到期待办和当天完成记录
+- **HeatMap 活动图** - 类 GitHub 热力图，基于笔记动态和完成待办展示活跃度
+- **全文搜索** - 搜索笔记标题、内容和标签
+- **历史版本** - 自动保存历史版本，支持回滚
+- **回收站** - 删除的笔记进入回收站，可恢复或永久删除
+- **备份恢复** - 支持创建加密备份、恢复数据，以及使用数据密钥导入备份
+- **启动体验** - 优化 Windows 首次冷启动，增加启动进度页和首次使用功能介绍
+- **安全设置** - 支持自动锁定弹窗、修改密码弹窗、恢复密钥、主题和语言切换
 
-## Tech Stack
+## 技术栈
 
-- **Backend**: Go + Wails v2
-- **Frontend**: React + TypeScript + TailwindCSS
-- **Storage**: SQLite (metadata) + local encrypted files (note content and image attachments)
-- **Crypto**: AES-256-GCM + Argon2id
+- **后端**: Go + Wails v2
+- **前端**: React + TypeScript + TailwindCSS
+- **存储**: SQLite（元数据）+ 本地密文文件（笔记内容和图片附件）
+- **加密**: AES-256-GCM + Argon2id
 
-## Development Requirements
+## 开发环境要求
 
 - Go 1.24+
 - Node.js 18+
 - Wails CLI v2
-- Platform build tools required by Wails for your operating system
+- 当前系统对应的 Wails 平台构建工具
 
-## Install Wails CLI
+## 安装 Wails CLI
 
 ```bash
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
 ```
 
-## Development
+## 开发
 
 ```bash
 cd frontend
@@ -62,28 +62,28 @@ cd ..
 wails dev
 ```
 
-### Mermaid Flowcharts
+### Mermaid 流程图
 
-Use a `mermaid` or `flowchart` fenced code block in Markdown. A `flowchart` fence can specify a direction after the marker, such as `TD`, `LR`, `BT`, or `RL`; `TD` is used when no direction is provided.
+在 Markdown 中使用 `mermaid` 或 `flowchart` fenced code block 插入流程图。`flowchart` 标记可以在标记后指定方向，例如 `TD`、`LR`、`BT` 或 `RL`；未指定时默认使用 `TD`。
 
 ````markdown
 ```flowchart TD
-    A[User input] --> B[Parse input]
-    B --> C{Valid?}
-    C -->|yes| D[Continue]
-    C -->|no| E[Return error]
+    A[用户输入] --> B[解析输入]
+    B --> C{是否有效}
+    C -->|是| D[继续处理]
+    C -->|否| E[返回错误]
 ```
 ````
 
-In preview, switch between the rendered diagram and source code, then use zoom or reset controls as needed. Download opens the native Save As dialog and writes the complete SVG file.
+预览时可以在图表和代码之间切换，使用缩放、重置按钮调整图表显示。点击下载会打开系统“另存为”对话框，保存完整 SVG 文件。
 
-## Build
+## 构建
 
 ```bash
 wails build
 ```
 
-For platform-specific builds, use the helper script:
+如需按平台构建，可使用辅助脚本：
 
 ```bash
 ./build.sh darwin arm64
@@ -93,51 +93,51 @@ For platform-specific builds, use the helper script:
 ./build.sh all
 ```
 
-See [build.md](./build.md) and [build.sh](./build.sh) for additional build options.
+更多构建参数见 [build.md](./build.md) 和 [build.sh](./build.sh)。
 
-## Download & Run
+## 下载与运行
 
-Download the zip package for your system from [GitHub Releases](https://github.com/JackyZhang8/locknote/releases).
+请从 [GitHub Releases](https://github.com/JackyZhang8/locknote/releases) 下载对应系统的 zip 包。
 
-| System | Release asset | How to run |
+| 系统 | 发布文件 | 运行方式 |
 | --- | --- | --- |
-| Windows x64 | `locknote-windows-amd64.zip` | Extract and run `LockNote.exe` |
-| macOS Apple Silicon | `locknote-darwin-arm64.zip` | Extract and open `LockNote.app` |
-| macOS Intel | `locknote-darwin-amd64.zip` | Extract and open `LockNote.app` |
-| Linux x64 | `locknote-linux-amd64.zip` | Extract and run `./LockNote` |
+| Windows x64 | `locknote-windows-amd64.zip` | 解压后运行 `LockNote.exe` |
+| macOS Apple Silicon | `locknote-darwin-arm64.zip` | 解压后打开 `LockNote.app` |
+| macOS Intel | `locknote-darwin-amd64.zip` | 解压后打开 `LockNote.app` |
+| Linux x64 | `locknote-linux-amd64.zip` | 解压后执行 `./LockNote` |
 
-### Windows Notes
+### Windows 注意事项
 
-The .zip/.exe downloaded from GitHub Releases may be marked as "from the Internet" (MOTW), which can cause:
+从 GitHub Release 下载的 .zip/.exe 可能会被 Windows 标记为“来自互联网”(MOTW)，导致：
 
-- "Windows protected your PC" (SmartScreen)
-- Slow or stuck first launch (security scan + WebView2 initialization)
+- 弹出“Windows 已保护你的电脑”(SmartScreen)
+- 第一次启动较慢/卡住（安全扫描 + WebView2 初始化）
 
-Workarounds (choose one):
+解决办法（任选其一）：
 
-1. Recommended: Unblock the zip first, then extract
+1. 推荐：先对 zip 解除锁定，再解压
 
-   - Right click zip -> Properties -> Unblock -> Apply
+   - 右键 zip -> 属性 -> 勾选/点击“解除锁定(Unblock)” -> 应用
 
-2. Or: Unblock the exe after extraction
+2. 或者：解压后对 exe 解除锁定
 
-   - Right click exe -> Properties -> Unblock -> Apply
+   - 右键 exe -> 属性 -> “解除锁定(Unblock)” -> 应用
 
-3. PowerShell (optional):
+3. PowerShell（可选）：
 
 ```powershell
 Unblock-File .\LockNote.exe
-# Or unblock everything in the extracted folder:
+# 或对整个解压目录：
 Get-ChildItem -Recurse | Unblock-File
 ```
 
-### macOS Notes
+### macOS 注意事项
 
-- Use `locknote-darwin-arm64.zip` for Apple Silicon Macs and `locknote-darwin-amd64.zip` for Intel Macs.
-- Release builds are packaged as `LockNote.app`.
-- If macOS still blocks the app, open System Settings -> Privacy & Security and allow the app there. Only use this for packages downloaded from the official release page.
+- Apple Silicon 机型使用 `locknote-darwin-arm64.zip`，Intel 机型使用 `locknote-darwin-amd64.zip`。
+- 发布包内是 `LockNote.app`。
+- 如果 macOS 仍拦截启动，可在“系统设置 -> 隐私与安全性”中允许打开。请只对官方 Release 页面下载的包执行该操作。
 
-### Linux Notes
+### Linux 注意事项
 
 ```bash
 unzip locknote-linux-amd64.zip
@@ -145,59 +145,63 @@ chmod +x LockNote
 ./LockNote
 ```
 
-Linux builds require GTK 3 and WebKitGTK runtime libraries. Package names vary by distribution; on Ubuntu/Debian they are typically installed with:
+Linux 版本需要 GTK 3 和 WebKitGTK 运行库。不同发行版包名可能不同；Ubuntu/Debian 通常可使用：
 
 ```bash
 sudo apt install libgtk-3-0 libwebkit2gtk-4.0-37
 ```
 
-## Project Structure
+## 项目结构
 
 ```
 locknote/
-├── main.go                 # Entry
-├── app.go                  # App core logic
-├── api.go                  # API methods
-├── utils.go                # Shared helpers
-├── build.sh                # Multi-platform build helper
-├── build.md                # Build notes
+├── main.go                 # 应用入口
+├── app.go                  # 应用核心逻辑
+├── api.go                  # API 方法
+├── api_diagram.go          # 桌面 SVG 导出接口
+├── build.sh                # 多平台构建脚本
 ├── internal/
-│   ├── attachments/        # Encrypted image attachments
-│   ├── backup/             # Backup service
-│   ├── core/               # Shared domain types
-│   ├── crypto/             # Crypto module
-│   ├── database/           # SQLite database
-│   ├── notebooks/          # Notebook service
-│   ├── notes/              # Notes service
-│   ├── smartviews/         # Smart views
-│   ├── tags/               # Tags service
-│   └── todos/              # Todo service
-├── mobile/                 # Mobile bridge package
+│   ├── attachments/        # 加密图片附件
+│   ├── backup/             # 备份服务
+│   ├── core/               # 共享领域类型
+│   ├── crypto/             # 加密模块
+│   ├── database/           # SQLite 数据库
+│   ├── markdown/           # Markdown 标题提取
+│   ├── notebooks/          # 笔记本服务
+│   ├── notes/              # 笔记服务
+│   ├── smartviews/         # 智能视图
+│   ├── tags/               # 标签服务
+│   └── todos/              # 待办服务
+├── mobile/                 # 移动端桥接包
+├── tests/source/           # 跨文件源码契约测试
 ├── frontend/
 │   ├── src/
-│   │   ├── components/     # React components
-│   │   ├── i18n/           # Localization resources
-│   │   ├── store/          # Zustand state
-│   │   └── assets/         # Frontend assets
-│   ├── wailsjs/            # Generated Wails bindings
+│   │   ├── components/     # React 组件
+│   │   ├── i18n/           # 多语言资源
+│   │   ├── store/          # Zustand 状态管理
+│   │   └── assets/         # 前端资源
+│   ├── wailsjs/            # 生成的 Wails 绑定
 │   └── ...
 └── docs/
-    ├── INTRO.en.md         # English introduction
-    └── INTRO.zh-CN.md      # Chinese introduction
+    ├── INTRO.en.md         # 英文介绍
+    └── INTRO.zh-CN.md      # 中文介绍
 ```
 
-## Security Notes
+根目录保留 Wails 入口及同包 API；依赖未导出函数的单元测试随实现保留在根目录。
+源码契约测试统一位于 tests/source/，可运行 go test ./tests/source；完整 Go 测试运行 go test ./...。
 
-- Master key only resides in memory after unlocking
-- Each note uses an independent random nonce
-- Ciphertext files use atomic write
-- Password reset supported via recovery key
-- If you lose both your login password and the recovery key, your data cannot be recovered
+## 安全说明
 
-## Version
+- 主密钥仅在解锁后驻留内存
+- 每篇笔记使用独立随机 nonce
+- 密文文件采用原子写入
+- 支持恢复密钥重置密码
+- 如果你同时遗失登录密码和恢复密钥，数据将无法恢复
+
+## 版本
 
 v1.0.7
 
-## License
+## 许可证
 
-MIT. See [LICENSE](./LICENSE).
+MIT。详见 [LICENSE](./LICENSE)。
