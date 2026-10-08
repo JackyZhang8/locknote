@@ -153,6 +153,7 @@ const markdownComponents: Components = {
 function PreviewMarkdown({ markdown, fontSize, collapsedByDefault = false }: { markdown: string; fontSize: string; collapsedByDefault?: boolean }) {
   const headingPrefix = useId();
   const [tocOpen, setTocOpen] = useState(!collapsedByDefault);
+  const [tocMaxHeight, setTocMaxHeight] = useState(0);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
   const [toc, setToc] = useState<Array<{ id: string; text: string; level: number; element: HTMLElement }>>([]);
@@ -160,6 +161,20 @@ function PreviewMarkdown({ markdown, fontSize, collapsedByDefault = false }: { m
     const headings = articleRef.current?.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6');
     setToc(indexMarkdownHeadings(headings ?? [], headingPrefix));
   }, [markdown, headingPrefix]);
+  useLayoutEffect(() => {
+    const scrollContainer = previewRef.current?.parentElement;
+    if (!scrollContainer) return;
+
+    const updateTocHeight = () => {
+      const style = window.getComputedStyle(scrollContainer);
+      const verticalPadding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+      setTocMaxHeight(Math.max(0, scrollContainer.clientHeight - verticalPadding - 16));
+    };
+    updateTocHeight();
+    const observer = new ResizeObserver(updateTocHeight);
+    observer.observe(scrollContainer);
+    return () => observer.disconnect();
+  }, []);
   const jumpToHeading = (event: ReactMouseEvent<HTMLAnchorElement>, id: string) => {
     event.preventDefault();
     const headingElement = toc.find((item) => item.id === id)?.element;
@@ -178,7 +193,7 @@ function PreviewMarkdown({ markdown, fontSize, collapsedByDefault = false }: { m
       scrollContainer.scrollTo({ top: targetTop, behavior: 'instant' as ScrollBehavior });
     }
   };
-  return <div ref={previewRef} className="flex min-w-0 gap-6" style={{ fontSize }}><article ref={articleRef} className="min-w-0 flex-1"><ReactMarkdown remarkPlugins={[remarkGfm, remarkFlowchartFences]} components={markdownComponents} urlTransform={markdownUrlTransform}>{markdown}</ReactMarkdown></article>{toc.length > 0 && <aside className={`${tocOpen ? 'w-48 border-l pl-4' : 'w-8'} shrink-0 border-gray-100`}><div className="sticky top-4"><button type="button" className="mb-2 text-xs font-semibold text-gray-500" onClick={() => setTocOpen((open) => !open)} title={tocOpen ? '收起目录' : '展开目录'}>{tocOpen ? '目录 ‹' : '目录 ›'}</button>{tocOpen && <nav className="space-y-1">{toc.map((item) => <a key={item.id} href={`#${item.id}`} onClick={(event) => jumpToHeading(event, item.id)} className="block truncate text-sm text-gray-500 hover:text-gray-700" style={{ paddingLeft: `${(item.level - 1) * 10}px` }}>{item.text}</a>)}</nav>}</div></aside>}</div>;
+  return <div ref={previewRef} className="flex min-w-0 gap-6" style={{ fontSize }}><article ref={articleRef} className="min-w-0 flex-1"><ReactMarkdown remarkPlugins={[remarkGfm, remarkFlowchartFences]} components={markdownComponents} urlTransform={markdownUrlTransform}>{markdown}</ReactMarkdown></article>{toc.length > 0 && <aside className={`${tocOpen ? 'w-48 border-l pl-4' : 'w-8'} shrink-0 border-gray-100`}><div className="sticky top-4 flex flex-col" style={{ maxHeight: tocMaxHeight || undefined }}><button type="button" className="mb-2 shrink-0 self-start text-xs font-semibold text-gray-500" onClick={() => setTocOpen((open) => !open)} title={tocOpen ? '收起目录' : '展开目录'}>{tocOpen ? '目录 ‹' : '目录 ›'}</button>{tocOpen && <nav className="min-h-0 space-y-1 overflow-y-auto">{toc.map((item) => <a key={item.id} href={`#${item.id}`} onClick={(event) => jumpToHeading(event, item.id)} className="block truncate text-sm text-gray-500 hover:text-gray-700" style={{ paddingLeft: `${(item.level - 1) * 10}px` }}>{item.text}</a>)}</nav>}</div></aside>}</div>;
 }
 
 interface NoteEditorProps {
