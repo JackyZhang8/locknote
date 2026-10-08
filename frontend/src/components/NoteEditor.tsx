@@ -9,6 +9,7 @@ import remarkGfm from 'remark-gfm';
 import { useStore, EditorMode } from '../store';
 import { formatMessage, useI18n } from '../i18n';
 import { attachmentMarkdown, fileToDataURL, markdownUrlTransform, parseAttachmentId } from '../imageAttachments';
+import { decodeTextBytes, detectTextEncoding, getDroppedTextTitle, isSupportedTextFile, TEXT_FILE_ENCODINGS, type TextFileEncoding } from '../droppedTextFile';
 import { notes, tags } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
 import { ClipboardGetText, ClipboardSetText } from '../../wailsjs/runtime/runtime';
@@ -23,6 +24,7 @@ const MAX_FONT_SCALE = 1.8;
 const CONTEXT_MENU_WIDTH = 220;
 const CONTEXT_MENU_EDIT_HEIGHT = 416;
 const CONTEXT_MENU_PREVIEW_HEIGHT = 192;
+const MAX_DROPPED_TEXT_FILE_SIZE = 10 * 1024 * 1024;
 const TAG_COLORS = [
   '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b',
   '#ef4444', '#06b6d4', '#84cc16', '#6366f1', '#f97316',
@@ -38,6 +40,14 @@ type EditorContextMenu = {
 type EditorSnapshot = {
   title: string;
   content: string;
+};
+type PendingTextFile = {
+  noteId: string;
+  name: string;
+  bytes: Uint8Array;
+  encoding: TextFileEncoding;
+  content: string;
+  decodeError: boolean;
 };
 type ContextMenuButtonProps = {
   icon: ReactNode;
@@ -239,6 +249,8 @@ export function NoteEditor({
   const [visibleHistoryCount, setVisibleHistoryCount] = useState(HISTORY_BATCH_SIZE);
   const [previewHistory, setPreviewHistory] = useState<notes.Note | null>(null);
   const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(null);
+  const [pendingTextFile, setPendingTextFile] = useState<PendingTextFile | null>(null);
+  const [encodingMenuOpen, setEncodingMenuOpen] = useState(false);
   const [fontScale, setFontScale] = useState(1);
   const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
   const [showLineNumbers, setShowLineNumbers] = useState(true);
@@ -251,9 +263,11 @@ export function NoteEditor({
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const encodingTriggerRef = useRef<HTMLButtonElement | null>(null);
   const lineNumbersRef = useRef<HTMLDivElement | null>(null);
   const contextMenuTargetRef = useRef<EditableContextTarget | null>(null);
   const undoStackRef = useRef<EditorSnapshot[]>([]);
+  const undoNoteIdRef = useRef(selectedNote?.id);
   const previousCloseRequestTokenRef = useRef(closeRequestToken);
 
   const updateSelectedNote = useCallback((nextNote: notes.Note | null) => {
@@ -271,7 +285,10 @@ export function NoteEditor({
   };
 
   useEffect(() => {
-    undoStackRef.current = [];
+    if (undoNoteIdRef.current !== selectedNote?.id) {
+      undoStackRef.current = [];
+      undoNoteIdRef.current = selectedNote?.id;
+    }
     if (selectedNote) {
       setTitle(getLimitedTitle(selectedNote.title || ''));
       setContent(selectedNote.content || '');
@@ -280,6 +297,10 @@ export function NoteEditor({
       setContent('');
     }
   }, [selectedNote]);
+
+  useEffect(() => {
+    setPendingTextFile(null);
+  }, [selectedNote?.id]);
 
   const pushUndoSnapshot = () => {
     const snapshot: EditorSnapshot = { title, content };
@@ -470,6 +491,21 @@ export function NoteEditor({
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [showHistory, confirmRestoreId]);
+
+  useEffect(() => {
+    if (!pendingTextFile) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (encodingMenuOpen) {
+        setEncodingMenuOpen(false);
+        encodingTriggerRef.current?.focus();
+      } else {
+        setPendingTextFile(null);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [pendingTextFile, encodingMenuOpen]);
 
   const saveNote = useCallback(async (): Promise<boolean> => {
     if (!selectedNote) return true;
@@ -962,15 +998,79 @@ export function NoteEditor({
     });
   };
 
-  const handleContentDrop = (event: ReactDragEvent<HTMLTextAreaElement>) => {
-    const file = Array.from(event.dataTransfer.files).find((item) => item.type.startsWith('image/'));
-    if (!file) return;
-
+  const handleContentDrop = async (event: ReactDragEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length === 0) return;
     event.preventDefault();
-    createAttachmentFromFile(file).catch((error) => {
-      console.error('Failed to drop image:', error);
+    if (files.length !== 1) {
+      alert(t.editor.dropSingleFile);
+      return;
+    }
+
+    const file = files[0];
+    if (file.type.startsWith('image/')) {
+      createAttachmentFromFile(file).catch((error) => {
+        console.error('Failed to drop image:', error);
+        alert(`${t.common.error}：${String(error)}`);
+      });
+      return;
+    }
+    if (!isSupportedTextFile(file.name)) {
+      alert(t.editor.dropUnsupportedFile);
+      return;
+    }
+    if (file.size === 0) {
+      alert(t.editor.dropEmptyFile);
+      return;
+    }
+    if (file.size > MAX_DROPPED_TEXT_FILE_SIZE) {
+      alert(t.editor.dropFileTooLarge);
+      return;
+    }
+
+    const noteId = selectedNote?.id;
+    if (!noteId) return;
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      if (latestDraftRef.current.selectedNote?.id !== noteId) return;
+      let encoding: TextFileEncoding = 'gb18030';
+      let content = '';
+      let decodeError = false;
+      try {
+        encoding = detectTextEncoding(bytes);
+        content = decodeTextBytes(bytes, encoding);
+      } catch {
+        decodeError = true;
+      }
+      setPendingTextFile({ noteId, name: file.name, bytes, encoding, content, decodeError });
+      setEncodingMenuOpen(false);
+    } catch (error) {
+      console.error('Failed to read dropped text file:', error);
       alert(`${t.common.error}：${String(error)}`);
+    }
+  };
+
+  const handleDroppedTextEncodingChange = (encoding: TextFileEncoding) => {
+    setPendingTextFile((pending) => {
+      if (!pending) return null;
+      try {
+        return { ...pending, encoding, content: decodeTextBytes(pending.bytes, encoding), decodeError: false };
+      } catch {
+        return { ...pending, encoding, content: '', decodeError: true };
+      }
     });
+    setEncodingMenuOpen(false);
+    encodingTriggerRef.current?.focus();
+  };
+
+  const handleConfirmDroppedText = () => {
+    if (!pendingTextFile || pendingTextFile.decodeError || selectedNote?.id !== pendingTextFile.noteId) return;
+    pushUndoSnapshot();
+    const importedTitle = getDroppedTextTitle(pendingTextFile.content, MAX_TITLE_LENGTH);
+    if (importedTitle) setTitle(importedTitle);
+    setContent(pendingTextFile.content);
+    setPendingTextFile(null);
+    setEncodingMenuOpen(false);
   };
 
   const handleTitleChange = (value: string) => {
@@ -1705,6 +1805,109 @@ export function NoteEditor({
                 onClick={handleConfirmRestore}
               >
                 {t.common.confirm}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingTextFile && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 p-4"
+          onClick={() => setPendingTextFile(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dropped-text-title"
+            className="w-full max-w-lg rounded-lg border border-gray-200 bg-white p-5 shadow-xl"
+            onClick={(event) => {
+              event.stopPropagation();
+              if (!(event.target as HTMLElement).closest('[data-encoding-menu]')) setEncodingMenuOpen(false);
+            }}
+          >
+            <h2 id="dropped-text-title" className="text-base font-semibold text-gray-900">
+              {t.editor.dropConfirmTitle}
+            </h2>
+            <p className="mt-2 break-all text-sm text-gray-700">{pendingTextFile.name}</p>
+            <p className="mt-1 text-sm text-gray-600">{t.editor.dropConfirmDesc}</p>
+            <span id="dropped-text-encoding-label" className="mt-4 block text-sm font-medium text-gray-700">
+              {t.editor.dropEncoding}
+            </span>
+            <div className="relative mt-1" data-encoding-menu>
+              <button
+                ref={encodingTriggerRef}
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded={encodingMenuOpen}
+                aria-labelledby="dropped-text-encoding-label"
+                className="flex w-full items-center justify-between gap-3 rounded border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-800 transition-colors hover:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                onClick={() => setEncodingMenuOpen((open) => !open)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+                  event.preventDefault();
+                  setEncodingMenuOpen(true);
+                  requestAnimationFrame(() => {
+                    document.querySelector<HTMLButtonElement>('[data-encoding-menu] [aria-selected="true"]')?.focus();
+                  });
+                }}
+              >
+                <span>{TEXT_FILE_ENCODINGS.find(({ value }) => value === pendingTextFile.encoding)?.label}</span>
+                <ChevronDown className={`h-4 w-4 shrink-0 text-gray-500 transition-transform ${encodingMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {encodingMenuOpen && (
+                <div
+                  role="listbox"
+                  aria-labelledby="dropped-text-encoding-label"
+                  className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded border border-gray-200 bg-white p-1 shadow-lg"
+                  onKeyDown={(event) => {
+                    const options = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]'));
+                    const current = options.indexOf(document.activeElement as HTMLButtonElement);
+                    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                      event.preventDefault();
+                      options[(current + (event.key === 'ArrowDown' ? 1 : options.length - 1)) % options.length]?.focus();
+                    } else if (event.key === 'Home' || event.key === 'End') {
+                      event.preventDefault();
+                      options[event.key === 'Home' ? 0 : options.length - 1]?.focus();
+                    }
+                  }}
+                >
+                  {TEXT_FILE_ENCODINGS.map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="option"
+                      aria-selected={pendingTextFile.encoding === value}
+                      className="flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                      onClick={() => handleDroppedTextEncodingChange(value)}
+                    >
+                      <span>{label}</span>
+                      {pendingTextFile.encoding === value && <Check className="h-4 w-4 shrink-0 text-accent" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <p className="mt-3 text-xs text-gray-500">{t.editor.dropPreview}</p>
+            <pre className="mt-1 max-h-40 min-h-20 overflow-auto whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700">
+              {pendingTextFile.decodeError ? t.editor.dropDecodeError : pendingTextFile.content.slice(0, 800)}
+            </pre>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                autoFocus
+                className="rounded border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50"
+                onClick={() => setPendingTextFile(null)}
+              >
+                {t.common.cancel}
+              </button>
+              <button
+                type="button"
+                className="rounded bg-accent px-3 py-2 text-sm text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={pendingTextFile.decodeError}
+                onClick={handleConfirmDroppedText}
+              >
+                {t.editor.dropReplaceContent}
               </button>
             </div>
           </div>
