@@ -50,26 +50,29 @@ function isWailsRuntimeReady(): boolean {
 }
 
 async function waitForWailsRuntime(): Promise<void> {
-  if (!isWailsRuntimeReady()) {
-    throw new Error('Wails runtime is not ready');
+  while (!isWailsRuntimeReady()) {
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
 }
 
+const wailsRuntimeReady = waitForWailsRuntime();
 const FIRST_RUN_STARTUP_MINIMUM_MS = 1400;
 
 async function waitForCoreReady(
   onStatus: ((message: string) => void) | undefined,
   messages: { preparingData: string; failed: string },
 ): Promise<void> {
-  const ready = await App.IsCoreReady();
-  if (ready) return;
-  const startupError = await App.GetStartupError();
-  if (startupError) {
-    onStatus?.(formatMessage(messages.failed, { error: startupError }));
-    throw new Error(startupError);
+  while (true) {
+    const ready = await App.IsCoreReady();
+    if (ready) return;
+    const startupError = await App.GetStartupError();
+    if (startupError) {
+      onStatus?.(formatMessage(messages.failed, { error: startupError }));
+      throw new Error(startupError);
+    }
+    onStatus?.(messages.preparingData);
+    await new Promise(resolve => setTimeout(resolve, 300));
   }
-  onStatus?.(messages.preparingData);
-  throw new Error('应用核心尚未就绪');
 }
 
 async function waitForMinimumStartupDisplay(startedAt: number, firstRun: boolean): Promise<void> {
@@ -115,7 +118,7 @@ function AppRoot() {
   }, []);
 
   useEffect(() => {
-    void waitForWailsRuntime()
+    void wailsRuntimeReady
       .then(() => EventsEmit('frontend:ready'))
       .catch((error) => console.error('Failed to emit frontend readiness:', error));
   }, []);
@@ -128,7 +131,7 @@ function AppRoot() {
       try {
         // First, wait for Wails runtime to be ready
         setStartupProgress(18);
-        await waitForWailsRuntime();
+        await wailsRuntimeReady;
         setStartupProgress(34);
         await waitForCoreReady(setStartupMessage, t.startup);
 

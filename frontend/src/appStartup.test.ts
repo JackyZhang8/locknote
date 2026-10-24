@@ -8,16 +8,23 @@ const startupProgressSource = readFileSync('src/components/StartupProgressScreen
 
 test('App waits for Wails runtime without falling through to the first-run screen on Windows cold start', () => {
   assert.equal(/async function waitForWailsRuntime/.test(source), true);
-  assert.equal(/if \(!isWailsRuntimeReady\(\)\)/.test(source), true);
-  assert.equal(/await waitForWailsRuntime\(\);/.test(source), true);
+  assert.equal(/while \(!isWailsRuntimeReady\(\)\) \{\s*await new Promise\(resolve => setTimeout\(resolve, 100\)\);/.test(source), true);
+  assert.equal(/const wailsRuntimeReady = waitForWailsRuntime\(\);/.test(source), true);
+  assert.equal(/wailsRuntimeReady\s*\.then\(\(\) => EventsEmit\('frontend:ready'\)\)/.test(source), true);
+  assert.equal(/await wailsRuntimeReady;/.test(source), true);
 });
 
 test('App waits for background core initialization before calling first-run APIs', () => {
+  const coreReadySource = source.match(/async function waitForCoreReady[\s\S]*?\n}\n/)?.[0] ?? '';
   assert.equal(/waitForCoreReady/.test(source), true);
   assert.equal(/await waitForCoreReady\(setStartupMessage, t\.startup\);/.test(source), true);
   assert.equal(/App\.IsCoreReady/.test(source), true);
   assert.equal(/App\.GetStartupError/.test(source), true);
   assert.equal(source.indexOf('await waitForCoreReady(setStartupMessage, t.startup);') < source.indexOf('const firstRun = await App.IsFirstRun();'), true);
+  assert.equal(/while \(true\)/.test(coreReadySource), true);
+  assert.equal(/await new Promise\(resolve => setTimeout\(resolve, 300\)\)/.test(coreReadySource), true);
+  assert.equal(/if \(startupError\) \{[\s\S]*onStatus\?\.\(formatMessage\(messages\.failed, \{ error: startupError \}\)\);[\s\S]*throw new Error\(startupError\);/.test(coreReadySource), true);
+  assert.equal((coreReadySource.match(/throw new Error/g) || []).length, 1);
 });
 
 test('App shows a cold-start message while the Windows runtime is still warming up', () => {
