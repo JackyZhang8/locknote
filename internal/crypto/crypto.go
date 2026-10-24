@@ -103,11 +103,3 @@ func (s *Service) Decrypt(key, ciphertext []byte) ([]byte, error) {
 
 	return plaintext, nil
 }
-
-func (s *Service) EncryptFile(key, plaintext []byte) ([]byte, error) {
-	return s.Encrypt(key, plaintext)
-}
-
-func (s *Service) DecryptFile(key, ciphertext []byte) ([]byte, error) {
-	return s.Decrypt(key, ciphertext)
-}
