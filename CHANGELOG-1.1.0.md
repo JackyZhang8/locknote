@@ -67,6 +67,7 @@ This release focuses on **data safety** and **robustness**. It fixes three issue
 - Data format is fully compatible with 1.0.x. No migration is required; existing notes, todos, images, settings, and backups are preserved.
 - Behavior change: **restoring a backup from a different vault is now rejected**. This is the fix, not a regression. To move to a new device or a different vault, use recovery-key import.
 - Backup contents are unchanged from 1.0.9 (notes, history, attachments only). The new `restore-snapshots/` directory is never included in a backup.
+- **macOS bundle identifier change**: the Bundle Identifier moves from the template default `com.wails.locknote` to `app.locknote`. Notes live in `~/.locknote` and are unaffected, but UI preferences such as theme, language, font size, and line numbers reset once. macOS treats the new build as a separate app — after upgrading, delete the old copy in `/Applications` so two versions do not open the same data directory.
 
 ## Known Limitations
 
