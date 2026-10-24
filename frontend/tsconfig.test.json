@@ -28,6 +28,8 @@
     "src/appStartup.test.ts",
     "src/editorFlush.test.ts",
     "src/editorFlush.ts",
+    "src/recoveryKey.test.ts",
+    "src/recoveryKey.ts",
     "src/mainLayoutLoadRace.test.ts",
     "src/markdownLinks.test.ts",
     "src/contextMenuPolicy.test.ts",

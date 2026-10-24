@@ -218,6 +218,7 @@ Backups contain only notes, history, and attachments; they do not contain tags, 
 
 - The master key remains in memory only after unlocking and is zeroed on lock
 - Each note uses an independent random nonce
+- Recovery keys are 16-character Crockford Base32 and the data key is derived with Argon2id (legacy vaults stay compatible)
 - Ciphertext files are written with `fsync + rename`, so a power loss cannot leave a truncated file
 - The vault is checked for an existing master password before it is written, preventing accidental key overwrite
 - Database migrations are versioned; a failed migration blocks startup instead of silently degrading to an empty list

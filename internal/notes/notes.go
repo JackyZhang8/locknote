@@ -907,8 +907,8 @@ func (s *Service) ImportFromBackup(backupPath, displayKey string) (int, error) {
 		return 0, err
 	}
 
-	importKey, err := s.crypto.ParseDisplayKey(displayKey)
-	if err != nil {
+	candidates := s.crypto.DataKeyCandidates(displayKey)
+	if len(candidates) == 0 {
 		return 0, errors.New("无效的密钥格式")
 	}
 
@@ -927,8 +927,22 @@ func (s *Service) ImportFromBackup(backupPath, displayKey string) (int, error) {
 		return 0, errors.New("备份文件格式无效：找不到笔记目录")
 	}
 
+	// 备份不包含校验文件，无法判断它是哪个版本的密钥派生的，
+	// 因此依次尝试当前版本与历史版本，取第一个能导入的。
+	for _, importKey := range candidates {
+		importedCount := s.importNotesWithKey(notesDir, importKey)
+		if importedCount > 0 {
+			s.ClearContentCache()
+			return importedCount, nil
+		}
+	}
+
+	return 0, errors.New("无法导入任何笔记，请检查密钥是否正确")
+}
+
+func (s *Service) importNotesWithKey(notesDir string, importKey []byte) int {
 	importedCount := 0
-	err = filepath.Walk(notesDir, func(path string, info os.FileInfo, walkErr error) error {
+	_ = filepath.Walk(notesDir, func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return nil
 		}
@@ -951,23 +965,13 @@ func (s *Service) ImportFromBackup(backupPath, displayKey string) (int, error) {
 			return nil
 		}
 
-		_, err = s.Create(noteContent.Title, noteContent.Content)
-		if err != nil {
+		if _, err := s.Create(noteContent.Title, noteContent.Content); err != nil {
 			return nil
 		}
 		importedCount++
 		return nil
 	})
-	if err != nil {
-		return 0, err
-	}
-
-	if importedCount == 0 {
-		return 0, errors.New("无法导入任何笔记，请检查密钥是否正确")
-	}
-
-	s.ClearContentCache()
-	return importedCount, nil
+	return importedCount
 }
 
 func (s *Service) extractZip(zipPath, destDir string) error {

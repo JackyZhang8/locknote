@@ -189,9 +189,9 @@ func (c *Core) SetupPassword(password, hint, displayKey string) (*SetupResult, e
 	if len([]rune(password)) < minPasswordLength {
 		return nil, errPasswordTooShort
 	}
-	dataKey, err := c.cryptoService.ParseDisplayKey(displayKey)
+	dataKey, err := c.cryptoService.ParseDisplayKeyV2(displayKey)
 	if err != nil {
-		return nil, errors.New("密钥格式不正确")
+		return nil, errors.New("恢复密钥格式不正确，应为 16 位字母数字")
 	}
 
 	salt, err := c.cryptoService.GenerateSalt()
@@ -241,15 +241,26 @@ func (c *Core) VerifyDataKey(displayKey string) (bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	dataKey, err := c.cryptoService.ParseDisplayKey(displayKey)
-	if err != nil {
-		return false, nil
-	}
-	ok, err := c.verifyDataKeyWithFile(dataKey)
+	_, ok, err := c.resolveDataKey(displayKey)
 	if err != nil {
 		return false, err
 	}
 	return ok, nil
+}
+
+// resolveDataKey 依次用当前版本与历史版本的派生方式校验恢复密钥，
+// 返回第一个与校验文件匹配的 dataKey。历史版本仅用于兼容旧密码库。
+func (c *Core) resolveDataKey(displayKey string) ([]byte, bool, error) {
+	for _, candidate := range c.cryptoService.DataKeyCandidates(displayKey) {
+		ok, err := c.verifyDataKeyWithFile(candidate)
+		if err != nil {
+			return nil, false, err
+		}
+		if ok {
+			return candidate, true, nil
+		}
+	}
+	return nil, false, nil
 }
 
 // Unlock 使用密码解锁
@@ -388,13 +399,7 @@ func (c *Core) ResetPasswordWithDataKey(displayKey, newPassword, newHint string)
 
 	c.mu.Lock()
 
-	dataKey, err := c.cryptoService.ParseDisplayKey(displayKey)
-	if err != nil {
-		c.mu.Unlock()
-		return errors.New("密钥格式不正确")
-	}
-
-	ok, err := c.verifyDataKeyWithFile(dataKey)
+	dataKey, ok, err := c.resolveDataKey(displayKey)
 	if err != nil {
 		c.mu.Unlock()
 		return err

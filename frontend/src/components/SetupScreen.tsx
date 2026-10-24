@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Lock, Eye, EyeOff, Key, AlertCircle, Check, RefreshCw } from 'lucide-react';
 import { useStore } from '../store';
 import { useI18n } from '../i18n';
+import { isValidRecoveryKey, normalizeRecoveryKey } from '../recoveryKey';
 import * as App from '../../wailsjs/go/main/App';
 
 type Step = 'password' | 'recovery' | 'verify';
@@ -44,11 +45,11 @@ export function SetupScreen() {
   const handleConfirmDataKey = async () => {
     setError('');
 
-    const keyLength = [...dataKey].length;
-    if (keyLength < 5 || keyLength > 32) {
+    if (!isValidRecoveryKey(dataKey)) {
       setError(t.auth.dataKeyLengthError);
       return;
     }
+    setDataKey(normalizeRecoveryKey(dataKey));
 
     setStep('verify');
   };
@@ -56,7 +57,7 @@ export function SetupScreen() {
   const handleVerifyDataKey = async () => {
     setError('');
 
-    if (verifyKey !== dataKey) {
+    if (normalizeRecoveryKey(verifyKey) !== normalizeRecoveryKey(dataKey)) {
       setError(t.auth.dataKeyMismatch);
       return;
     }
@@ -242,7 +243,7 @@ export function SetupScreen() {
 
             <button
               onClick={handleConfirmDataKey}
-              disabled={[...dataKey].length < 5}
+              disabled={!isValidRecoveryKey(dataKey)}
               className="w-full py-3 bg-accent text-white rounded-lg font-medium hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {t.common.next}
@@ -284,7 +285,7 @@ export function SetupScreen() {
 
             <button
               onClick={handleVerifyDataKey}
-              disabled={loading || [...verifyKey].length < 5}
+              disabled={loading || !isValidRecoveryKey(verifyKey)}
               className="w-full py-3 bg-accent text-white rounded-lg font-medium hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
               {loading ? (

@@ -66,3 +66,76 @@ func TestGenerateDataKeyFormat(t *testing.T) {
 		t.Fatalf("generated key %q does not match expected format", key)
 	}
 }
+
+func TestNormalizeDisplayKey(t *testing.T) {
+	cases := map[string]string{
+		"abcdefghjkmnpqrs":     "ABCDEFGHJKMNPQRS",
+		"ABCD-EFGH-JKMN-PQRS":  "ABCDEFGHJKMNPQRS",
+		"  abcd efgh jkmn pqrs ": "ABCDEFGHJKMNPQRS",
+		"ABCDEFGHJKMNPQIL":     "ABCDEFGHJKMNPQ11",
+	}
+	for input, want := range cases {
+		got, err := NormalizeDisplayKey(input)
+		if err != nil {
+			t.Fatalf("NormalizeDisplayKey(%q): %v", input, err)
+		}
+		if got != want {
+			t.Errorf("NormalizeDisplayKey(%q) = %q, want %q", input, got, want)
+		}
+	}
+
+	for _, invalid := range []string{"", "1234", "ABCDEFGHJKMNPQR", "ABCDEFGHJKMNPQRSX", "ABCDEFGHJKMNPQR$"} {
+		if _, err := NormalizeDisplayKey(invalid); err == nil {
+			t.Errorf("NormalizeDisplayKey(%q) succeeded, want error", invalid)
+		}
+	}
+}
+
+func TestParseDisplayKeyV2RejectsWeakKeys(t *testing.T) {
+	service := NewService()
+	for _, weak := range []string{"12345", "abcde", "ABCDE"} {
+		if _, err := service.ParseDisplayKeyV2(weak); err == nil {
+			t.Errorf("ParseDisplayKeyV2(%q) succeeded, want error", weak)
+		}
+	}
+	if _, err := service.ParseDisplayKeyV2("ABCDEFGHJKMNPQRS"); err != nil {
+		t.Fatalf("valid key rejected: %v", err)
+	}
+}
+
+func TestDataKeyCandidatesPreferCurrentDerivation(t *testing.T) {
+	service := NewService()
+	const key = "ABCDEFGHJKMNPQRS"
+
+	candidates := service.DataKeyCandidates(key)
+	if len(candidates) != 2 {
+		t.Fatalf("candidates = %d, want 2", len(candidates))
+	}
+	if !bytes.Equal(candidates[0], service.DeriveDataKeyV2(key)) {
+		t.Fatal("first candidate should use the current Argon2id derivation")
+	}
+	if !bytes.Equal(candidates[1], service.DeriveDataKey(key)) {
+		t.Fatal("second candidate should use the legacy SHA-256 derivation")
+	}
+	if bytes.Equal(candidates[0], candidates[1]) {
+		t.Fatal("current and legacy derivations must differ")
+	}
+}
+
+func TestGenerateDataKeyAvoidsAmbiguousCharacters(t *testing.T) {
+	service := NewService()
+	for i := 0; i < 50; i++ {
+		key, err := service.GenerateDataKey()
+		if err != nil {
+			t.Fatalf("generate data key: %v", err)
+		}
+		if _, err := NormalizeDisplayKey(key); err != nil {
+			t.Fatalf("generated key %q does not normalize: %v", key, err)
+		}
+		for _, bad := range []string{"I", "L", "O", "U"} {
+			if bytes.Contains([]byte(key), []byte(bad)) {
+				t.Fatalf("generated key %q contains ambiguous character %q", key, bad)
+			}
+		}
+	}
+}
