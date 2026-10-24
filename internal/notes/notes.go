@@ -529,6 +529,17 @@ func (s *Service) Delete(id string) error {
 }
 
 func (s *Service) List() ([]*Note, error) {
+	result, err := s.ListWithStatus()
+	if err != nil {
+		return nil, err
+	}
+	return result.Notes, nil
+}
+
+// ListWithStatus 与 List 相同，但额外返回无法解密的笔记数量。
+// 无法解密的笔记不会出现在列表中，调用方应把 Undecryptable 明确告知用户，
+// 避免密文损坏时笔记静默消失。
+func (s *Service) ListWithStatus() (*ListResult, error) {
 	key, err := s.getMasterKey()
 	if err != nil {
 		return nil, err
@@ -547,13 +558,16 @@ func (s *Service) List() ([]*Note, error) {
 	tagsByNoteID, _ := s.db.GetNoteTagsBatch(noteIDs)
 
 	notes := make([]*Note, 0, len(metas))
+	undecryptable := 0
 	for _, meta := range metas {
 		if note, ok := s.noteFromMeta(meta, key, tagsByNoteID[meta.ID]); ok {
 			notes = append(notes, note)
+			continue
 		}
+		undecryptable++
 	}
 
-	return notes, nil
+	return &ListResult{Notes: notes, Total: len(metas), Undecryptable: undecryptable}, nil
 }
 
 func (s *Service) Search(query string) ([]*Note, error) {
@@ -627,6 +641,8 @@ func (s *Service) Search(query string) ([]*Note, error) {
 type ListResult struct {
 	Notes []*Note `json:"notes"`
 	Total int     `json:"total"`
+	// Undecryptable 是本页中无法解密的笔记数量（密文损坏或密钥不匹配）。
+	Undecryptable int `json:"undecryptable"`
 }
 
 func (s *Service) ListPaginated(limit, offset int) (*ListResult, error) {
@@ -648,13 +664,16 @@ func (s *Service) ListPaginated(limit, offset int) (*ListResult, error) {
 	tagsByNoteID, _ := s.db.GetNoteTagsBatch(noteIDs)
 
 	notes := make([]*Note, 0, len(metas))
+	undecryptable := 0
 	for _, meta := range metas {
 		if note, ok := s.noteFromMeta(meta, key, tagsByNoteID[meta.ID]); ok {
 			notes = append(notes, note)
+			continue
 		}
+		undecryptable++
 	}
 
-	return &ListResult{Notes: notes, Total: total}, nil
+	return &ListResult{Notes: notes, Total: total, Undecryptable: undecryptable}, nil
 }
 
 func (s *Service) SetNotebook(id string, notebookID *string) error {

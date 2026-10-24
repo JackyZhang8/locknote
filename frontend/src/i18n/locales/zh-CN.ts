@@ -44,6 +44,10 @@ export const zhCN = {
     failed: '应用启动失败，请稍后重试或重新打开应用：{error}',
   },
 
+  warnings: {
+    undecryptableNotes: '有 {count} 篇笔记无法解密，已从列表中隐藏。密文可能已损坏，请检查备份文件。',
+  },
+
   // 侧边栏
   sidebar: {
     notes: '笔记',

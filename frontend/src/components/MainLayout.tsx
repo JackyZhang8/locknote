@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { useI18n } from '../i18n';
+import { AlertTriangle } from 'lucide-react';
+import { useI18n, formatMessage } from '../i18n';
 import { useStore } from '../store';
 import { Sidebar } from './Sidebar';
 import { NoteList } from './NoteList';
@@ -26,18 +27,21 @@ export function MainLayout() {
     setCommandPaletteOpen,
     isNoteListCollapsed,
     toggleNoteListCollapsed,
+    undecryptableNotes,
+    setUndecryptableNotes,
   } = useStore();
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [notesList, tagsList, notebooksList, settings] = await Promise.all([
-          App.ListNotes(),
+        const [notesResult, tagsList, notebooksList, settings] = await Promise.all([
+          App.ListNotesWithStatus(),
           App.ListTags(),
           App.ListNotebooks(),
           App.GetSettings(),
         ]);
-        setNotes(notesList || []);
+        setNotes(notesResult?.notes || []);
+        setUndecryptableNotes(notesResult?.undecryptable || 0);
         setTags(tagsList || []);
         setNotebooks(notebooksList || []);
         setSettings(settings);
@@ -47,7 +51,7 @@ export function MainLayout() {
     };
 
     loadData();
-  }, [setNotes, setTags, setNotebooks, setSettings]);
+  }, [setNotes, setTags, setNotebooks, setSettings, setUndecryptableNotes]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -124,8 +128,19 @@ export function MainLayout() {
   return (
     <div className="h-screen flex bg-background">
       <Sidebar />
-      <main className="min-w-0 flex-1 flex overflow-hidden">
-        {renderContent()}
+      <main className="min-w-0 flex-1 flex flex-col overflow-hidden">
+        {undecryptableNotes > 0 && (
+          <div
+            role="alert"
+            className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{formatMessage(t.warnings.undecryptableNotes, { count: undecryptableNotes })}</span>
+          </div>
+        )}
+        <div className="min-w-0 flex-1 flex overflow-hidden">
+          {renderContent()}
+        </div>
       </main>
       {isCommandPaletteOpen && <CommandPalette />}
     </div>

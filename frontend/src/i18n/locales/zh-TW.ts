@@ -46,6 +46,10 @@ export const zhTW: Translations = {
     failed: '應用程式啟動失敗，請稍後重試或重新開啟應用程式：{error}',
   },
 
+  warnings: {
+    undecryptableNotes: '有 {count} 篇筆記無法解密，已從清單中隱藏。密文可能已損毀，請檢查備份檔案。',
+  },
+
   // 側邊欄
   sidebar: {
     notes: '筆記',

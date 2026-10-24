@@ -10,6 +10,7 @@ interface AppState {
   currentView: ViewType;
   notes: notes.Note[];
   deletedNotes: notes.Note[];
+  undecryptableNotes: number;
   tags: tags.Tag[];
   notebooks: notebooks.Notebook[];
   selectedNoteId: string | null;
@@ -36,6 +37,7 @@ interface AppState {
   setCurrentView: (view: ViewType) => void;
   setNotes: (notes: notes.Note[]) => void;
   setDeletedNotes: (notes: notes.Note[]) => void;
+  setUndecryptableNotes: (count: number) => void;
   setTags: (tags: tags.Tag[]) => void;
   setNotebooks: (notebooks: notebooks.Notebook[]) => void;
   setSelectedNoteId: (id: string | null) => void;
@@ -71,6 +73,7 @@ const initialState = {
   currentView: 'notes' as ViewType,
   notes: [] as notes.Note[],
   deletedNotes: [] as notes.Note[],
+  undecryptableNotes: 0,
   tags: [] as tags.Tag[],
   notebooks: [] as notebooks.Notebook[],
   selectedNoteId: null as string | null,
@@ -101,6 +104,7 @@ export const useStore = create<AppState>((set, get) => ({
   setCurrentView: (view) => set({ currentView: view }),
   setNotes: (notes) => set({ notes }),
   setDeletedNotes: (notes) => set({ deletedNotes: notes }),
+  setUndecryptableNotes: (count) => set({ undecryptableNotes: count }),
   setTags: (tags) => set({ tags }),
   setNotebooks: (notebooks) => set({ notebooks }),
   setSelectedNoteId: (id) => set({ selectedNoteId: id }),

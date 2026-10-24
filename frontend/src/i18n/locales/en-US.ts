@@ -46,6 +46,10 @@ export const enUS: Translations = {
     failed: 'The app failed to start. Try again later or reopen the app: {error}',
   },
 
+  warnings: {
+    undecryptableNotes: '{count} note(s) could not be decrypted and are hidden from the list. The ciphertext may be corrupted — please check your backups.',
+  },
+
   // Sidebar
   sidebar: {
     notes: 'Notes',

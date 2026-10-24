@@ -107,6 +107,17 @@ func (a *App) ListNotes() ([]*notes.Note, error) {
 	return c.Notes().List()
 }
 
+// ListNotesWithStatus 返回笔记列表，并附带无法解密的笔记数量。
+func (a *App) ListNotesWithStatus() (*notes.ListResult, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
+	a.UpdateActivity()
+	return c.Notes().ListWithStatus()
+}
+
 func (a *App) ListNotesPaginated(limit, offset int) (*notes.ListResult, error) {
 	c, coreErr := a.coreOrErr()
 	if coreErr != nil {

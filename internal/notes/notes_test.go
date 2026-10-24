@@ -113,3 +113,43 @@ func TestInitialHistorySkipOnlyAppliesToEmptyContent(t *testing.T) {
 		t.Fatal("edited empty note should not be skipped")
 	}
 }
+
+func TestListWithStatusCountsUndecryptableNotes(t *testing.T) {
+	service := newTestNotesService(t)
+	if _, err := service.Create("secret", "body"); err != nil {
+		t.Fatalf("create note: %v", err)
+	}
+
+	// 换一个不匹配的密钥，模拟密文损坏或密钥不一致。
+	service.SetMasterKey(bytes.Repeat([]byte{9}, 32))
+
+	result, err := service.ListWithStatus()
+	if err != nil {
+		t.Fatalf("list notes with status: %v", err)
+	}
+	if len(result.Notes) != 0 {
+		t.Fatalf("visible notes = %d, want 0", len(result.Notes))
+	}
+	if result.Undecryptable != 1 {
+		t.Fatalf("undecryptable = %d, want 1", result.Undecryptable)
+	}
+	if result.Total != 1 {
+		t.Fatalf("total = %d, want 1", result.Total)
+	}
+}
+
+func TestListKeepsBackwardCompatibleSignature(t *testing.T) {
+	service := newTestNotesService(t)
+	if _, err := service.Create("secret", "body"); err != nil {
+		t.Fatalf("create note: %v", err)
+	}
+	service.SetMasterKey(bytes.Repeat([]byte{9}, 32))
+
+	listed, err := service.List()
+	if err != nil {
+		t.Fatalf("list notes: %v", err)
+	}
+	if len(listed) != 0 {
+		t.Fatalf("listed notes = %d, want 0", len(listed))
+	}
+}

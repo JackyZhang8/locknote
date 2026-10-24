@@ -173,6 +173,7 @@ export namespace notes {
 	export class ListResult {
 	    notes: Note[];
 	    total: number;
+	    undecryptable: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ListResult(source);
@@ -182,6 +183,7 @@ export namespace notes {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.notes = this.convertValues(source["notes"], Note);
 	        this.total = source["total"];
+	        this.undecryptable = source["undecryptable"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
