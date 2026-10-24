@@ -28,9 +28,10 @@ Author: LockNote.app <support@locknote.app>
 - **Full-text search** - Search note titles, content, and tags
 - **Version history** - Automatic history snapshots with rollback
 - **Trash** - Deleted notes move to trash and can be restored or permanently deleted
-- **Backup & restore** - Create encrypted backups, restore data, and import backups with a data key
+- **Backup & restore** - Create encrypted backups, restore data, and import backups with a data key; restore verifies the backup belongs to the current vault and keeps a rollback snapshot
 - **Startup experience** - Faster Windows cold-start flow, startup progress, and first-run feature introduction
 - **Security settings** - Auto-lock dialog, password change dialog, data-key recovery, themes, and language switching
+- **No lost drafts** - Pending edits are flushed to disk before switching notes, locking, or closing the window
 
 ## Tech Stack
 
@@ -61,6 +62,23 @@ cd ..
 
 wails dev
 ```
+
+### Tests
+
+Before committing, run the same checks as CI (`.github/workflows/ci.yml`):
+
+```bash
+# Backend
+go vet ./internal/... .
+go test ./internal/... .
+
+# Frontend
+cd frontend
+npx tsc --noEmit
+npm test
+```
+
+`npm test` compiles the tests with `tsconfig.test.json` into `.test-dist` and runs them with the Node built-in test runner; it must be run from the `frontend/` directory.
 
 ### Mermaid Flowcharts
 
@@ -196,14 +214,22 @@ LockNote encrypts note bodies, titles and previews, note history, attachments an
 
 Backups contain only notes, history, and attachments; they do not contain tags, notebooks, todos, settings, or the database. **Restore Backup works only with a backup from the same vault.** To move data to another device or use a different key, use recovery-key import. If both the password and recovery key are lost, the data is unrecoverable by design.
 
-- The master key remains in memory only after unlocking
+- The master key remains in memory only after unlocking and is zeroed on lock
 - Each note uses an independent random nonce
-- Ciphertext files are written atomically
+- Ciphertext files are written with `fsync + rename`, so a power loss cannot leave a truncated file
+- The vault is checked for an existing master password before it is written, preventing accidental key overwrite
+- Database migrations are versioned; a failed migration blocks startup instead of silently degrading to an empty list
+- Restoring a backup verifies it belongs to the current vault and keeps a rollback snapshot
 - Password reset is supported through the recovery key
+
+## Changelog
+
+- [v1.1.0](./CHANGELOG-1.1.0.md)
+- [v1.0.9](./CHANGELOG-1.0.9.md)
 
 ## Version
 
-v1.0.9
+v1.1.0
 
 ## License
 

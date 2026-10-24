@@ -93,4 +93,4 @@ For multi-platform builds and additional flags, see `build.md` and `build.sh` in
 
 ## Version
 
-v1.0.9
+v1.1.0

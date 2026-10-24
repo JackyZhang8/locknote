@@ -85,7 +85,7 @@ const initialState = {
   searchProgress: 0,
   selectedTagId: null as string | null,
   settings: null as database.Settings | null,
-  version: 'v1.0.9',
+  version: 'v1.1.0',
   dataDir: '',
   isCommandPaletteOpen: false,
   isMultiSelectMode: false,
