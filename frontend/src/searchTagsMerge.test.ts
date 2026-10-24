@@ -35,7 +35,7 @@ test('tag panel renders a compact list with edit mode controls hidden by default
   assert.equal(/space-y-1\.5/.test(tagsSource), true);
   assert.equal(/onClick=\{\(\) => handleViewNotes\(tag\.id\)\}/.test(tagsSource), true);
   assert.equal(/getNoteCountForTag\(tag\.id\)/.test(tagsSource), true);
-  assert.equal(/\{getNoteCountForTag\(tag\.id\)\}篇/.test(tagsSource), true);
+  assert.equal(/formatMessage\(t\.tags\.notesWithTag, \{ count: getNoteCountForTag\(tag\.id\) \}\)/.test(tagsSource), true);
   assert.equal(/text-xs tabular-nums text-gray-400/.test(tagsSource), true);
   assert.equal(/isEditingTags && \(/.test(tagsSource), true);
   assert.equal(/onClick=\{\(event\) => \{[\s\S]*event\.stopPropagation\(\);[\s\S]*openEditDialog\(tag\);[\s\S]*\}\}/.test(tagsSource), true);

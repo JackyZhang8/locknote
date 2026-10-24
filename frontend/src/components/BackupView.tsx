@@ -118,6 +118,7 @@ export function BackupView({ embedded = false }: BackupViewProps) {
         <div className="p-6 border-b border-gray-100">
           <h2 className="text-xl font-semibold text-gray-800">{t.backup.title}</h2>
           <p className="text-sm text-gray-500 mt-1">{t.backup.subtitle}</p>
+          <p className="mt-2 text-sm text-gray-500">{t.backup.securityHint}</p>
         </div>
       )}
 

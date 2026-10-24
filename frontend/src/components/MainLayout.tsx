@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useI18n } from '../i18n';
 import { useStore } from '../store';
 import { Sidebar } from './Sidebar';
 import { NoteList } from './NoteList';
@@ -12,6 +13,7 @@ import { CalendarView } from './CalendarView';
 import * as App from '../../wailsjs/go/main/App';
 
 export function MainLayout() {
+  const { t } = useI18n();
   const {
     currentView,
     setNotes,
@@ -92,7 +94,7 @@ export function MainLayout() {
               <button
                 onClick={toggleNoteListCollapsed}
                 className="absolute left-1/2 top-4 -translate-x-1/2 z-10 w-8 h-8 rounded-full border border-primary-200 bg-white text-primary-300 shadow-sm hover:bg-primary-50 hover:border-primary-300 hover:text-primary-500 transition-colors flex items-center justify-center"
-                title={isNoteListCollapsed ? '展开左侧列表' : '收起左侧列表'}
+                title={isNoteListCollapsed ? t.noteList.expandLeftList : t.noteList.collapseLeftList}
               >
                 <span
                   className={`block w-2.5 h-2.5 border-t-2 border-r-2 border-current transition-transform ${
