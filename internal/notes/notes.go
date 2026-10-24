@@ -5,6 +5,7 @@ package notes
 
 import (
 	"archive/zip"
+	"container/list"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,21 +24,32 @@ import (
 )
 
 type Service struct {
-	db           *database.DB
-	dataDir      string
-	crypto       *crypto.Service
-	masterKey    []byte
-	mu           sync.RWMutex
-	cacheMu      sync.RWMutex
-	contentCache map[string]cachedNoteContent
+	db         *database.DB
+	dataDir    string
+	crypto     *crypto.Service
+	masterKey  []byte
+	mu         sync.RWMutex
+	cacheMu    sync.Mutex
+	// contentCache 是解密后正文的 LRU 缓存，用于加速列表与搜索。
+	contentCache map[string]*list.Element
+	cacheOrder   *list.List
+	cacheBytes   int
 }
 
 type cachedNoteContent struct {
+	id         string
 	updatedAt  time.Time
 	cipherPath string
 	title      string
 	content    string
+	size       int
 }
+
+// 缓存上限：条目数与字节数任一超限都会淘汰最久未使用的内容。
+var (
+	maxContentCacheEntries = 500
+	maxContentCacheBytes   = 32 << 20
+)
 
 var (
 	maxImportZipFileSize  int64 = 500 * 1024 * 1024
@@ -144,7 +156,8 @@ func NewService(db *database.DB, dataDir string) *Service {
 		db:           db,
 		dataDir:      dataDir,
 		crypto:       crypto.NewService(),
-		contentCache: make(map[string]cachedNoteContent),
+		contentCache: make(map[string]*list.Element),
+		cacheOrder:   list.New(),
 	}
 }
 
@@ -162,35 +175,90 @@ func (s *Service) SetMasterKey(key []byte) {
 
 func (s *Service) ClearContentCache() {
 	s.cacheMu.Lock()
-	s.contentCache = make(map[string]cachedNoteContent)
+	s.initCacheLocked()
 	s.cacheMu.Unlock()
 }
 
+func (s *Service) initCacheLocked() {
+	s.contentCache = make(map[string]*list.Element)
+	s.cacheOrder = list.New()
+	s.cacheBytes = 0
+}
+
 func (s *Service) cachedContent(meta *database.NoteMeta) (NoteContent, bool) {
-	s.cacheMu.RLock()
-	cached, ok := s.contentCache[meta.ID]
-	s.cacheMu.RUnlock()
-	if !ok || cached.cipherPath != meta.CipherPath || !cached.updatedAt.Equal(meta.UpdatedAt) {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+
+	element, ok := s.contentCache[meta.ID]
+	if !ok {
 		return NoteContent{}, false
 	}
+	cached := element.Value.(*cachedNoteContent)
+	if cached.cipherPath != meta.CipherPath || !cached.updatedAt.Equal(meta.UpdatedAt) {
+		s.dropCachedContentLocked(meta.ID)
+		return NoteContent{}, false
+	}
+	s.cacheOrder.MoveToFront(element)
 	return NoteContent{Title: cached.title, Content: cached.content}, true
 }
 
 func (s *Service) storeContent(meta *database.NoteMeta, content NoteContent) {
 	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+
+	if s.contentCache == nil || s.cacheOrder == nil {
+		s.initCacheLocked()
+	}
+	s.dropCachedContentLocked(meta.ID)
+
+	entry := &cachedNoteContent{
+		id:         meta.ID,
+		updatedAt:  meta.UpdatedAt,
+		cipherPath: meta.CipherPath,
+		title:      content.Title,
+		content:    content.Content,
+	}
+	// 粗略估算内存占用：正文与标题的字节数，加固定的结构开销。
+	entry.size = len(entry.title) + len(entry.content) + 128
+
+	s.contentCache[meta.ID] = s.cacheOrder.PushFront(entry)
+	s.cacheBytes += entry.size
+	s.evictCacheLocked()
+}
+
+// evictCacheLocked 从尾部淘汰最久未使用的内容，直到满足条目与字节上限。
+func (s *Service) evictCacheLocked() {
+	for s.cacheOrder != nil && s.cacheOrder.Len() > 0 {
+		if len(s.contentCache) <= maxContentCacheEntries && s.cacheBytes <= maxContentCacheBytes {
+			return
+		}
+		oldest := s.cacheOrder.Back()
+		if oldest == nil {
+			return
+		}
+		s.cacheOrder.Remove(oldest)
+		entry := oldest.Value.(*cachedNoteContent)
+		delete(s.contentCache, entry.id)
+		s.cacheBytes -= entry.size
+	}
+}
+
+func (s *Service) dropCachedContentLocked(id string) {
 	if s.contentCache == nil {
-		s.contentCache = make(map[string]cachedNoteContent)
+		return
 	}
-	s.contentCache[meta.ID] = cachedNoteContent{
-		updatedAt: meta.UpdatedAt, cipherPath: meta.CipherPath,
-		title: content.Title, content: content.Content,
+	element, ok := s.contentCache[id]
+	if !ok {
+		return
 	}
-	s.cacheMu.Unlock()
+	s.cacheOrder.Remove(element)
+	s.cacheBytes -= element.Value.(*cachedNoteContent).size
+	delete(s.contentCache, id)
 }
 
 func (s *Service) removeCachedContent(id string) {
 	s.cacheMu.Lock()
-	delete(s.contentCache, id)
+	s.dropCachedContentLocked(id)
 	s.cacheMu.Unlock()
 }
 

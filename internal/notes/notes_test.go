@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -67,9 +68,9 @@ func TestSearchUsesAndClearsContentCache(t *testing.T) {
 		t.Fatalf("search results = %#v, want cached note", results)
 	}
 	service.SetMasterKey(nil)
-	service.cacheMu.RLock()
+	service.cacheMu.Lock()
 	cacheSize := len(service.contentCache)
-	service.cacheMu.RUnlock()
+	service.cacheMu.Unlock()
 	if cacheSize != 0 {
 		t.Fatalf("cache size after clearing master key = %d, want 0", cacheSize)
 	}
@@ -151,5 +152,65 @@ func TestListKeepsBackwardCompatibleSignature(t *testing.T) {
 	}
 	if len(listed) != 0 {
 		t.Fatalf("listed notes = %d, want 0", len(listed))
+	}
+}
+
+func newCacheTestMeta(id string) *database.NoteMeta {
+	return &database.NoteMeta{ID: id, CipherPath: "notes/aa/" + id + ".enc", UpdatedAt: time.Unix(0, 0)}
+}
+
+func TestContentCacheEvictsLeastRecentlyUsed(t *testing.T) {
+	service := newTestNotesService(t)
+	oldEntries, oldBytes := maxContentCacheEntries, maxContentCacheBytes
+	maxContentCacheEntries, maxContentCacheBytes = 2, 1<<30
+	defer func() { maxContentCacheEntries, maxContentCacheBytes = oldEntries, oldBytes }()
+
+	service.storeContent(newCacheTestMeta("a"), NoteContent{Title: "a", Content: "a"})
+	service.storeContent(newCacheTestMeta("b"), NoteContent{Title: "b", Content: "b"})
+	// 访问 a，使其成为最近使用；此时 b 才是最久未使用。
+	if _, ok := service.cachedContent(newCacheTestMeta("a")); !ok {
+		t.Fatal("a should be cached")
+	}
+	service.storeContent(newCacheTestMeta("c"), NoteContent{Title: "c", Content: "c"})
+
+	service.cacheMu.Lock()
+	_, hasA := service.contentCache["a"]
+	_, hasB := service.contentCache["b"]
+	_, hasC := service.contentCache["c"]
+	size := len(service.contentCache)
+	service.cacheMu.Unlock()
+
+	if !hasA || !hasC {
+		t.Fatalf("a and c should stay cached, got a=%v c=%v", hasA, hasC)
+	}
+	if hasB {
+		t.Fatal("b should be evicted as least recently used")
+	}
+	if size != 2 {
+		t.Fatalf("cache size = %d, want 2", size)
+	}
+}
+
+func TestContentCacheEvictsByByteLimit(t *testing.T) {
+	service := newTestNotesService(t)
+	oldEntries, oldBytes := maxContentCacheEntries, maxContentCacheBytes
+	maxContentCacheEntries, maxContentCacheBytes = 100, 700
+	defer func() { maxContentCacheEntries, maxContentCacheBytes = oldEntries, oldBytes }()
+
+	body := strings.Repeat("x", 200)
+	for _, id := range []string{"one", "two", "three"} {
+		service.storeContent(newCacheTestMeta(id), NoteContent{Title: "t", Content: body})
+	}
+
+	service.cacheMu.Lock()
+	size := len(service.contentCache)
+	bytesUsed := service.cacheBytes
+	service.cacheMu.Unlock()
+
+	if bytesUsed > maxContentCacheBytes {
+		t.Fatalf("cache bytes = %d, want <= %d", bytesUsed, maxContentCacheBytes)
+	}
+	if size != 2 {
+		t.Fatalf("cache size = %d, want 2 after byte-limit eviction", size)
 	}
 }
