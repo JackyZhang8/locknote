@@ -49,6 +49,8 @@ type cachedNoteContent struct {
 var (
 	maxContentCacheEntries = 500
 	maxContentCacheBytes   = 32 << 20
+	// searchWorkerCount 是搜索时并发解密的 worker 数量。
+	searchWorkerCount = 8
 )
 
 var (
@@ -656,54 +658,92 @@ func (s *Service) Search(query string) ([]*Note, error) {
 	}
 	tagsByNoteID, _ := s.db.GetNoteTagsBatch(noteIDs)
 
-	var results []*Note
-	for _, meta := range metas {
-		noteContent, ok := s.cachedContent(meta)
-		if !ok {
-			fullPath := filepath.Join(s.dataDir, meta.CipherPath)
-			ciphertext, err := os.ReadFile(fullPath)
-			if err != nil {
-				continue
-			}
-			plaintext, err := s.crypto.Decrypt(key, ciphertext)
-			if err != nil {
-				continue
-			}
-			if err := json.Unmarshal(plaintext, &noteContent); err != nil {
-				continue
-			}
-			s.storeContent(meta, noteContent)
-		}
+	// 搜索需要解密全部笔记，串行在笔记较多时会有明显延迟。
+	// 这里用固定数量的 worker 并发解密，结果按 DB 顺序回填以保持排序稳定。
+	matched := make([]*Note, len(metas))
+	workers := searchWorkerCount
+	if workers > len(metas) {
+		workers = len(metas)
+	}
+	if workers < 1 {
+		workers = 1
+	}
 
-		titleMatch := strings.Contains(strings.ToLower(noteContent.Title), query)
-		contentMatch := strings.Contains(strings.ToLower(noteContent.Content), query)
-
-		dbTags := tagsByNoteID[meta.ID]
-		tags := make([]Tag, len(dbTags))
-		tagMatch := false
-		for i, t := range dbTags {
-			tags[i] = Tag{ID: t.ID, Name: t.Name, Color: t.Color}
-			if strings.Contains(strings.ToLower(t.Name), query) {
-				tagMatch = true
+	jobs := make(chan int)
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for w := 0; w < workers; w++ {
+		go func() {
+			defer wg.Done()
+			for index := range jobs {
+				meta := metas[index]
+				if note, ok := s.matchNote(meta, key, query, tagsByNoteID[meta.ID]); ok {
+					matched[index] = note
+				}
 			}
-		}
+		}()
+	}
+	for index := range metas {
+		jobs <- index
+	}
+	close(jobs)
+	wg.Wait()
 
-		if titleMatch || contentMatch || tagMatch {
-			results = append(results, &Note{
-				ID:         meta.ID,
-				Title:      noteContent.Title,
-				Content:    s.extractPreview(noteContent.Content),
-				CreatedAt:  formatTime(meta.CreatedAt),
-				UpdatedAt:  formatTime(meta.UpdatedAt),
-				Pinned:     meta.Pinned,
-				DeletedAt:  formatTimePtr(meta.DeletedAt),
-				NotebookID: meta.NotebookID,
-				Tags:       tags,
-			})
+	results := make([]*Note, 0, len(matched))
+	for _, note := range matched {
+		if note != nil {
+			results = append(results, note)
 		}
 	}
 
 	return results, nil
+}
+
+// matchNote 判断单篇笔记是否命中查询，命中时返回列表项。
+func (s *Service) matchNote(meta *database.NoteMeta, key []byte, query string, dbTags []*database.Tag) (*Note, bool) {
+	noteContent, ok := s.cachedContent(meta)
+	if !ok {
+		fullPath := filepath.Join(s.dataDir, meta.CipherPath)
+		ciphertext, err := os.ReadFile(fullPath)
+		if err != nil {
+			return nil, false
+		}
+		plaintext, err := s.crypto.Decrypt(key, ciphertext)
+		if err != nil {
+			return nil, false
+		}
+		if err := json.Unmarshal(plaintext, &noteContent); err != nil {
+			return nil, false
+		}
+		s.storeContent(meta, noteContent)
+	}
+
+	tags := make([]Tag, len(dbTags))
+	tagMatch := false
+	for i, t := range dbTags {
+		tags[i] = Tag{ID: t.ID, Name: t.Name, Color: t.Color}
+		if strings.Contains(strings.ToLower(t.Name), query) {
+			tagMatch = true
+		}
+	}
+
+	titleMatch := strings.Contains(strings.ToLower(noteContent.Title), query)
+	contentMatch := strings.Contains(strings.ToLower(noteContent.Content), query)
+	if !titleMatch && !contentMatch && !tagMatch {
+		return nil, false
+	}
+
+	return &Note{
+		ID:         meta.ID,
+		Title:      noteContent.Title,
+		Content:    s.extractPreview(noteContent.Content),
+		CreatedAt:  formatTime(meta.CreatedAt),
+		UpdatedAt:  formatTime(meta.UpdatedAt),
+		Pinned:     meta.Pinned,
+		DeletedAt:  formatTimePtr(meta.DeletedAt),
+		NotebookID: meta.NotebookID,
+		Tags:       tags,
+	}, true
 }
 
 type ListResult struct {

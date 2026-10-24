@@ -35,6 +35,7 @@ This release focuses on **data safety** and **robustness**. It fixes three issue
 - **Versioned migrations**: `PRAGMA user_version` is tracked; a failed migration blocks startup with a reason instead of silently degrading to an empty list.
 - **SQLite tuning**: WAL journal mode and `busy_timeout=5000`.
 - **Note content cache**: list and search reuse decrypted content; the cache is cleared on lock. The cache is now LRU-bounded at 500 entries / 32 MB and evicts the least recently used content.
+- **Concurrent search decryption**: search now decrypts with a fixed worker pool while keeping the same result order as the list, so the first search on a large vault is noticeably faster.
 - **ZIP limits**: 500 MB per file, 4 GB total, 100,000 entries, on top of the existing path-traversal guard.
 - **Image attachment limit**: 50 MB per image, with the data URL length checked before decoding.
 - **Startup failure handling**: startup retries are capped at 120 attempts and surface the actual error instead of looping forever.

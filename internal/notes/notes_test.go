@@ -2,6 +2,7 @@ package notes
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -212,5 +213,43 @@ func TestContentCacheEvictsByByteLimit(t *testing.T) {
 	}
 	if size != 2 {
 		t.Fatalf("cache size = %d, want 2 after byte-limit eviction", size)
+	}
+}
+
+func TestSearchKeepsDatabaseOrderWithConcurrentWorkers(t *testing.T) {
+	service := newTestNotesService(t)
+
+	for i := 0; i < 12; i++ {
+		title := fmt.Sprintf("note-%02d", i)
+		note, err := service.Create(title, "shared keyword body")
+		if err != nil {
+			t.Fatalf("create note %d: %v", i, err)
+		}
+		// 通过更新时间拉开排序差异，让 DB 返回顺序可预期。
+		if _, err := service.Update(note.ID, title, "shared keyword body"); err != nil {
+			t.Fatalf("update note %d: %v", i, err)
+		}
+	}
+
+	listed, err := service.List()
+	if err != nil {
+		t.Fatalf("list notes: %v", err)
+	}
+	order := make([]string, len(listed))
+	for i, note := range listed {
+		order[i] = note.ID
+	}
+
+	results, err := service.Search("shared keyword")
+	if err != nil {
+		t.Fatalf("search notes: %v", err)
+	}
+	if len(results) != len(order) {
+		t.Fatalf("search results = %d, want %d", len(results), len(order))
+	}
+	for i := range results {
+		if results[i].ID != order[i] {
+			t.Fatalf("result %d = %s, want %s (order must follow the DB list)", i, results[i].ID, order[i])
+		}
 	}
 }
