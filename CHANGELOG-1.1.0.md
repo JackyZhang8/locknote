@@ -48,6 +48,7 @@ This release focuses on **data safety** and **robustness**. It fixes three issue
 ## Engineering and Tests
 
 - New CI workflow running `go vet`, `go test`, `tsc --noEmit`, and `npm test`; the Go version follows `go.mod`.
+- The version now has a single source of truth in `internal/version`; the frontend reads it via `GetVersion()`, and a unit test keeps `wails.json` and `package.json` in sync.
 - Duplicate release workflows merged into a single multi-platform build with macOS signing and notarization.
 - New `npm test` script runs the full frontend suite.
 - Core test coverage changes:

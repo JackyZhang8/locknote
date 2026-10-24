@@ -48,6 +48,7 @@
 ## 工程与测试
 
 - 新增 CI 工作流：`go vet`、`go test`、`tsc --noEmit`、`npm test`，Go 版本跟随 `go.mod`。
+- 版本号改为单一来源：由 `internal/version` 维护，前端通过 `GetVersion()` 获取，`wails.json` 与 `package.json` 的一致性由单测校验。
 - 合并重复的发布工作流，保留一套多平台构建与 macOS 签名公证流程。
 - 前端新增 `npm test` 脚本，可直接运行全部测试。
 - 补充核心测试，覆盖率变化：

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"locknote/internal/core"
+	"locknote/internal/version"
 	"log"
 	"os"
 	"path/filepath"
@@ -319,5 +320,5 @@ func (a *App) GetDataDir() string {
 }
 
 func (a *App) GetVersion() string {
-	return "v1.1.0"
+	return version.Display()
 }

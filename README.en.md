@@ -184,12 +184,14 @@ locknote/
 │   ├── core/               # Shared domain types
 │   ├── crypto/             # Crypto module
 │   ├── database/           # SQLite database
+│   ├── fsutil/             # Atomic file writes
 │   ├── markdown/           # Markdown title extraction
 │   ├── notebooks/          # Notebook service
 │   ├── notes/              # Notes service
 │   ├── smartviews/         # Smart views
 │   ├── tags/               # Tags service
-│   └── todos/              # Todo service
+│   ├── todos/              # Todo service
+│   └── version/            # Single source of truth for the version
 ├── mobile/                 # Mobile bridge package
 ├── tests/source/           # Cross-file source contract tests
 ├── frontend/

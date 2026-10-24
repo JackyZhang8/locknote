@@ -88,7 +88,8 @@ const initialState = {
   searchProgress: 0,
   selectedTagId: null as string | null,
   settings: null as database.Settings | null,
-  version: 'v1.1.0',
+  // 版本号由后端 GetVersion() 在启动时注入，前端不再硬编码。
+  version: '',
   dataDir: '',
   isCommandPaletteOpen: false,
   isMultiSelectMode: false,

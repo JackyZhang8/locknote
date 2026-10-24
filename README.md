@@ -184,12 +184,14 @@ locknote/
 │   ├── core/               # 共享领域类型
 │   ├── crypto/             # 加密模块
 │   ├── database/           # SQLite 数据库
+│   ├── fsutil/             # 原子文件写入
 │   ├── markdown/           # Markdown 标题提取
 │   ├── notebooks/          # 笔记本服务
 │   ├── notes/              # 笔记服务
 │   ├── smartviews/         # 智能视图
 │   ├── tags/               # 标签服务
-│   └── todos/              # 待办服务
+│   ├── todos/              # 待办服务
+│   └── version/            # 版本号单一来源
 ├── mobile/                 # 移动端桥接包
 ├── tests/source/           # 跨文件源码契约测试
 ├── frontend/
