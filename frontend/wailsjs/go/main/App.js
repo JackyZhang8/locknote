@@ -22,6 +22,10 @@ export function ChangePassword(arg1, arg2, arg3) {
   return window['go']['main']['App']['ChangePassword'](arg1, arg2, arg3);
 }
 
+export function ConfirmClose() {
+  return window['go']['main']['App']['ConfirmClose']();
+}
+
 export function CreateBackup() {
   return window['go']['main']['App']['CreateBackup']();
 }

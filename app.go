@@ -6,12 +6,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"locknote/internal/core"
 	"log"
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -29,6 +31,8 @@ type App struct {
 	windowWatcherOnce sync.Once
 	watcherStop       chan struct{}
 	lastMinimized     bool
+	allowClose        atomic.Bool
+	closeRequestStart atomic.Bool
 }
 
 func NewApp() *App {
@@ -150,6 +154,26 @@ func (a *App) shutdown(ctx context.Context) {
 	}
 }
 
+func (a *App) beforeClose(ctx context.Context) bool {
+	if a.allowClose.Load() {
+		return false
+	}
+	if a.closeRequestStart.CompareAndSwap(false, true) {
+		runtime.EventsEmit(ctx, "app:before-close")
+		time.AfterFunc(3*time.Second, func() {
+			if !a.allowClose.Swap(true) {
+				runtime.Quit(ctx)
+			}
+		})
+	}
+	return true
+}
+
+func (a *App) ConfirmClose() {
+	a.allowClose.Store(true)
+	runtime.Quit(a.ctx)
+}
+
 func (a *App) startWindowWatcher() {
 	a.windowWatcher = time.NewTicker(500 * time.Millisecond)
 	go func() {
@@ -196,8 +220,12 @@ func (a *App) checkWindowState() {
 
 // ============ 委托给 core 的安全相关方法 ============
 
-func (a *App) IsFirstRun() bool {
-	return a.core.IsFirstRun()
+func (a *App) IsFirstRun() (bool, error) {
+	c := a.getCoreIfReady()
+	if c == nil {
+		return false, errors.New("应用尚未就绪，请稍候重试")
+	}
+	return c.IsFirstRun()
 }
 
 func (a *App) SetupPassword(password, hint, displayKey string) (*core.SetupResult, error) {

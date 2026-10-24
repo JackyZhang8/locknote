@@ -10,6 +10,7 @@ import { SetupScreen } from './components/SetupScreen';
 import { StartupProgressScreen } from './components/StartupProgressScreen';
 import * as App from '../wailsjs/go/main/App';
 import { EventsEmit, EventsOn } from '../wailsjs/runtime/runtime';
+import { flushEditor } from './editorFlush';
 
 // Extend Window interface for Wails runtime
 declare global {
@@ -203,13 +204,15 @@ function AppRoot() {
 
         if (key === 'l') {
           e.preventDefault();
-          App.Lock()
-            .then(() => {
+          void (async () => {
+            try {
+              await flushEditor();
+              await App.Lock();
               useStore.getState().setUnlocked(false);
-            })
-            .catch((error) => {
+            } catch (error) {
               console.error('Failed to lock:', error);
-            });
+            }
+          })();
           return;
         }
 
@@ -241,6 +244,35 @@ function AppRoot() {
 
     return () => {
       offLocked();
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        void flushEditor();
+      }
+    };
+    const handleBlur = () => {
+      void flushEditor();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, []);
+
+  useEffect(() => {
+    const offBeforeClose = EventsOn('app:before-close', async () => {
+      await flushEditor();
+      App.ConfirmClose().catch((error) => {
+        console.error('Failed to confirm window close:', error);
+      });
+    });
+    return () => {
+      offBeforeClose();
     };
   }, []);
 

@@ -9,6 +9,7 @@ import remarkGfm from 'remark-gfm';
 import { useStore, EditorMode } from '../store';
 import { formatMessage, useI18n } from '../i18n';
 import { attachmentMarkdown, fileToDataURL, markdownUrlTransform, parseAttachmentId } from '../imageAttachments';
+import { registerEditorFlush } from '../editorFlush';
 import { decodeTextBytes, detectTextEncoding, getDroppedTextTitle, isSupportedTextFile, TEXT_FILE_ENCODINGS, type TextFileEncoding } from '../droppedTextFile';
 import { notes, tags } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
@@ -259,6 +260,7 @@ export function NoteEditor({
   const latestDraftRef = useRef({ selectedNote, title, content });
   latestDraftRef.current = { selectedNote, title, content };
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSaveRef = useRef<{ noteId: string; title: string; content: string } | null>(null);
   const tagMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -520,6 +522,11 @@ export function NoteEditor({
             current.title === snapshot.title && current.content === snapshot.content) {
           updateSelectedNote(updated);
         }
+        if (pendingSaveRef.current?.noteId === snapshot.selectedNote.id &&
+            pendingSaveRef.current.title === snapshot.title &&
+            pendingSaveRef.current.content === snapshot.content) {
+          pendingSaveRef.current = null;
+        }
         const notesList = await App.ListNotes();
         const safeNotes = notesList || [];
         setNotes(safeNotes);
@@ -539,6 +546,72 @@ export function NoteEditor({
     return pending;
   }, [selectedNote, title, content, updateSelectedNote, setNotes, onNotesReloaded, t.common.error]);
 
+  const flushPendingSave = useCallback(async () => {
+    const pending = pendingSaveRef.current;
+    if (!pending) return;
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    const current = latestDraftRef.current;
+    if (current.selectedNote?.id === pending.noteId &&
+        pending.title === current.selectedNote.title &&
+        pending.content === current.selectedNote.content) {
+      pendingSaveRef.current = null;
+      return;
+    }
+    if (current.selectedNote?.id === pending.noteId &&
+        current.title === pending.title && current.content === pending.content) {
+      if (await saveNote() && pendingSaveRef.current === pending) {
+        pendingSaveRef.current = null;
+      }
+      return;
+    }
+
+    const save = saveQueueRef.current.then(async () => {
+      await App.UpdateNote(pending.noteId, pending.title, pending.content);
+      const notesList = await App.ListNotes();
+      const safeNotes = notesList || [];
+      setNotes(safeNotes);
+      onNotesReloaded?.(safeNotes);
+    });
+    saveQueueRef.current = save.catch(() => undefined);
+    await save;
+    if (pendingSaveRef.current === pending) {
+      pendingSaveRef.current = null;
+    }
+  }, [saveNote, setNotes, onNotesReloaded]);
+
+  useEffect(() => registerEditorFlush(flushPendingSave), [flushPendingSave]);
+
+  useEffect(() => {
+    const activeNote = selectedNote;
+    return () => {
+      const pending = pendingSaveRef.current;
+      if (!activeNote || !pending || pending.noteId !== activeNote.id) return;
+      if (pending.title === activeNote.title && pending.content === activeNote.content) {
+        pendingSaveRef.current = null;
+        return;
+      }
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      pendingSaveRef.current = null;
+      const save = saveQueueRef.current.then(async () => {
+        await App.UpdateNote(pending.noteId, pending.title, pending.content);
+        const notesList = await App.ListNotes();
+        const safeNotes = notesList || [];
+        setNotes(safeNotes);
+        onNotesReloaded?.(safeNotes);
+      });
+      saveQueueRef.current = save.catch((error) => {
+        console.error('Failed to save note after selection changed:', error);
+      });
+    };
+  }, [selectedNote, setNotes, onNotesReloaded]);
+
   useEffect(() => {
     if (!selectedNote) return;
 
@@ -546,9 +619,14 @@ export function NoteEditor({
       clearTimeout(saveTimeoutRef.current);
     }
 
+    const pending = { noteId: selectedNote.id, title, content };
+    pendingSaveRef.current = pending;
     saveTimeoutRef.current = setTimeout(() => {
+      saveTimeoutRef.current = null;
       if (title !== selectedNote.title || content !== selectedNote.content) {
         saveNote();
+      } else if (pendingSaveRef.current === pending) {
+        pendingSaveRef.current = null;
       }
     }, 800);
 

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"locknote/internal/attachments"
 	"locknote/internal/database"
+	"locknote/internal/fsutil"
 	"locknote/internal/markdown"
 	"locknote/internal/notebooks"
 	"locknote/internal/notes"
@@ -265,7 +266,7 @@ func (a *App) RestoreBackup() error {
 		return nil
 	}
 
-	return a.core.Backup().RestoreBackup(openPath)
+	return a.core.RestoreBackup(openPath)
 }
 
 func (a *App) ImportBackupWithKey(dataKey string) (int, error) {
@@ -314,7 +315,7 @@ func (a *App) ExportNoteAsMarkdown(noteID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	err = writeFileAtomic(savePath, []byte(exportedContent))
+	err = fsutil.WriteFileAtomic(savePath, []byte(exportedContent), 0600)
 	if err != nil {
 		return "", err
 	}
@@ -471,7 +472,7 @@ func (a *App) exportMarkdownAttachments(content, exportDir string, now time.Time
 		}
 		fileName := uniqueExportImageName(attachment.OriginalName, attachment.MIMEType, attachment.ID, usedNames)
 		fileNames[id] = fileName
-		if err := writeFileAtomic(filepath.Join(assetsDirPath, fileName), data); err != nil {
+		if err := fsutil.WriteFileAtomic(filepath.Join(assetsDirPath, fileName), data, 0600); err != nil {
 			return "", err
 		}
 	}
@@ -612,19 +613,6 @@ func (a *App) AttachAttachmentToNote(noteID, attachmentID string) error {
 func (a *App) DetachAttachmentFromNote(noteID, attachmentID string) error {
 	a.UpdateActivity()
 	return a.core.Attachments().DetachFromNote(noteID, attachmentID)
-}
-
-func writeFileAtomic(path string, data []byte) error {
-	tempPath := path + ".tmp"
-	if err := os.WriteFile(tempPath, data, 0600); err != nil {
-		os.Remove(tempPath)
-		return err
-	}
-	if err := os.Rename(tempPath, path); err != nil {
-		os.Remove(tempPath)
-		return err
-	}
-	return nil
 }
 
 // Notebook APIs

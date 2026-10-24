@@ -7,9 +7,11 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"locknote/internal/crypto"
 	"locknote/internal/database"
+	"locknote/internal/fsutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -27,6 +29,12 @@ type Service struct {
 	masterKey []byte
 	mu        sync.RWMutex
 }
+
+var (
+	maxImportZipFileSize  int64 = 500 * 1024 * 1024
+	maxImportZipTotalSize int64 = 4 * 1024 * 1024 * 1024
+	maxImportZipEntries         = 100000
+)
 
 type Note struct {
 	ID         string  `json:"id"`
@@ -139,12 +147,7 @@ func (s *Service) Create(title, content string) (*Note, error) {
 		return nil, err
 	}
 
-	tempPath := fullPath + ".tmp"
-	if err := os.WriteFile(tempPath, ciphertext, 0600); err != nil {
-		return nil, err
-	}
-	if err := os.Rename(tempPath, fullPath); err != nil {
-		os.Remove(tempPath)
+	if err := fsutil.WriteFileAtomic(fullPath, ciphertext, 0600); err != nil {
 		return nil, err
 	}
 
@@ -279,13 +282,15 @@ func (s *Service) Update(id, title, content string) (*Note, error) {
 				historyPath := s.buildCipherPath("history", historyID)
 				historyFullPath := filepath.Join(s.dataDir, historyPath)
 				if err := os.MkdirAll(filepath.Dir(historyFullPath), 0700); err == nil {
-					if err := os.WriteFile(historyFullPath, oldCiphertext, 0600); err == nil {
+					if err := fsutil.WriteFileAtomic(historyFullPath, oldCiphertext, 0600); err == nil {
 						historyRecord = &database.NoteHistory{
 							ID:         historyID,
 							NoteID:     id,
 							CipherPath: historyPath,
 							CreatedAt:  time.Now(),
 						}
+					} else {
+						log.Printf("[Update] failed to write history for note %s: %v", id, err)
 					}
 				}
 
@@ -322,12 +327,7 @@ func (s *Service) Update(id, title, content string) (*Note, error) {
 	}
 
 	fullPath := filepath.Join(s.dataDir, meta.CipherPath)
-	tempPath := fullPath + ".tmp"
-	if err := os.WriteFile(tempPath, ciphertext, 0600); err != nil {
-		return nil, err
-	}
-	if err := os.Rename(tempPath, fullPath); err != nil {
-		os.Remove(tempPath)
+	if err := fsutil.WriteFileAtomic(fullPath, ciphertext, 0600); err != nil {
 		return nil, err
 	}
 
@@ -864,22 +864,38 @@ func (s *Service) extractZip(zipPath, destDir string) error {
 	}
 	defer reader.Close()
 
-	const maxFileSize uint64 = 500 * 1024 * 1024
+	if len(reader.File) > maxImportZipEntries {
+		return fmt.Errorf("zip contains too many entries (%d)", len(reader.File))
+	}
+	root := filepath.Clean(destDir)
+	var totalSize int64
 	for _, file := range reader.File {
-		destPath := filepath.Join(destDir, file.Name)
-		cleanDestPath := filepath.Clean(destPath)
-
-		if !strings.HasPrefix(cleanDestPath, filepath.Clean(destDir)+string(os.PathSeparator)) {
+		if filepath.IsAbs(file.Name) {
+			continue
+		}
+		cleanDestPath := filepath.Clean(filepath.Join(root, filepath.FromSlash(file.Name)))
+		relative, err := filepath.Rel(root, cleanDestPath)
+		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
 			continue
 		}
 
 		if file.FileInfo().IsDir() {
-			os.MkdirAll(cleanDestPath, 0700)
+			if err := os.MkdirAll(cleanDestPath, 0700); err != nil {
+				return err
+			}
 			continue
 		}
 
-		if file.UncompressedSize64 > maxFileSize {
+		if maxImportZipFileSize < 0 || file.UncompressedSize64 > uint64(maxImportZipFileSize) {
 			return errors.New("file in zip exceeds size limit")
+		}
+		remaining := maxImportZipTotalSize - totalSize
+		limit := maxImportZipFileSize + 1
+		if remaining < limit {
+			limit = remaining + 1
+		}
+		if limit < 0 {
+			limit = 0
 		}
 
 		if err := os.MkdirAll(filepath.Dir(cleanDestPath), 0700); err != nil {
@@ -897,12 +913,24 @@ func (s *Service) extractZip(zipPath, destDir string) error {
 			return err
 		}
 
-		_, err = io.Copy(destFile, io.LimitReader(srcFile, int64(maxFileSize)+1))
-		srcFile.Close()
-		destFile.Close()
-
-		if err != nil {
-			return err
+		copied, copyErr := io.Copy(destFile, io.LimitReader(srcFile, limit))
+		sourceCloseErr := srcFile.Close()
+		destCloseErr := destFile.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+		if sourceCloseErr != nil {
+			return sourceCloseErr
+		}
+		if destCloseErr != nil {
+			return destCloseErr
+		}
+		if copied > maxImportZipFileSize {
+			return errors.New("file in zip exceeds size limit")
+		}
+		totalSize += copied
+		if totalSize > maxImportZipTotalSize {
+			return errors.New("zip exceeds total size limit")
 		}
 	}
 
@@ -942,7 +970,7 @@ func (s *Service) MigrateOldNotes() (int, error) {
 					continue
 				}
 
-				if err := os.WriteFile(newFullPath, ciphertext, 0600); err != nil {
+				if err := fsutil.WriteFileAtomic(newFullPath, ciphertext, 0600); err != nil {
 					continue
 				}
 

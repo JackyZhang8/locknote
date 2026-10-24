@@ -299,18 +299,38 @@ func (d *DB) addNotebookIdColumn() {
 	d.db.Exec(`CREATE INDEX IF NOT EXISTS idx_notes_list ON notes(deleted_at, pinned DESC, sort_order ASC, updated_at DESC)`)
 }
 
-func (d *DB) HasMasterPassword() bool {
+func (d *DB) HasMasterPassword() (bool, error) {
 	var count int
-	d.db.QueryRow("SELECT COUNT(*) FROM master_password").Scan(&count)
-	return count > 0
+	if err := d.db.QueryRow("SELECT COUNT(*) FROM master_password").Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
-func (d *DB) SaveMasterPassword(salt, verifier []byte, hint string, encryptedDataKey []byte) error {
+func (d *DB) InsertMasterPassword(salt, verifier []byte, hint string, encryptedDataKey []byte) error {
 	_, err := d.db.Exec(`
-		INSERT OR REPLACE INTO master_password (id, salt, verifier, hint, encrypted_data_key)
+		INSERT INTO master_password (id, salt, verifier, hint, encrypted_data_key)
 		VALUES (1, ?, ?, ?, ?)
 	`, salt, verifier, hint, encryptedDataKey)
 	return err
+}
+
+func (d *DB) UpdateMasterPassword(salt, verifier []byte, hint string, encryptedDataKey []byte) error {
+	result, err := d.db.Exec(`
+		UPDATE master_password SET salt = ?, verifier = ?, hint = ?, encrypted_data_key = ?
+		WHERE id = 1
+	`, salt, verifier, hint, encryptedDataKey)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected != 1 {
+		return fmt.Errorf("master password record not found")
+	}
+	return nil
 }
 
 func (d *DB) GetMasterPassword() (*MasterPassword, error) {

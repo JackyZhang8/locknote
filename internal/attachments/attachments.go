@@ -15,6 +15,7 @@ import (
 	_ "image/png"
 	"locknote/internal/crypto"
 	"locknote/internal/database"
+	"locknote/internal/fsutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -235,12 +236,7 @@ func (s *Service) writeEncryptedBytes(cipherPath string, key []byte, plaintext [
 		return err
 	}
 
-	tempPath := fullPath + "." + uuid.NewString() + ".tmp"
-	if err := os.WriteFile(tempPath, ciphertext, 0600); err != nil {
-		return err
-	}
-	if err := os.Rename(tempPath, fullPath); err != nil {
-		_ = os.Remove(tempPath)
+	if err := fsutil.WriteFileAtomic(fullPath, ciphertext, 0600); err != nil {
 		return err
 	}
 	return nil
@@ -278,12 +274,7 @@ func (s *Service) CreateImage(input CreateImageInput) (*Attachment, error) {
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0700); err != nil {
 		return nil, err
 	}
-	tempPath := fullPath + ".tmp"
-	if err := os.WriteFile(tempPath, ciphertext, 0600); err != nil {
-		return nil, err
-	}
-	if err := os.Rename(tempPath, fullPath); err != nil {
-		_ = os.Remove(tempPath)
+	if err := fsutil.WriteFileAtomic(fullPath, ciphertext, 0600); err != nil {
 		return nil, err
 	}
 

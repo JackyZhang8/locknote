@@ -59,21 +59,25 @@ export function MainLayout() {
   }, [setCommandPaletteOpen]);
 
   useEffect(() => {
+    let cancelled = false;
     const loadSelectedNote = async () => {
       if (selectedNoteId) {
         try {
           const note = await App.GetNote(selectedNoteId);
-          setSelectedNote(note);
+          if (!cancelled) setSelectedNote(note);
         } catch (error) {
           console.error('Failed to load note:', error);
-          setSelectedNote(null);
+          if (!cancelled) setSelectedNote(null);
         }
-      } else {
+      } else if (!cancelled) {
         setSelectedNote(null);
       }
     };
 
     loadSelectedNote();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedNoteId, setSelectedNote]);
 
   const renderContent = () => {
