@@ -17,6 +17,18 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend assets
+        working-directory: frontend
+        run: npm run build
+
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -27,14 +39,6 @@ jobs:
 
       - name: Go tests
         run: go test ./internal/... .
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
 
       - name: TypeScript check
         working-directory: frontend
