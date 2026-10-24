@@ -207,3 +207,55 @@ func TestExtractBackupRejectsOversizedEntry(t *testing.T) {
 		t.Fatal("expected oversized zip entry to fail")
 	}
 }
+
+func TestPruneRestoreSnapshotsKeepsNewest(t *testing.T) {
+	dataDir := t.TempDir()
+	service := NewService(dataDir)
+	root := filepath.Join(dataDir, "restore-snapshots")
+
+	for _, name := range []string{"100", "200", "300", "400", "500"} {
+		if err := os.MkdirAll(filepath.Join(root, name), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// 非时间戳目录不应被清理。
+	if err := os.MkdirAll(filepath.Join(root, "keep-me"), 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	service.pruneRestoreSnapshots(3)
+
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, entry := range entries {
+		got[entry.Name()] = true
+	}
+	for _, want := range []string{"300", "400", "500", "keep-me"} {
+		if !got[want] {
+			t.Fatalf("snapshot %q should be kept, got %v", want, got)
+		}
+	}
+	for _, gone := range []string{"100", "200"} {
+		if got[gone] {
+			t.Fatalf("snapshot %q should be pruned, got %v", gone, got)
+		}
+	}
+}
+
+func TestPruneRestoreSnapshotsNoopWhenUnderLimit(t *testing.T) {
+	dataDir := t.TempDir()
+	service := NewService(dataDir)
+	root := filepath.Join(dataDir, "restore-snapshots")
+	if err := os.MkdirAll(filepath.Join(root, "100"), 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	service.pruneRestoreSnapshots(3)
+
+	if _, err := os.Stat(filepath.Join(root, "100")); err != nil {
+		t.Fatalf("snapshot should survive: %v", err)
+	}
+}

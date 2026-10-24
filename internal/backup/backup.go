@@ -12,6 +12,7 @@ import (
 	"locknote/internal/fsutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +22,10 @@ var (
 	maxZipFileSize  int64 = 500 * 1024 * 1024
 	maxZipTotalSize int64 = 4 * 1024 * 1024 * 1024
 	maxZipEntries         = 100000
+
+	// restoreSnapshotKeep 是保留的恢复快照数量。快照是整库副本，只用于
+	// 恢复失败时回滚，保留最近几次即可，避免长期占用磁盘。
+	restoreSnapshotKeep = 3
 
 	sensitiveFiles = map[string]bool{
 		"locknote.db":         true,
@@ -156,6 +161,46 @@ func (s *Service) CleanupTempDir(tempDir string) {
 	_ = os.RemoveAll(tempDir)
 }
 
+func (s *Service) restoreSnapshotRoot() string {
+	return filepath.Join(s.dataDir, "restore-snapshots")
+}
+
+// pruneRestoreSnapshots 只保留最近 keep 个恢复快照目录。
+// 快照目录名是 UnixNano 时间戳，按数值倒序排列后删除多余的。
+func (s *Service) pruneRestoreSnapshots(keep int) {
+	if keep < 0 {
+		keep = 0
+	}
+	entries, err := os.ReadDir(s.restoreSnapshotRoot())
+	if err != nil {
+		return
+	}
+
+	type snapshot struct {
+		name    string
+		created int64
+	}
+	snapshots := make([]snapshot, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		created, err := strconv.ParseInt(entry.Name(), 10, 64)
+		if err != nil {
+			continue
+		}
+		snapshots = append(snapshots, snapshot{name: entry.Name(), created: created})
+	}
+	if len(snapshots) <= keep {
+		return
+	}
+
+	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].created > snapshots[j].created })
+	for _, stale := range snapshots[keep:] {
+		_ = os.RemoveAll(filepath.Join(s.restoreSnapshotRoot(), stale.name))
+	}
+}
+
 func (s *Service) CreateBackup(outputPath string) error {
 	zipFile, err := os.Create(outputPath)
 	if err != nil {
@@ -255,7 +300,10 @@ func (s *Service) RestoreBackup(inputPath string, cryptoService *crypto.Service,
 		return errors.New("备份中没有笔记")
 	}
 
-	snapshotDir := filepath.Join(s.dataDir, "restore-snapshots", strconv.FormatInt(time.Now().UnixNano(), 10))
+	// 清理上次异常退出可能残留的快照，并给本次快照腾出位置。
+	s.pruneRestoreSnapshots(restoreSnapshotKeep - 1)
+
+	snapshotDir := filepath.Join(s.restoreSnapshotRoot(), strconv.FormatInt(time.Now().UnixNano(), 10))
 	if err := os.MkdirAll(snapshotDir, 0700); err != nil {
 		return err
 	}
@@ -348,5 +396,6 @@ func (s *Service) RestoreBackup(inputPath string, cryptoService *crypto.Service,
 	if err != nil {
 		return rollback(err)
 	}
+	s.pruneRestoreSnapshots(restoreSnapshotKeep)
 	return nil
 }

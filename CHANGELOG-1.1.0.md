@@ -13,6 +13,7 @@ This release focuses on **data safety** and **robustness**. It fixes three issue
 ### Restore is rollback-safe
 - Affected files are snapshotted into `restore-snapshots/` before being replaced.
 - A failure midway restores the snapshot automatically, so data is never left half-old and half-new.
+- Only the 3 most recent snapshots are kept; leftovers from an interrupted restore are cleaned up on the next run.
 - The note content cache is cleared after a successful restore.
 
 ### Master key can no longer be overwritten
