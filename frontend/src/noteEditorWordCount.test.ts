@@ -36,7 +36,9 @@ test('note editor can render optional line numbers beside the markdown textarea'
 
 test('split editor uses an explicit two column workspace that can shrink', () => {
   assert.equal(/variant === 'modal' \? 'flex h-full min-h-0 min-w-0' : 'flex-1 flex min-h-0 min-w-0 overflow-hidden'/.test(editorSource), true);
-  assert.equal(/<main className="min-w-0 flex-1 flex overflow-hidden">/.test(mainLayoutSource), true);
+  // main 改为纵向 flex 以容纳顶部的"无法解密"告警条，内部内容区仍保持横向可收缩。
+  assert.equal(/<main className="min-w-0 flex-1 flex flex-col overflow-hidden">/.test(mainLayoutSource), true);
+  assert.equal(/<div className="min-w-0 flex-1 flex overflow-hidden">/.test(mainLayoutSource), true);
   assert.equal(/<div className="flex min-w-0 flex-1 overflow-hidden">/.test(mainLayoutSource), true);
   assert.equal(/style=\{\{\s*gridTemplateColumns: editorMode === 'split' \? 'minmax\(0, 1fr\) minmax\(0, 1fr\)' : undefined,\s*\}\}/.test(editorSource), true);
   assert.equal(/data-editor-pane="markdown"/.test(editorSource), true);
