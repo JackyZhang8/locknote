@@ -11,11 +11,13 @@ import (
 	"locknote/internal/backup"
 	"locknote/internal/crypto"
 	"locknote/internal/database"
+	"locknote/internal/fsutil"
 	"locknote/internal/notebooks"
 	"locknote/internal/notes"
 	"locknote/internal/smartviews"
 	"locknote/internal/tags"
 	"locknote/internal/todos"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -43,12 +45,17 @@ type Core struct {
 	backupService     *backup.Service
 	dataDir           string
 
-	isUnlocked   bool
-	dataKey      []byte
-	mu           sync.RWMutex
-	lastActivity time.Time
-	lockTimer    *time.Timer
-	lockCallback LockCallback
+	setupMu               sync.Mutex
+	settingsMu            sync.Mutex
+	autoLockMinutes       int
+	autoLockMinutesLoaded bool
+	autoLockSettingsErr   error
+	isUnlocked            bool
+	dataKey               []byte
+	mu                    sync.RWMutex
+	lastActivity          time.Time
+	lockTimer             *time.Timer
+	lockCallback          LockCallback
 }
 
 // SetupResult 是初始化密码后的返回结果
@@ -131,8 +138,12 @@ func (c *Core) GetDataDir() string {
 // ============ 安全与解锁相关 ============
 
 // IsFirstRun 检查是否是首次运行（未设置主密码）
-func (c *Core) IsFirstRun() bool {
-	return !c.db.HasMasterPassword()
+func (c *Core) IsFirstRun() (bool, error) {
+	hasMasterPassword, err := c.db.HasMasterPassword()
+	if err != nil {
+		return false, err
+	}
+	return !hasMasterPassword, nil
 }
 
 func (c *Core) dataKeyVerifierFilePath() string {
@@ -144,7 +155,7 @@ func (c *Core) writeDataKeyVerifierFile(dataKey []byte) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(c.dataKeyVerifierFilePath(), ciphertext, 0600)
+	return fsutil.WriteFileAtomic(c.dataKeyVerifierFilePath(), ciphertext, 0600)
 }
 
 func (c *Core) verifyDataKeyWithFile(dataKey []byte) (bool, error) {
@@ -165,43 +176,50 @@ func (c *Core) verifyDataKeyWithFile(dataKey []byte) (bool, error) {
 
 // SetupPassword 初始化主密码（首次运行时调用）
 func (c *Core) SetupPassword(password, hint, displayKey string) (*SetupResult, error) {
+	c.setupMu.Lock()
+	defer c.setupMu.Unlock()
+
+	hasMasterPassword, err := c.db.HasMasterPassword()
+	if err != nil {
+		return nil, fmt.Errorf("无法读取密码库状态: %w", err)
+	}
+	if hasMasterPassword {
+		return nil, errors.New("密码库已存在，请使用解锁或恢复密钥重置")
+	}
 	if len([]rune(password)) < minPasswordLength {
 		return nil, errPasswordTooShort
 	}
-
-	c.mu.Lock()
+	dataKey, err := c.cryptoService.ParseDisplayKey(displayKey)
+	if err != nil {
+		return nil, errors.New("密钥格式不正确")
+	}
 
 	salt, err := c.cryptoService.GenerateSalt()
 	if err != nil {
-		c.mu.Unlock()
 		return nil, err
 	}
 
 	passwordKey := c.cryptoService.DeriveKey(password, salt)
-	dataKey := c.cryptoService.DeriveDataKey(displayKey)
 
 	encryptedDataKey, err := c.cryptoService.Encrypt(passwordKey, dataKey)
 	if err != nil {
-		c.mu.Unlock()
 		return nil, err
 	}
 
 	verifier, err := c.cryptoService.Encrypt(passwordKey, []byte("LOCKNOTE_VERIFY"))
 	if err != nil {
-		c.mu.Unlock()
 		return nil, err
 	}
 
-	err = c.db.SaveMasterPassword(salt, verifier, hint, encryptedDataKey)
-	if err != nil {
-		c.mu.Unlock()
-		return nil, err
-	}
 	if err := c.writeDataKeyVerifierFile(dataKey); err != nil {
-		c.mu.Unlock()
+		return nil, err
+	}
+	if err := c.db.InsertMasterPassword(salt, verifier, hint, encryptedDataKey); err != nil {
+		_ = os.Remove(c.dataKeyVerifierFilePath())
 		return nil, err
 	}
 
+	c.mu.Lock()
 	c.dataKey = dataKey
 	c.isUnlocked = true
 	c.noteService.SetMasterKey(dataKey)
@@ -236,28 +254,23 @@ func (c *Core) VerifyDataKey(displayKey string) (bool, error) {
 
 // Unlock 使用密码解锁
 func (c *Core) Unlock(password string) (bool, error) {
-	c.mu.Lock()
-
 	mp, err := c.db.GetMasterPassword()
 	if err != nil {
-		c.mu.Unlock()
 		return false, err
 	}
-
 	passwordKey := c.cryptoService.DeriveKey(password, mp.Salt)
 
 	_, err = c.cryptoService.Decrypt(passwordKey, mp.Verifier)
 	if err != nil {
-		c.mu.Unlock()
 		return false, nil
 	}
 
 	dataKey, err := c.cryptoService.Decrypt(passwordKey, mp.EncryptedDataKey)
 	if err != nil {
-		c.mu.Unlock()
 		return false, nil
 	}
 
+	c.mu.Lock()
 	c.dataKey = dataKey
 	c.isUnlocked = true
 	c.noteService.SetMasterKey(dataKey)
@@ -358,7 +371,7 @@ func (c *Core) ChangePassword(oldPassword, newPassword, newHint string) error {
 		return err
 	}
 
-	err = c.db.SaveMasterPassword(newSalt, newVerifier, newHint, newEncryptedDataKey)
+	err = c.db.UpdateMasterPassword(newSalt, newVerifier, newHint, newEncryptedDataKey)
 	if err != nil {
 		return err
 	}
@@ -411,7 +424,7 @@ func (c *Core) ResetPasswordWithDataKey(displayKey, newPassword, newHint string)
 		return err
 	}
 
-	err = c.db.SaveMasterPassword(newSalt, newVerifier, newHint, newEncryptedDataKey)
+	err = c.db.UpdateMasterPassword(newSalt, newVerifier, newHint, newEncryptedDataKey)
 	if err != nil {
 		c.mu.Unlock()
 		return err
@@ -439,7 +452,23 @@ func (c *Core) UpdateActivity() {
 }
 
 func (c *Core) startLockTimer() {
-	settings, _ := c.db.GetSettings()
+	c.settingsMu.Lock()
+	if !c.autoLockMinutesLoaded {
+		settings, err := c.db.GetSettings()
+		c.autoLockMinutesLoaded = true
+		if err != nil {
+			c.autoLockSettingsErr = err
+		} else {
+			c.autoLockMinutes = settings.AutoLockMinutes
+		}
+	}
+	autoLockMinutes := c.autoLockMinutes
+	settingsErr := c.autoLockSettingsErr
+	c.settingsMu.Unlock()
+	if settingsErr != nil {
+		log.Printf("failed to read auto-lock setting: %v", settingsErr)
+		return
+	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -449,11 +478,11 @@ func (c *Core) startLockTimer() {
 		c.lockTimer = nil
 	}
 
-	if settings == nil || settings.AutoLockMinutes <= 0 {
+	if autoLockMinutes <= 0 {
 		return
 	}
 
-	autoLockDuration := time.Duration(settings.AutoLockMinutes) * time.Minute
+	autoLockDuration := time.Duration(autoLockMinutes) * time.Minute
 
 	c.lockTimer = time.AfterFunc(autoLockDuration, func() {
 		c.mu.RLock()
@@ -529,6 +558,20 @@ func (c *Core) Backup() *backup.Service {
 	return c.backupService
 }
 
+func (c *Core) RestoreBackup(path string) error {
+	c.mu.RLock()
+	key := append([]byte(nil), c.dataKey...)
+	c.mu.RUnlock()
+	if key == nil {
+		return errors.New("请先解锁")
+	}
+	if err := c.backupService.RestoreBackup(path, c.cryptoService, key); err != nil {
+		return err
+	}
+	c.noteService.ClearContentCache()
+	return nil
+}
+
 // ============ 设置相关 ============
 
 // GetSettings 获取设置
@@ -542,6 +585,11 @@ func (c *Core) UpdateSettings(s *database.Settings) error {
 	if err != nil {
 		return err
 	}
+	c.settingsMu.Lock()
+	c.autoLockMinutes = s.AutoLockMinutes
+	c.autoLockMinutesLoaded = true
+	c.autoLockSettingsErr = nil
+	c.settingsMu.Unlock()
 	// 设置更新后重启计时器，使新的 autoLockMinutes 立即生效
 	c.startLockTimer()
 	return nil

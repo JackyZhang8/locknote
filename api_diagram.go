@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/xml"
 	"errors"
+	"locknote/internal/fsutil"
 	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -35,7 +36,7 @@ func saveDiagramSVG(svg string, choosePath func() (string, error)) (string, erro
 	if !strings.HasSuffix(strings.ToLower(path), ".svg") {
 		path += ".svg"
 	}
-	if err := writeFileAtomic(path, []byte(svg)); err != nil {
+	if err := fsutil.WriteFileAtomic(path, []byte(svg), 0600); err != nil {
 		return "", err
 	}
 	return path, nil

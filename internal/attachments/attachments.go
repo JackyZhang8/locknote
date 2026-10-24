@@ -15,6 +15,7 @@ import (
 	_ "image/png"
 	"locknote/internal/crypto"
 	"locknote/internal/database"
+	"locknote/internal/fsutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,6 +36,8 @@ type Service struct {
 }
 
 const thumbnailMaxPixelSize = 384
+
+var maxImageBytes = 50 << 20
 
 type CreateImageInput struct {
 	OriginalName string
@@ -141,6 +144,9 @@ func ParseImageDataURL(dataURL string) (string, []byte, error) {
 	if len(parts) != 2 {
 		return "", nil, errors.New("invalid image data URL")
 	}
+	if len(parts[1]) > maxImageBytes*4/3+16 {
+		return "", nil, errors.New("image data exceeds 50 MiB limit")
+	}
 	mimeType := strings.ToLower(strings.TrimSpace(parts[0]))
 	if !strings.HasPrefix(mimeType, "image/") {
 		return "", nil, errors.New("data URL is not an image")
@@ -235,12 +241,7 @@ func (s *Service) writeEncryptedBytes(cipherPath string, key []byte, plaintext [
 		return err
 	}
 
-	tempPath := fullPath + "." + uuid.NewString() + ".tmp"
-	if err := os.WriteFile(tempPath, ciphertext, 0600); err != nil {
-		return err
-	}
-	if err := os.Rename(tempPath, fullPath); err != nil {
-		_ = os.Remove(tempPath)
+	if err := fsutil.WriteFileAtomic(fullPath, ciphertext, 0600); err != nil {
 		return err
 	}
 	return nil
@@ -262,6 +263,9 @@ func (s *Service) CreateImage(input CreateImageInput) (*Attachment, error) {
 	if len(input.Data) == 0 {
 		return nil, errors.New("image data is required")
 	}
+	if len(input.Data) > maxImageBytes {
+		return nil, errors.New("image data exceeds 50 MiB limit")
+	}
 	mimeType, err := normalizeImageMIME(input.MIMEType)
 	if err != nil {
 		return nil, err
@@ -278,12 +282,7 @@ func (s *Service) CreateImage(input CreateImageInput) (*Attachment, error) {
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0700); err != nil {
 		return nil, err
 	}
-	tempPath := fullPath + ".tmp"
-	if err := os.WriteFile(tempPath, ciphertext, 0600); err != nil {
-		return nil, err
-	}
-	if err := os.Rename(tempPath, fullPath); err != nil {
-		_ = os.Remove(tempPath)
+	if err := fsutil.WriteFileAtomic(fullPath, ciphertext, 0600); err != nil {
 		return nil, err
 	}
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, X, Check } from 'lucide-react';
 import { useStore } from '../store';
-import { useI18n } from '../i18n';
+import { formatMessage, useI18n } from '../i18n';
 import * as App from '../../wailsjs/go/main/App';
 
 const COLORS = [
@@ -184,7 +184,7 @@ export function TagsPanel({ embedded = false }: TagsPanelProps) {
                 />
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800">{tag.name}</span>
                 <span className="min-w-[2rem] text-right text-xs tabular-nums text-gray-400">
-                  {getNoteCountForTag(tag.id)}篇
+                  {formatMessage(t.tags.notesWithTag, { count: getNoteCountForTag(tag.id) })}
                 </span>
                 {isEditingTags && (
                   <span className="flex shrink-0 items-center gap-1">

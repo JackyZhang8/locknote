@@ -5,14 +5,35 @@ package backup
 
 import (
 	"archive/zip"
+	"errors"
 	"fmt"
 	"io"
+	"locknote/internal/crypto"
+	"locknote/internal/fsutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 )
 
-const maxZipFileSize = 500 * 1024 * 1024 // 500 MB per file
+var (
+	maxZipFileSize  int64 = 500 * 1024 * 1024
+	maxZipTotalSize int64 = 4 * 1024 * 1024 * 1024
+	maxZipEntries         = 100000
+
+	sensitiveFiles = map[string]bool{
+		"locknote.db":         true,
+		"locknote.db-journal": true,
+		"locknote.db-wal":     true,
+		"locknote.db-shm":     true,
+		"notebase.db":         true,
+		"notebase.db-journal": true,
+		"notebase.db-wal":     true,
+		"notebase.db-shm":     true,
+		"data_key_verifier":   true,
+	}
+)
 
 type Service struct {
 	dataDir string
@@ -22,70 +43,117 @@ func NewService(dataDir string) *Service {
 	return &Service{dataDir: dataDir}
 }
 
+func skippedBackupPath(name string) bool {
+	name = filepath.ToSlash(filepath.Clean(name))
+	if sensitiveFiles[filepath.Base(name)] {
+		return true
+	}
+	return name == "restore-snapshots" || strings.HasPrefix(name, "restore-snapshots/")
+}
+
+func safeZipDestination(root, name string) (string, string, bool) {
+	if filepath.IsAbs(name) {
+		return "", "", false
+	}
+	cleanName := filepath.Clean(filepath.FromSlash(name))
+	if cleanName == "." || cleanName == ".." || strings.HasPrefix(cleanName, ".."+string(os.PathSeparator)) {
+		return "", "", false
+	}
+	if skippedBackupPath(cleanName) {
+		return "", "", false
+	}
+	destination := filepath.Join(root, cleanName)
+	relative, err := filepath.Rel(root, destination)
+	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+		return "", "", false
+	}
+	return destination, relative, true
+}
+
 func (s *Service) ExtractBackupToTemp(inputPath string) (string, error) {
 	tempDir, err := os.MkdirTemp("", "locknote-import-*")
 	if err != nil {
 		return "", err
 	}
-
-	reader, err := zip.OpenReader(inputPath)
-	if err != nil {
-		os.RemoveAll(tempDir)
+	if err := extractZip(inputPath, tempDir); err != nil {
+		_ = os.RemoveAll(tempDir)
 		return "", err
 	}
-	defer reader.Close()
-
-	for _, file := range reader.File {
-		destPath := filepath.Join(tempDir, file.Name)
-		cleanDestPath := filepath.Clean(destPath)
-
-		if !strings.HasPrefix(cleanDestPath, filepath.Clean(tempDir)+string(os.PathSeparator)) {
-			continue
-		}
-
-		if file.FileInfo().IsDir() {
-			os.MkdirAll(cleanDestPath, 0700)
-			continue
-		}
-
-		if file.UncompressedSize64 > maxZipFileSize {
-			os.RemoveAll(tempDir)
-			return "", fmt.Errorf("file %s exceeds size limit (%d bytes)", file.Name, file.UncompressedSize64)
-		}
-
-		if err := os.MkdirAll(filepath.Dir(cleanDestPath), 0700); err != nil {
-			os.RemoveAll(tempDir)
-			return "", err
-		}
-
-		destFile, err := os.OpenFile(cleanDestPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-		if err != nil {
-			os.RemoveAll(tempDir)
-			return "", err
-		}
-
-		srcFile, err := file.Open()
-		if err != nil {
-			destFile.Close()
-			os.RemoveAll(tempDir)
-			return "", err
-		}
-
-		_, err = io.Copy(destFile, io.LimitReader(srcFile, maxZipFileSize+1))
-		srcFile.Close()
-		destFile.Close()
-
-		if err != nil {
-			os.RemoveAll(tempDir)
-			return "", err
-		}
-	}
-
 	return tempDir, nil
 }
 
+func extractZip(inputPath, destinationDir string) error {
+	reader, err := zip.OpenReader(inputPath)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	if len(reader.File) > maxZipEntries {
+		return fmt.Errorf("zip contains too many entries (%d)", len(reader.File))
+	}
+
+	var totalSize int64
+	for _, file := range reader.File {
+		destination, _, safe := safeZipDestination(destinationDir, file.Name)
+		if !safe {
+			continue
+		}
+		if file.FileInfo().IsDir() {
+			if err := os.MkdirAll(destination, 0700); err != nil {
+				return err
+			}
+			continue
+		}
+		if maxZipFileSize < 0 || file.UncompressedSize64 > uint64(maxZipFileSize) {
+			return fmt.Errorf("file %s exceeds size limit (%d bytes)", file.Name, maxZipFileSize)
+		}
+		if err := os.MkdirAll(filepath.Dir(destination), 0700); err != nil {
+			return err
+		}
+
+		source, err := file.Open()
+		if err != nil {
+			return err
+		}
+		output, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
+			_ = source.Close()
+			return err
+		}
+		remaining := maxZipTotalSize - totalSize
+		limit := maxZipFileSize + 1
+		if remaining < limit {
+			limit = remaining + 1
+		}
+		if limit < 0 {
+			limit = 0
+		}
+		copied, copyErr := io.Copy(output, io.LimitReader(source, limit))
+		sourceCloseErr := source.Close()
+		outputCloseErr := output.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+		if sourceCloseErr != nil {
+			return sourceCloseErr
+		}
+		if outputCloseErr != nil {
+			return outputCloseErr
+		}
+		if copied > maxZipFileSize {
+			return fmt.Errorf("file %s exceeds size limit (%d bytes)", file.Name, maxZipFileSize)
+		}
+		totalSize += copied
+		if totalSize > maxZipTotalSize {
+			return fmt.Errorf("zip exceeds total size limit (%d bytes)", maxZipTotalSize)
+		}
+	}
+	return nil
+}
+
 func (s *Service) CleanupTempDir(tempDir string) {
-	os.RemoveAll(tempDir)
+	_ = os.RemoveAll(tempDir)
 }
 
 func (s *Service) CreateBackup(outputPath string) error {
@@ -98,33 +166,22 @@ func (s *Service) CreateBackup(outputPath string) error {
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
 
-	sensitiveFiles := map[string]bool{
-		"locknote.db":         true,
-		"locknote.db-journal": true,
-		"locknote.db-wal":     true,
-		"locknote.db-shm":     true,
-		"notebase.db":         true,
-		"notebase.db-journal": true,
-		"notebase.db-wal":     true,
-		"notebase.db-shm":     true,
-		"data_key_verifier":   true,
-	}
-
 	err = filepath.Walk(s.dataDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
-		}
-
-		if info.IsDir() {
-			return nil
 		}
 
 		relPath, err := filepath.Rel(s.dataDir, path)
 		if err != nil {
 			return err
 		}
-
-		if sensitiveFiles[filepath.Base(relPath)] {
+		if info.IsDir() {
+			if relPath == "restore-snapshots" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if skippedBackupPath(relPath) {
 			return nil
 		}
 
@@ -132,7 +189,7 @@ func (s *Service) CreateBackup(outputPath string) error {
 		if err != nil {
 			return err
 		}
-		header.Name = relPath
+		header.Name = filepath.ToSlash(relPath)
 		header.Method = zip.Deflate
 
 		writer, err := zipWriter.CreateHeader(header)
@@ -156,53 +213,140 @@ func (s *Service) CreateBackup(outputPath string) error {
 	return err
 }
 
-func (s *Service) RestoreBackup(inputPath string) error {
-	reader, err := zip.OpenReader(inputPath)
+func (s *Service) RestoreBackup(inputPath string, cryptoService *crypto.Service, key []byte) error {
+	if key == nil {
+		return errors.New("请先解锁")
+	}
+	tempDir, err := s.ExtractBackupToTemp(inputPath)
 	if err != nil {
 		return err
 	}
-	defer reader.Close()
+	defer s.CleanupTempDir(tempDir)
 
-	for _, file := range reader.File {
-		destPath := filepath.Join(s.dataDir, file.Name)
-		cleanDestPath := filepath.Clean(destPath)
-
-		if !strings.HasPrefix(cleanDestPath, filepath.Clean(s.dataDir)+string(os.PathSeparator)) {
-			continue
+	notesDir := filepath.Join(tempDir, "notes")
+	if _, err := os.Stat(notesDir); err != nil {
+		if os.IsNotExist(err) {
+			return errors.New("备份中没有笔记")
 		}
-
-		if file.FileInfo().IsDir() {
-			os.MkdirAll(cleanDestPath, 0700)
-			continue
+		return err
+	}
+	noteFiles := 0
+	err = filepath.Walk(notesDir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
-
-		if file.UncompressedSize64 > maxZipFileSize {
-			return fmt.Errorf("file %s exceeds size limit (%d bytes)", file.Name, file.UncompressedSize64)
+		if info.IsDir() || filepath.Ext(info.Name()) != ".enc" {
+			return nil
 		}
-
-		if err := os.MkdirAll(filepath.Dir(cleanDestPath), 0700); err != nil {
-			return err
-		}
-
-		destFile, err := os.OpenFile(cleanDestPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		noteFiles++
+		ciphertext, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
-
-		srcFile, err := file.Open()
-		if err != nil {
-			destFile.Close()
-			return err
+		if _, err := cryptoService.Decrypt(key, ciphertext); err != nil {
+			return errors.New("该备份不属于当前密码库，请使用「用恢复密钥导入」")
 		}
-
-		_, err = io.Copy(destFile, io.LimitReader(srcFile, maxZipFileSize+1))
-		srcFile.Close()
-		destFile.Close()
-
-		if err != nil {
-			return err
-		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if noteFiles == 0 {
+		return errors.New("备份中没有笔记")
 	}
 
+	snapshotDir := filepath.Join(s.dataDir, "restore-snapshots", strconv.FormatInt(time.Now().UnixNano(), 10))
+	if err := os.MkdirAll(snapshotDir, 0700); err != nil {
+		return err
+	}
+
+	var applied []string
+	snapshots := make(map[string]string)
+	newFiles := make(map[string]bool)
+	rollback := func(cause error) error {
+		var rollbackErr error
+		for i := len(applied) - 1; i >= 0; i-- {
+			destination := applied[i]
+			if snapshotPath, ok := snapshots[destination]; ok {
+				data, err := os.ReadFile(snapshotPath)
+				if err == nil {
+					err = fsutil.WriteFileAtomic(destination, data, 0600)
+				}
+				if err != nil {
+					rollbackErr = errors.Join(rollbackErr, err)
+				}
+			} else if newFiles[destination] {
+				if err := os.Remove(destination); err != nil && !os.IsNotExist(err) {
+					rollbackErr = errors.Join(rollbackErr, err)
+				}
+			}
+		}
+		_ = os.RemoveAll(snapshotDir)
+		return errors.Join(cause, rollbackErr)
+	}
+
+	err = filepath.Walk(tempDir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info.IsDir() {
+			return nil
+		}
+		relPath, err := filepath.Rel(tempDir, path)
+		if err != nil {
+			return err
+		}
+		if skippedBackupPath(relPath) {
+			return nil
+		}
+		destination := filepath.Join(s.dataDir, relPath)
+		if err := os.MkdirAll(filepath.Dir(destination), 0700); err != nil {
+			return err
+		}
+		snapshotPath := filepath.Join(snapshotDir, relPath)
+		if _, err := os.Stat(destination); err == nil {
+			if err := os.MkdirAll(filepath.Dir(snapshotPath), 0700); err != nil {
+				return err
+			}
+			source, err := os.Open(destination)
+			if err != nil {
+				return err
+			}
+			snapshot, err := os.OpenFile(snapshotPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+			if err != nil {
+				_ = source.Close()
+				return err
+			}
+			_, copyErr := io.Copy(snapshot, source)
+			sourceCloseErr := source.Close()
+			snapshotCloseErr := snapshot.Close()
+			if copyErr != nil {
+				return copyErr
+			}
+			if sourceCloseErr != nil {
+				return sourceCloseErr
+			}
+			if snapshotCloseErr != nil {
+				return snapshotCloseErr
+			}
+			snapshots[destination] = snapshotPath
+		} else if os.IsNotExist(err) {
+			newFiles[destination] = true
+		} else {
+			return err
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err := fsutil.WriteFileAtomic(destination, data, 0600); err != nil {
+			return err
+		}
+		applied = append(applied, destination)
+		return nil
+	})
+	if err != nil {
+		return rollback(err)
+	}
 	return nil
 }

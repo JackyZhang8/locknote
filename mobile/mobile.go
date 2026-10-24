@@ -39,8 +39,8 @@ func mobileCall[T any](operation string, zero T, fn func() (T, error)) (value T,
 
 func mobileCallRead[T any](operation string, zero T, fn func() (T, error)) (value T, err error) {
 	value = zero
-	mobileMu.Lock()
-	defer mobileMu.Unlock()
+	mobileMu.RLock()
+	defer mobileMu.RUnlock()
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			value = zero
@@ -116,11 +116,16 @@ func Close() {
 
 // IsFirstRun 检查是否是首次运行
 func IsFirstRun() bool {
-	return mobileCallValue("IsFirstRun", true, func() bool {
+	return mobileCallValue("IsFirstRun", false, func() bool {
 		if coreInstance == nil {
-			return true
+			return false
 		}
-		return coreInstance.IsFirstRun()
+		isFirstRun, err := coreInstance.IsFirstRun()
+		if err != nil {
+			fmt.Printf("locknote mobile IsFirstRun error: %v\n", err)
+			return false
+		}
+		return isFirstRun
 	})
 }
 
@@ -707,7 +712,7 @@ func RestoreBackup(inputPath string) error {
 		if coreInstance == nil {
 			return errNotInitialized
 		}
-		return coreInstance.Backup().RestoreBackup(inputPath)
+		return coreInstance.RestoreBackup(inputPath)
 	})
 }
 

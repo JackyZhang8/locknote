@@ -35,6 +35,15 @@ export const zhCN = {
     redo: '重做',
   },
 
+  startup: {
+    starting: '正在启动应用核心...',
+    retrying: '正在启动应用核心... ({count})',
+    preparingData: '正在准备本地数据...',
+    readingData: '正在读取本地数据...',
+    initializing: '正在初始化...',
+    failed: '应用启动失败，请稍后重试或重新打开应用：{error}',
+  },
+
   // 侧边栏
   sidebar: {
     notes: '笔记',
@@ -69,6 +78,8 @@ export const zhCN = {
     rename: '重命名',
     moveTo: '移动到...',
     deleteNote: '删除',
+    expandLeftList: '展开左侧列表',
+    collapseLeftList: '收起左侧列表',
     deleteNoteTitle: '删除笔记？',
     deleteNoteDesc: '该笔记将移动到回收站，你可以稍后在回收站中恢复。',
     deleteNotebookTitle: '删除笔记本？',
@@ -123,6 +134,9 @@ export const zhCN = {
     tagsTooltip: '标签',
     historyTooltip: '历史版本',
     exportTooltip: '导出',
+    tableOfContents: '目录',
+    collapseTableOfContents: '收起目录',
+    expandTableOfContents: '展开目录',
     selectNote: '选择一篇笔记开始编辑',
     selectNoteTip: '从左侧列表选择笔记，或创建新笔记',
     lastEdited: '最后编辑于',
@@ -318,6 +332,7 @@ export const zhCN = {
     importMarkdownDesc: '从 Markdown 文件导入笔记',
     backupSuccess: '备份成功',
     backupFailed: '备份失败',
+    securityHint: '备份仅包含笔记、历史版本和附件；“恢复备份”仅适用于同一密码库。迁移到其他设备或密码库，请使用恢复密钥导入。',
     restoreSuccess: '恢复成功',
     restoreFailed: '恢复失败',
     importSuccess: '导入成功',

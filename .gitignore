@@ -5,6 +5,7 @@
 /frontend/node_modules_ubuntu/
 /frontend/node_modules_mac/
 /build/
+/.idea/
 /.vscode/
 /tests/*
 !/tests/source/

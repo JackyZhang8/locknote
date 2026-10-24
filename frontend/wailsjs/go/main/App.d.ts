@@ -19,6 +19,8 @@ export function BatchDeleteNotes(arg1:Array<string>):Promise<void>;
 
 export function ChangePassword(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function ConfirmClose():Promise<void>;
+
 export function CreateBackup():Promise<string>;
 
 export function CreateImageFromDataURL(arg1:string,arg2:string,arg3:string):Promise<attachments.Attachment>;

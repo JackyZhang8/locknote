@@ -2,6 +2,7 @@ import { FileText, Search, Settings, Lock, Clock, CheckSquare, Image as ImageIco
 import { useStore, ViewType } from '../store';
 import { useI18n } from '../i18n';
 import * as App from '../../wailsjs/go/main/App';
+import { flushEditor } from '../editorFlush';
 
 interface NavItem {
   id: ViewType;
@@ -32,6 +33,7 @@ export function Sidebar() {
   ];
 
   const handleLock = async () => {
+    await flushEditor();
     await App.Lock();
     setUnlocked(false);
   };

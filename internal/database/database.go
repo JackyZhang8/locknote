@@ -6,9 +6,12 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 )
+
+const schemaVersion = 1
 
 func parseSQLiteTime(v any) (time.Time, error) {
 	switch t := v.(type) {
@@ -141,6 +144,17 @@ func New(dbPath string) (*DB, error) {
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 
+	if _, err := db.Exec(`PRAGMA busy_timeout = 5000;`); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	var journalMode string
+	if err := db.QueryRow(`PRAGMA journal_mode = WAL;`).Scan(&journalMode); err != nil {
+		log.Printf("failed to enable SQLite WAL mode: %v", err)
+	} else if !strings.EqualFold(journalMode, "wal") {
+		log.Printf("SQLite journal mode is %q; WAL was requested", journalMode)
+	}
+
 	// Ensure FK constraints are enforced.
 	if _, err := db.Exec(`PRAGMA foreign_keys = ON;`); err != nil {
 		_ = db.Close()
@@ -255,62 +269,95 @@ func (d *DB) migrate() error {
 		return err
 	}
 
-	d.addNotebookIdColumn()
+	if err := d.addNotebookIdColumn(); err != nil {
+		return err
+	}
+	_, err = d.db.Exec(fmt.Sprintf(`PRAGMA user_version = %d;`, schemaVersion))
+	return err
+}
 
+func (d *DB) hasColumn(table, name string) (bool, error) {
+	var count int
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM pragma_table_info('%s') WHERE name = ?`, table)
+	if err := d.db.QueryRow(query, name).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (d *DB) ensureColumn(table, name, statement string) error {
+	exists, err := d.hasColumn(table, name)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	_, err = d.db.Exec(statement)
+	return err
+}
+
+func (d *DB) addNotebookIdColumn() error {
+	for _, migration := range []struct {
+		table, name, statement string
+	}{
+		{"notes", "notebook_id", `ALTER TABLE notes ADD COLUMN notebook_id TEXT REFERENCES notebooks(id) ON DELETE SET NULL`},
+		{"notes", "sort_order", `ALTER TABLE notes ADD COLUMN sort_order INTEGER DEFAULT 0`},
+		{"notebooks", "pinned", `ALTER TABLE notebooks ADD COLUMN pinned INTEGER DEFAULT 0`},
+		{"notebooks", "created_at", `ALTER TABLE notebooks ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP`},
+		{"notebooks", "updated_at", `ALTER TABLE notebooks ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`},
+		{"notes", "encrypted_title", `ALTER TABLE notes ADD COLUMN encrypted_title BLOB`},
+		{"notes", "encrypted_preview", `ALTER TABLE notes ADD COLUMN encrypted_preview BLOB`},
+	} {
+		if err := d.ensureColumn(migration.table, migration.name, migration.statement); err != nil {
+			return err
+		}
+	}
+	for _, statement := range []string{
+		`CREATE INDEX IF NOT EXISTS idx_notes_notebook_id ON notes(notebook_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_notes_sort_order ON notes(sort_order)`,
+		`CREATE INDEX IF NOT EXISTS idx_notebooks_pinned ON notebooks(pinned)`,
+		`CREATE INDEX IF NOT EXISTS idx_notes_list ON notes(deleted_at, pinned DESC, sort_order ASC, updated_at DESC)`,
+	} {
+		if _, err := d.db.Exec(statement); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
-func (d *DB) addNotebookIdColumn() {
+func (d *DB) HasMasterPassword() (bool, error) {
 	var count int
-	err := d.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('notes') WHERE name='notebook_id'`).Scan(&count)
-	if err != nil || count == 0 {
-		d.db.Exec(`ALTER TABLE notes ADD COLUMN notebook_id TEXT REFERENCES notebooks(id) ON DELETE SET NULL`)
-		d.db.Exec(`CREATE INDEX IF NOT EXISTS idx_notes_notebook_id ON notes(notebook_id)`)
+	if err := d.db.QueryRow("SELECT COUNT(*) FROM master_password").Scan(&count); err != nil {
+		return false, err
 	}
-
-	err = d.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('notes') WHERE name='sort_order'`).Scan(&count)
-	if err != nil || count == 0 {
-		d.db.Exec(`ALTER TABLE notes ADD COLUMN sort_order INTEGER DEFAULT 0`)
-		d.db.Exec(`CREATE INDEX IF NOT EXISTS idx_notes_sort_order ON notes(sort_order)`)
-	}
-
-	// Add pinned column to notebooks table if not exists
-	err = d.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('notebooks') WHERE name='pinned'`).Scan(&count)
-	if err != nil || count == 0 {
-		d.db.Exec(`ALTER TABLE notebooks ADD COLUMN pinned INTEGER DEFAULT 0`)
-		d.db.Exec(`CREATE INDEX IF NOT EXISTS idx_notebooks_pinned ON notebooks(pinned)`)
-	}
-
-	// Add created_at and updated_at columns to notebooks table if not exists
-	err = d.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('notebooks') WHERE name='created_at'`).Scan(&count)
-	if err != nil || count == 0 {
-		d.db.Exec(`ALTER TABLE notebooks ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP`)
-		d.db.Exec(`ALTER TABLE notebooks ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`)
-	}
-
-	// Add encrypted_title and encrypted_preview columns for list performance
-	err = d.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('notes') WHERE name='encrypted_title'`).Scan(&count)
-	if err != nil || count == 0 {
-		d.db.Exec(`ALTER TABLE notes ADD COLUMN encrypted_title BLOB`)
-		d.db.Exec(`ALTER TABLE notes ADD COLUMN encrypted_preview BLOB`)
-	}
-
-	// Add composite index for list query optimization
-	d.db.Exec(`CREATE INDEX IF NOT EXISTS idx_notes_list ON notes(deleted_at, pinned DESC, sort_order ASC, updated_at DESC)`)
+	return count > 0, nil
 }
 
-func (d *DB) HasMasterPassword() bool {
-	var count int
-	d.db.QueryRow("SELECT COUNT(*) FROM master_password").Scan(&count)
-	return count > 0
-}
-
-func (d *DB) SaveMasterPassword(salt, verifier []byte, hint string, encryptedDataKey []byte) error {
+func (d *DB) InsertMasterPassword(salt, verifier []byte, hint string, encryptedDataKey []byte) error {
 	_, err := d.db.Exec(`
-		INSERT OR REPLACE INTO master_password (id, salt, verifier, hint, encrypted_data_key)
+		INSERT INTO master_password (id, salt, verifier, hint, encrypted_data_key)
 		VALUES (1, ?, ?, ?, ?)
 	`, salt, verifier, hint, encryptedDataKey)
 	return err
+}
+
+func (d *DB) UpdateMasterPassword(salt, verifier []byte, hint string, encryptedDataKey []byte) error {
+	result, err := d.db.Exec(`
+		UPDATE master_password SET salt = ?, verifier = ?, hint = ?, encrypted_data_key = ?
+		WHERE id = 1
+	`, salt, verifier, hint, encryptedDataKey)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected != 1 {
+		return fmt.Errorf("master password record not found")
+	}
+	return nil
 }
 
 func (d *DB) GetMasterPassword() (*MasterPassword, error) {

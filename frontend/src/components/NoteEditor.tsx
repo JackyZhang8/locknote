@@ -9,10 +9,11 @@ import remarkGfm from 'remark-gfm';
 import { useStore, EditorMode } from '../store';
 import { formatMessage, useI18n } from '../i18n';
 import { attachmentMarkdown, fileToDataURL, markdownUrlTransform, parseAttachmentId } from '../imageAttachments';
+import { registerEditorFlush } from '../editorFlush';
 import { decodeTextBytes, detectTextEncoding, getDroppedTextTitle, isSupportedTextFile, TEXT_FILE_ENCODINGS, type TextFileEncoding } from '../droppedTextFile';
 import { notes, tags } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
-import { ClipboardGetText, ClipboardSetText } from '../../wailsjs/runtime/runtime';
+import { BrowserOpenURL, ClipboardGetText, ClipboardSetText } from '../../wailsjs/runtime/runtime';
 
 const FONT_SCALE_STORAGE_KEY = 'locknote-editor-font-scale';
 const LINE_NUMBERS_STORAGE_KEY = 'locknote-editor-show-line-numbers';
@@ -156,11 +157,25 @@ function PreviewCodeBlock({ node, children, ...props }: ComponentProps<'pre'> & 
 }
 
 const markdownComponents: Components = {
+  a: ({ href, children, ...props }) => (
+    <a
+      {...props}
+      href={href}
+      onClick={(event) => {
+        if (href?.startsWith('#')) return;
+        event.preventDefault();
+        if (href && /^(https?:|mailto:)/i.test(href)) BrowserOpenURL(href);
+      }}
+    >
+      {children}
+    </a>
+  ),
   img: AttachmentImage,
   pre: PreviewCodeBlock,
 };
 
 function PreviewMarkdown({ markdown, fontSize, collapsedByDefault = false }: { markdown: string; fontSize: string; collapsedByDefault?: boolean }) {
+  const { t } = useI18n();
   const headingPrefix = useId();
   const [tocOpen, setTocOpen] = useState(!collapsedByDefault);
   const [tocMaxHeight, setTocMaxHeight] = useState(0);
@@ -203,7 +218,7 @@ function PreviewMarkdown({ markdown, fontSize, collapsedByDefault = false }: { m
       scrollContainer.scrollTo({ top: targetTop, behavior: 'instant' as ScrollBehavior });
     }
   };
-  return <div ref={previewRef} className="flex min-w-0 gap-6" style={{ fontSize }}><article ref={articleRef} className="min-w-0 flex-1"><ReactMarkdown remarkPlugins={[remarkGfm, remarkFlowchartFences]} components={markdownComponents} urlTransform={markdownUrlTransform}>{markdown}</ReactMarkdown></article>{toc.length > 0 && <aside className={`${tocOpen ? 'w-48 border-l pl-4' : 'w-8'} shrink-0 border-gray-100`}><div className="sticky top-4 flex flex-col" style={{ maxHeight: tocMaxHeight || undefined }}><button type="button" className="mb-2 shrink-0 self-start text-xs font-semibold text-gray-500" onClick={() => setTocOpen((open) => !open)} title={tocOpen ? '收起目录' : '展开目录'}>{tocOpen ? '目录 ‹' : '目录 ›'}</button>{tocOpen && <nav className="min-h-0 space-y-1 overflow-y-auto">{toc.map((item) => <a key={item.id} href={`#${item.id}`} onClick={(event) => jumpToHeading(event, item.id)} className="block truncate text-sm text-gray-500 hover:text-gray-700" style={{ paddingLeft: `${(item.level - 1) * 10}px` }}>{item.text}</a>)}</nav>}</div></aside>}</div>;
+  return <div ref={previewRef} className="flex min-w-0 gap-6" style={{ fontSize }}><article ref={articleRef} className="min-w-0 flex-1"><ReactMarkdown remarkPlugins={[remarkGfm, remarkFlowchartFences]} components={markdownComponents} urlTransform={markdownUrlTransform}>{markdown}</ReactMarkdown></article>{toc.length > 0 && <aside className={`${tocOpen ? 'w-48 border-l pl-4' : 'w-8'} shrink-0 border-gray-100`}><div className="sticky top-4 flex flex-col" style={{ maxHeight: tocMaxHeight || undefined }}><button type="button" className="mb-2 shrink-0 self-start text-xs font-semibold text-gray-500" onClick={() => setTocOpen((open) => !open)} title={tocOpen ? t.editor.collapseTableOfContents : t.editor.expandTableOfContents}>{tocOpen ? `${t.editor.tableOfContents} ‹` : `${t.editor.tableOfContents} ›`}</button>{tocOpen && <nav className="min-h-0 space-y-1 overflow-y-auto">{toc.map((item) => <a key={item.id} href={`#${item.id}`} onClick={(event) => jumpToHeading(event, item.id)} className="block truncate text-sm text-gray-500 hover:text-gray-700" style={{ paddingLeft: `${(item.level - 1) * 10}px` }}>{item.text}</a>)}</nav>}</div></aside>}</div>;
 }
 
 interface NoteEditorProps {
@@ -259,6 +274,7 @@ export function NoteEditor({
   const latestDraftRef = useRef({ selectedNote, title, content });
   latestDraftRef.current = { selectedNote, title, content };
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSaveRef = useRef<{ noteId: string; title: string; content: string } | null>(null);
   const tagMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -520,6 +536,11 @@ export function NoteEditor({
             current.title === snapshot.title && current.content === snapshot.content) {
           updateSelectedNote(updated);
         }
+        if (pendingSaveRef.current?.noteId === snapshot.selectedNote.id &&
+            pendingSaveRef.current.title === snapshot.title &&
+            pendingSaveRef.current.content === snapshot.content) {
+          pendingSaveRef.current = null;
+        }
         const notesList = await App.ListNotes();
         const safeNotes = notesList || [];
         setNotes(safeNotes);
@@ -539,6 +560,72 @@ export function NoteEditor({
     return pending;
   }, [selectedNote, title, content, updateSelectedNote, setNotes, onNotesReloaded, t.common.error]);
 
+  const flushPendingSave = useCallback(async () => {
+    const pending = pendingSaveRef.current;
+    if (!pending) return;
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    const current = latestDraftRef.current;
+    if (current.selectedNote?.id === pending.noteId &&
+        pending.title === current.selectedNote.title &&
+        pending.content === current.selectedNote.content) {
+      pendingSaveRef.current = null;
+      return;
+    }
+    if (current.selectedNote?.id === pending.noteId &&
+        current.title === pending.title && current.content === pending.content) {
+      if (await saveNote() && pendingSaveRef.current === pending) {
+        pendingSaveRef.current = null;
+      }
+      return;
+    }
+
+    const save = saveQueueRef.current.then(async () => {
+      await App.UpdateNote(pending.noteId, pending.title, pending.content);
+      const notesList = await App.ListNotes();
+      const safeNotes = notesList || [];
+      setNotes(safeNotes);
+      onNotesReloaded?.(safeNotes);
+    });
+    saveQueueRef.current = save.catch(() => undefined);
+    await save;
+    if (pendingSaveRef.current === pending) {
+      pendingSaveRef.current = null;
+    }
+  }, [saveNote, setNotes, onNotesReloaded]);
+
+  useEffect(() => registerEditorFlush(flushPendingSave), [flushPendingSave]);
+
+  useEffect(() => {
+    const activeNote = selectedNote;
+    return () => {
+      const pending = pendingSaveRef.current;
+      if (!activeNote || !pending || pending.noteId !== activeNote.id) return;
+      if (pending.title === activeNote.title && pending.content === activeNote.content) {
+        pendingSaveRef.current = null;
+        return;
+      }
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      pendingSaveRef.current = null;
+      const save = saveQueueRef.current.then(async () => {
+        await App.UpdateNote(pending.noteId, pending.title, pending.content);
+        const notesList = await App.ListNotes();
+        const safeNotes = notesList || [];
+        setNotes(safeNotes);
+        onNotesReloaded?.(safeNotes);
+      });
+      saveQueueRef.current = save.catch((error) => {
+        console.error('Failed to save note after selection changed:', error);
+      });
+    };
+  }, [selectedNote, setNotes, onNotesReloaded]);
+
   useEffect(() => {
     if (!selectedNote) return;
 
@@ -546,9 +633,14 @@ export function NoteEditor({
       clearTimeout(saveTimeoutRef.current);
     }
 
+    const pending = { noteId: selectedNote.id, title, content };
+    pendingSaveRef.current = pending;
     saveTimeoutRef.current = setTimeout(() => {
+      saveTimeoutRef.current = null;
       if (title !== selectedNote.title || content !== selectedNote.content) {
         saveNote();
+      } else if (pendingSaveRef.current === pending) {
+        pendingSaveRef.current = null;
       }
     }, 800);
 

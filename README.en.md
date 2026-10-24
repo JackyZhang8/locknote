@@ -190,13 +190,16 @@ locknote/
 The Wails entry point, same-package APIs, and tests of unexported functions remain at the root.
 Source contract tests live in tests/source/: run go test ./tests/source, or go test ./... for all Go tests.
 
-## Security Notes
+## Security Model
 
-- Master key only resides in memory after unlocking
+LockNote encrypts note bodies, titles and previews, note history, attachments and thumbnails, and todo titles. Tag names, notebook names, original attachment filenames, smart-view filters, password hints, timestamps, and file counts and sizes are not encrypted.
+
+Backups contain only notes, history, and attachments; they do not contain tags, notebooks, todos, settings, or the database. **Restore Backup works only with a backup from the same vault.** To move data to another device or use a different key, use recovery-key import. If both the password and recovery key are lost, the data is unrecoverable by design.
+
+- The master key remains in memory only after unlocking
 - Each note uses an independent random nonce
-- Ciphertext files use atomic write
-- Password reset supported via recovery key
-- If you lose both your login password and the recovery key, your data cannot be recovered
+- Ciphertext files are written atomically
+- Password reset is supported through the recovery key
 
 ## Version
 

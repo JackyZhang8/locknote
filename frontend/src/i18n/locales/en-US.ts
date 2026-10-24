@@ -37,6 +37,15 @@ export const enUS: Translations = {
     redo: 'Redo',
   },
 
+  startup: {
+    starting: 'Starting application core...',
+    retrying: 'Starting application core... ({count})',
+    preparingData: 'Preparing local data...',
+    readingData: 'Reading local data...',
+    initializing: 'Initializing...',
+    failed: 'The app failed to start. Try again later or reopen the app: {error}',
+  },
+
   // Sidebar
   sidebar: {
     notes: 'Notes',
@@ -71,6 +80,8 @@ export const enUS: Translations = {
     rename: 'Rename',
     moveTo: 'Move to...',
     deleteNote: 'Delete',
+    expandLeftList: 'Expand note list',
+    collapseLeftList: 'Collapse note list',
     deleteNoteTitle: 'Delete note?',
     deleteNoteDesc: 'The note will be moved to trash. You can restore it later.',
     deleteNotebookTitle: 'Delete notebook?',
@@ -125,6 +136,9 @@ export const enUS: Translations = {
     tagsTooltip: 'Tags',
     historyTooltip: 'Version history',
     exportTooltip: 'Export',
+    tableOfContents: 'Contents',
+    collapseTableOfContents: 'Collapse contents',
+    expandTableOfContents: 'Expand contents',
     selectNote: 'Select a note to edit',
     selectNoteTip: 'Select a note from the list or create a new one',
     lastEdited: 'Last edited',
@@ -320,6 +334,7 @@ export const enUS: Translations = {
     importMarkdownDesc: 'Import notes from Markdown files',
     backupSuccess: 'Backup successful',
     backupFailed: 'Backup failed',
+    securityHint: 'Backups include notes, history, and attachments only; Restore Backup works only within the same vault. To move to another device or vault, use recovery-key import.',
     restoreSuccess: 'Restore successful',
     restoreFailed: 'Restore failed',
     importSuccess: 'Import successful',
