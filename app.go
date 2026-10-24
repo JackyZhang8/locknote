@@ -141,6 +141,14 @@ func (a *App) getCoreIfReady() *core.Core {
 	}
 }
 
+func (a *App) coreOrErr() (*core.Core, error) {
+	c := a.getCoreIfReady()
+	if c == nil {
+		return nil, errors.New("应用尚未就绪，请稍候重试")
+	}
+	return c, nil
+}
+
 func (a *App) startWindowWatcherOnce() {
 	a.windowWatcherOnce.Do(func() {
 		a.startWindowWatcher()
@@ -221,55 +229,93 @@ func (a *App) checkWindowState() {
 // ============ 委托给 core 的安全相关方法 ============
 
 func (a *App) IsFirstRun() (bool, error) {
-	c := a.getCoreIfReady()
-	if c == nil {
-		return false, errors.New("应用尚未就绪，请稍候重试")
+	c, err := a.coreOrErr()
+	if err != nil {
+		return false, err
 	}
 	return c.IsFirstRun()
 }
 
 func (a *App) SetupPassword(password, hint, displayKey string) (*core.SetupResult, error) {
-	return a.core.SetupPassword(password, hint, displayKey)
+	c, err := a.coreOrErr()
+	if err != nil {
+		return nil, err
+	}
+	return c.SetupPassword(password, hint, displayKey)
 }
 
 func (a *App) VerifyDataKey(displayKey string) (bool, error) {
-	return a.core.VerifyDataKey(displayKey)
+	c, err := a.coreOrErr()
+	if err != nil {
+		return false, err
+	}
+	return c.VerifyDataKey(displayKey)
 }
 
 func (a *App) Unlock(password string) (bool, error) {
-	return a.core.Unlock(password)
+	c, err := a.coreOrErr()
+	if err != nil {
+		return false, err
+	}
+	return c.Unlock(password)
 }
 
 func (a *App) Lock() {
-	a.core.Lock()
+	if c := a.getCoreIfReady(); c != nil {
+		c.Lock()
+	}
 }
 
 func (a *App) IsUnlocked() bool {
-	return a.core.IsUnlocked()
+	if c := a.getCoreIfReady(); c != nil {
+		return c.IsUnlocked()
+	}
+	return false
 }
 
 func (a *App) GetPasswordHint() (string, error) {
-	return a.core.GetPasswordHint()
+	c, err := a.coreOrErr()
+	if err != nil {
+		return "", err
+	}
+	return c.GetPasswordHint()
 }
 
 func (a *App) ChangePassword(oldPassword, newPassword, newHint string) error {
-	return a.core.ChangePassword(oldPassword, newPassword, newHint)
+	c, err := a.coreOrErr()
+	if err != nil {
+		return err
+	}
+	return c.ChangePassword(oldPassword, newPassword, newHint)
 }
 
 func (a *App) ResetPasswordWithDataKey(displayKey, newPassword, newHint string) error {
-	return a.core.ResetPasswordWithDataKey(displayKey, newPassword, newHint)
+	c, err := a.coreOrErr()
+	if err != nil {
+		return err
+	}
+	return c.ResetPasswordWithDataKey(displayKey, newPassword, newHint)
 }
 
 func (a *App) UpdateActivity() {
-	a.core.UpdateActivity()
+	if c := a.getCoreIfReady(); c != nil {
+		c.UpdateActivity()
+	}
 }
 
 func (a *App) GenerateDataKey() (string, error) {
-	return a.core.GenerateDataKey()
+	c, err := a.coreOrErr()
+	if err != nil {
+		return "", err
+	}
+	return c.GenerateDataKey()
 }
 
 func (a *App) GetDataDir() string {
-	return a.core.GetDataDir()
+	if c := a.getCoreIfReady(); c != nil {
+		return c.GetDataDir()
+	}
+	return ""
 }
 
 func (a *App) GetVersion() string {

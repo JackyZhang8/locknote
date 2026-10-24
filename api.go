@@ -22,108 +22,209 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 func (a *App) CreateNote(title, content string) (*notes.Note, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().Create(title, content)
+	return c.Notes().Create(title, content)
 }
 
 func (a *App) GetNote(id string) (*notes.Note, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().Get(id)
+	return c.Notes().Get(id)
 }
 
 func (a *App) UpdateNote(id, title, content string) (*notes.Note, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().Update(id, title, content)
+	return c.Notes().Update(id, title, content)
 }
 
 func (a *App) SetNotePinned(id string, pinned bool) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().SetPinned(id, pinned)
+	return c.Notes().SetPinned(id, pinned)
 }
 
 func (a *App) SoftDeleteNote(id string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().SoftDelete(id)
+	return c.Notes().SoftDelete(id)
 }
 
 func (a *App) RestoreNote(id string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().Restore(id)
+	return c.Notes().Restore(id)
 }
 
 func (a *App) DeleteNote(id string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().Delete(id)
+	return c.Notes().Delete(id)
 }
 
 func (a *App) ListNotes() ([]*notes.Note, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().List()
+	return c.Notes().List()
 }
 
 func (a *App) ListNotesPaginated(limit, offset int) (*notes.ListResult, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().ListPaginated(limit, offset)
+	return c.Notes().ListPaginated(limit, offset)
 }
 
 func (a *App) SearchNotes(query string) ([]*notes.Note, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().Search(query)
+	return c.Notes().Search(query)
 }
 
 func (a *App) MigrateOldNotes() (int, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return 0, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().MigrateOldNotes()
+	return c.Notes().MigrateOldNotes()
 }
 
 func (a *App) ListDeletedNotes() ([]*notes.Note, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().ListDeleted()
+	return c.Notes().ListDeleted()
 }
 
 func (a *App) GetNoteHistory(noteID string) ([]*notes.Note, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().GetHistory(noteID)
+	return c.Notes().GetHistory(noteID)
 }
 
 func (a *App) RestoreNoteFromHistory(noteID, historyID string) (*notes.Note, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().RestoreFromHistory(noteID, historyID)
+	return c.Notes().RestoreFromHistory(noteID, historyID)
 }
 
 func (a *App) CreateTag(name, color string) (*tags.Tag, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Tags().Create(name, color)
+	return c.Tags().Create(name, color)
 }
 
 func (a *App) UpdateTag(id, name, color string) (*tags.Tag, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Tags().Update(id, name, color)
+	return c.Tags().Update(id, name, color)
 }
 
 func (a *App) DeleteTag(id string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Tags().Delete(id)
+	return c.Tags().Delete(id)
 }
 
 func (a *App) ListTags() ([]*tags.Tag, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Tags().List()
+	return c.Tags().List()
 }
 
 func (a *App) AddTagToNote(noteID, tagID string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Tags().AddToNote(noteID, tagID)
+	return c.Tags().AddToNote(noteID, tagID)
 }
 
 func (a *App) RemoveTagFromNote(noteID, tagID string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Tags().RemoveFromNote(noteID, tagID)
+	return c.Tags().RemoveFromNote(noteID, tagID)
 }
 
 func parseOptionalDate(value string) (*time.Time, error) {
@@ -141,16 +242,31 @@ func parseOptionalDate(value string) (*time.Time, error) {
 }
 
 func (a *App) ListTodos() ([]*todos.Todo, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Todos().List()
+	return c.Todos().List()
 }
 
 func (a *App) GetTodo(id string) (*todos.Todo, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Todos().Get(id)
+	return c.Todos().Get(id)
 }
 
 func (a *App) CreateTodo(title, priority, dueAt string) (*todos.Todo, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
 
 	parsedDueAt, err := parseOptionalDate(dueAt)
@@ -163,10 +279,15 @@ func (a *App) CreateTodo(title, priority, dueAt string) (*todos.Todo, error) {
 		Priority: priority,
 		DueAt:    parsedDueAt,
 	}
-	return a.core.Todos().Create(input)
+	return c.Todos().Create(input)
 }
 
 func (a *App) UpdateTodo(id, title, priority, dueAt string) (*todos.Todo, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
 
 	parsedDueAt, err := parseOptionalDate(dueAt)
@@ -174,7 +295,7 @@ func (a *App) UpdateTodo(id, title, priority, dueAt string) (*todos.Todo, error)
 		return nil, err
 	}
 
-	return a.core.Todos().Update(todos.UpdateTodoInput{
+	return c.Todos().Update(todos.UpdateTodoInput{
 		ID:       id,
 		Title:    title,
 		Priority: priority,
@@ -183,49 +304,94 @@ func (a *App) UpdateTodo(id, title, priority, dueAt string) (*todos.Todo, error)
 }
 
 func (a *App) SetTodoCompleted(id string, completed bool) (*todos.Todo, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Todos().SetCompleted(id, completed)
+	return c.Todos().SetCompleted(id, completed)
 }
 
 func (a *App) DeleteTodo(id string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Todos().Delete(id)
+	return c.Todos().Delete(id)
 }
 
 func (a *App) CreateTodoSubtask(todoID, title string) (*todos.Subtask, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Todos().CreateSubtask(todoID, title)
+	return c.Todos().CreateSubtask(todoID, title)
 }
 
 func (a *App) UpdateTodoSubtask(id, title string) (*todos.Subtask, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Todos().UpdateSubtask(id, title)
+	return c.Todos().UpdateSubtask(id, title)
 }
 
 func (a *App) SetTodoSubtaskCompleted(id string, completed bool) (*todos.Subtask, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Todos().SetSubtaskCompleted(id, completed)
+	return c.Todos().SetSubtaskCompleted(id, completed)
 }
 
 func (a *App) DeleteTodoSubtask(id string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Todos().DeleteSubtask(id)
+	return c.Todos().DeleteSubtask(id)
 }
 
 func (a *App) GetSettings() (*database.Settings, error) {
-	return a.core.GetSettings()
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
+	return c.GetSettings()
 }
 
 func (a *App) UpdateSettings(autoLockMinutes int, lockOnMinimize, lockOnSleep bool) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	settings := &database.Settings{
 		AutoLockMinutes: autoLockMinutes,
 		LockOnMinimize:  lockOnMinimize,
 		LockOnSleep:     lockOnSleep,
 	}
-	return a.core.UpdateSettings(settings)
+	return c.UpdateSettings(settings)
 }
 
 func (a *App) CreateBackup() (string, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return "", coreErr
+	}
+
 	a.UpdateActivity()
 
 	savePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
@@ -242,7 +408,7 @@ func (a *App) CreateBackup() (string, error) {
 		return "", nil
 	}
 
-	err = a.core.Backup().CreateBackup(savePath)
+	err = c.Backup().CreateBackup(savePath)
 	if err != nil {
 		return "", err
 	}
@@ -251,6 +417,11 @@ func (a *App) CreateBackup() (string, error) {
 }
 
 func (a *App) RestoreBackup() error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
 
 	openPath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
@@ -266,10 +437,15 @@ func (a *App) RestoreBackup() error {
 		return nil
 	}
 
-	return a.core.RestoreBackup(openPath)
+	return c.RestoreBackup(openPath)
 }
 
 func (a *App) ImportBackupWithKey(dataKey string) (int, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return 0, coreErr
+	}
+
 	a.UpdateActivity()
 
 	openPath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
@@ -285,20 +461,25 @@ func (a *App) ImportBackupWithKey(dataKey string) (int, error) {
 		return 0, nil
 	}
 
-	return a.core.Notes().ImportFromBackup(openPath, dataKey)
+	return c.Notes().ImportFromBackup(openPath, dataKey)
 }
 
 func (a *App) ExportNoteAsMarkdown(noteID string) (string, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return "", coreErr
+	}
+
 	a.UpdateActivity()
 
-	note, err := a.core.Notes().Get(noteID)
+	note, err := c.Notes().Get(noteID)
 	if err != nil {
 		return "", err
 	}
 
 	savePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
 		Title:           "导出笔记",
-		DefaultFilename: note.Title + ".md",
+		DefaultFilename: sanitizeFileName(note.Title) + ".md",
 		Filters: []runtime.FileFilter{
 			{DisplayName: "Markdown 文件", Pattern: "*.md"},
 		},
@@ -321,6 +502,26 @@ func (a *App) ExportNoteAsMarkdown(noteID string) (string, error) {
 	}
 
 	return savePath, nil
+}
+
+func sanitizeFileName(name string) string {
+	var sanitized strings.Builder
+	for _, char := range name {
+		if unicode.IsControl(char) || strings.ContainsRune(`/\:*?"<>|`, char) {
+			sanitized.WriteRune('_')
+		} else {
+			sanitized.WriteRune(char)
+		}
+	}
+	name = strings.Trim(sanitized.String(), " .")
+	runes := []rune(name)
+	if len(runes) > 100 {
+		name = strings.Trim(string(runes[:100]), " .")
+	}
+	if name == "" {
+		return "note"
+	}
+	return name
 }
 
 var attachmentURLPattern = regexp.MustCompile(`locknote-attachment://([A-Za-z0-9_-]+)`)
@@ -453,6 +654,11 @@ func createUniqueAssetsDir(baseDir string, now time.Time) (string, string, error
 }
 
 func (a *App) exportMarkdownAttachments(content, exportDir string, now time.Time) (string, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return "", coreErr
+	}
+
 	attachmentIDs := collectAttachmentIDs(content)
 	if len(attachmentIDs) == 0 {
 		return content, nil
@@ -466,7 +672,7 @@ func (a *App) exportMarkdownAttachments(content, exportDir string, now time.Time
 	fileNames := make(map[string]string, len(attachmentIDs))
 	usedNames := map[string]int{}
 	for _, id := range attachmentIDs {
-		attachment, data, err := a.core.Attachments().GetData(id)
+		attachment, data, err := c.Attachments().GetData(id)
 		if err != nil {
 			return "", err
 		}
@@ -481,6 +687,11 @@ func (a *App) exportMarkdownAttachments(content, exportDir string, now time.Time
 }
 
 func (a *App) ImportMarkdown() (*notes.Note, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
 
 	openPath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
@@ -502,7 +713,7 @@ func (a *App) ImportMarkdown() (*notes.Note, error) {
 	}
 
 	title := markdown.ExtractTitle(openPath, string(content))
-	return a.core.Notes().Create(title, string(content))
+	return c.Notes().Create(title, string(content))
 }
 
 func parseImageDataURL(dataURL string) (string, []byte, error) {
@@ -529,6 +740,11 @@ func imageMIMEFromFile(path string, data []byte) string {
 }
 
 func (a *App) ImportImage(noteID string) (*attachments.Attachment, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
 
 	openPath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
@@ -552,7 +768,7 @@ func (a *App) ImportImage(noteID string) (*attachments.Attachment, error) {
 	if mimeType == "" {
 		return nil, errors.New("不支持的图片格式")
 	}
-	return a.core.Attachments().CreateImage(attachments.CreateImageInput{
+	return c.Attachments().CreateImage(attachments.CreateImageInput{
 		OriginalName: filepath.Base(openPath),
 		MIMEType:     mimeType,
 		Data:         data,
@@ -561,111 +777,216 @@ func (a *App) ImportImage(noteID string) (*attachments.Attachment, error) {
 }
 
 func (a *App) CreateImageFromDataURL(noteID, originalName, dataURL string) (*attachments.Attachment, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Attachments().CreateImageFromDataURL(noteID, originalName, dataURL)
+	return c.Attachments().CreateImageFromDataURL(noteID, originalName, dataURL)
 }
 
 func (a *App) GetAttachmentDataURL(id string) (string, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return "", coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Attachments().GetDataURL(id)
+	return c.Attachments().GetDataURL(id)
 }
 
 func (a *App) GetAttachmentThumbnailDataURL(id string) (string, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return "", coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Attachments().GetThumbnailDataURL(id)
+	return c.Attachments().GetThumbnailDataURL(id)
 }
 
 func (a *App) ListAttachments() ([]*attachments.Attachment, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Attachments().ListImages()
+	return c.Attachments().ListImages()
 }
 
 func (a *App) ListDeletedAttachments() ([]*attachments.Attachment, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Attachments().ListDeletedImages()
+	return c.Attachments().ListDeletedImages()
 }
 
 func (a *App) SoftDeleteAttachment(id string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Attachments().SoftDelete(id)
+	return c.Attachments().SoftDelete(id)
 }
 
 func (a *App) RestoreAttachment(id string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Attachments().Restore(id)
+	return c.Attachments().Restore(id)
 }
 
 func (a *App) DeleteAttachment(id string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Attachments().Delete(id)
+	return c.Attachments().Delete(id)
 }
 
 func (a *App) SetAttachmentFavorite(id string, favorite bool) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Attachments().SetFavorite(id, favorite)
+	return c.Attachments().SetFavorite(id, favorite)
 }
 
 func (a *App) AttachAttachmentToNote(noteID, attachmentID string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Attachments().AttachToNote(noteID, attachmentID)
+	return c.Attachments().AttachToNote(noteID, attachmentID)
 }
 
 func (a *App) DetachAttachmentFromNote(noteID, attachmentID string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Attachments().DetachFromNote(noteID, attachmentID)
+	return c.Attachments().DetachFromNote(noteID, attachmentID)
 }
 
 // Notebook APIs
 
 func (a *App) CreateNotebook(name, icon string) (*notebooks.Notebook, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notebooks().Create(name, icon)
+	return c.Notebooks().Create(name, icon)
 }
 
 func (a *App) UpdateNotebook(id, name, icon string) (*notebooks.Notebook, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notebooks().Update(id, name, icon)
+	return c.Notebooks().Update(id, name, icon)
 }
 
 func (a *App) DeleteNotebook(id string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notebooks().Delete(id)
+	return c.Notebooks().Delete(id)
 }
 
 func (a *App) ListNotebooks() ([]*notebooks.Notebook, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notebooks().List()
+	return c.Notebooks().List()
 }
 
 func (a *App) ReorderNotebooks(ids []string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notebooks().ReorderNotebooks(ids)
+	return c.Notebooks().ReorderNotebooks(ids)
 }
 
 func (a *App) SetNotebookPinned(id string, pinned bool) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notebooks().SetPinned(id, pinned)
+	return c.Notebooks().SetPinned(id, pinned)
 }
 
 func (a *App) SetNoteNotebook(noteID string, notebookID *string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().SetNotebook(noteID, notebookID)
+	return c.Notes().SetNotebook(noteID, notebookID)
 }
 
 func (a *App) SetNotesNotebook(noteIDs []string, notebookID *string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().SetNotesNotebook(noteIDs, notebookID)
+	return c.Notes().SetNotesNotebook(noteIDs, notebookID)
 }
 
 func (a *App) BatchDeleteNotes(noteIDs []string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().BatchSoftDelete(noteIDs)
+	return c.Notes().BatchSoftDelete(noteIDs)
 }
 
 func (a *App) BatchAddTagToNotes(noteIDs []string, tagID string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
 	for _, noteID := range noteIDs {
-		if err := a.core.Tags().AddToNote(noteID, tagID); err != nil {
+		if err := c.Tags().AddToNote(noteID, tagID); err != nil {
 			return err
 		}
 	}
@@ -673,33 +994,63 @@ func (a *App) BatchAddTagToNotes(noteIDs []string, tagID string) error {
 }
 
 func (a *App) ReorderNotes(ids []string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.Notes().ReorderNotes(ids)
+	return c.Notes().ReorderNotes(ids)
 }
 
 // SmartView APIs
 
 func (a *App) CreateSmartView(name, icon string, filter smartviews.Filter) (*smartviews.SmartView, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.SmartViews().Create(name, icon, filter)
+	return c.SmartViews().Create(name, icon, filter)
 }
 
 func (a *App) UpdateSmartView(id, name, icon string, filter smartviews.Filter) (*smartviews.SmartView, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.SmartViews().Update(id, name, icon, filter)
+	return c.SmartViews().Update(id, name, icon, filter)
 }
 
 func (a *App) DeleteSmartView(id string) error {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.SmartViews().Delete(id)
+	return c.SmartViews().Delete(id)
 }
 
 func (a *App) ListSmartViews() ([]*smartviews.SmartView, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.SmartViews().List()
+	return c.SmartViews().List()
 }
 
 func (a *App) GetSmartView(id string) (*smartviews.SmartView, error) {
+	c, coreErr := a.coreOrErr()
+	if coreErr != nil {
+		return nil, coreErr
+	}
+
 	a.UpdateActivity()
-	return a.core.SmartViews().Get(id)
+	return c.SmartViews().Get(id)
 }

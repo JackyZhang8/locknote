@@ -13,7 +13,7 @@ import { registerEditorFlush } from '../editorFlush';
 import { decodeTextBytes, detectTextEncoding, getDroppedTextTitle, isSupportedTextFile, TEXT_FILE_ENCODINGS, type TextFileEncoding } from '../droppedTextFile';
 import { notes, tags } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
-import { ClipboardGetText, ClipboardSetText } from '../../wailsjs/runtime/runtime';
+import { BrowserOpenURL, ClipboardGetText, ClipboardSetText } from '../../wailsjs/runtime/runtime';
 
 const FONT_SCALE_STORAGE_KEY = 'locknote-editor-font-scale';
 const LINE_NUMBERS_STORAGE_KEY = 'locknote-editor-show-line-numbers';
@@ -157,11 +157,25 @@ function PreviewCodeBlock({ node, children, ...props }: ComponentProps<'pre'> & 
 }
 
 const markdownComponents: Components = {
+  a: ({ href, children, ...props }) => (
+    <a
+      {...props}
+      href={href}
+      onClick={(event) => {
+        if (href?.startsWith('#')) return;
+        event.preventDefault();
+        if (href && /^(https?:|mailto:)/i.test(href)) BrowserOpenURL(href);
+      }}
+    >
+      {children}
+    </a>
+  ),
   img: AttachmentImage,
   pre: PreviewCodeBlock,
 };
 
 function PreviewMarkdown({ markdown, fontSize, collapsedByDefault = false }: { markdown: string; fontSize: string; collapsedByDefault?: boolean }) {
+  const { t } = useI18n();
   const headingPrefix = useId();
   const [tocOpen, setTocOpen] = useState(!collapsedByDefault);
   const [tocMaxHeight, setTocMaxHeight] = useState(0);
@@ -204,7 +218,7 @@ function PreviewMarkdown({ markdown, fontSize, collapsedByDefault = false }: { m
       scrollContainer.scrollTo({ top: targetTop, behavior: 'instant' as ScrollBehavior });
     }
   };
-  return <div ref={previewRef} className="flex min-w-0 gap-6" style={{ fontSize }}><article ref={articleRef} className="min-w-0 flex-1"><ReactMarkdown remarkPlugins={[remarkGfm, remarkFlowchartFences]} components={markdownComponents} urlTransform={markdownUrlTransform}>{markdown}</ReactMarkdown></article>{toc.length > 0 && <aside className={`${tocOpen ? 'w-48 border-l pl-4' : 'w-8'} shrink-0 border-gray-100`}><div className="sticky top-4 flex flex-col" style={{ maxHeight: tocMaxHeight || undefined }}><button type="button" className="mb-2 shrink-0 self-start text-xs font-semibold text-gray-500" onClick={() => setTocOpen((open) => !open)} title={tocOpen ? '收起目录' : '展开目录'}>{tocOpen ? '目录 ‹' : '目录 ›'}</button>{tocOpen && <nav className="min-h-0 space-y-1 overflow-y-auto">{toc.map((item) => <a key={item.id} href={`#${item.id}`} onClick={(event) => jumpToHeading(event, item.id)} className="block truncate text-sm text-gray-500 hover:text-gray-700" style={{ paddingLeft: `${(item.level - 1) * 10}px` }}>{item.text}</a>)}</nav>}</div></aside>}</div>;
+  return <div ref={previewRef} className="flex min-w-0 gap-6" style={{ fontSize }}><article ref={articleRef} className="min-w-0 flex-1"><ReactMarkdown remarkPlugins={[remarkGfm, remarkFlowchartFences]} components={markdownComponents} urlTransform={markdownUrlTransform}>{markdown}</ReactMarkdown></article>{toc.length > 0 && <aside className={`${tocOpen ? 'w-48 border-l pl-4' : 'w-8'} shrink-0 border-gray-100`}><div className="sticky top-4 flex flex-col" style={{ maxHeight: tocMaxHeight || undefined }}><button type="button" className="mb-2 shrink-0 self-start text-xs font-semibold text-gray-500" onClick={() => setTocOpen((open) => !open)} title={tocOpen ? t.editor.collapseTableOfContents : t.editor.expandTableOfContents}>{tocOpen ? `${t.editor.tableOfContents} ‹` : `${t.editor.tableOfContents} ›`}</button>{tocOpen && <nav className="min-h-0 space-y-1 overflow-y-auto">{toc.map((item) => <a key={item.id} href={`#${item.id}`} onClick={(event) => jumpToHeading(event, item.id)} className="block truncate text-sm text-gray-500 hover:text-gray-700" style={{ paddingLeft: `${(item.level - 1) * 10}px` }}>{item.text}</a>)}</nav>}</div></aside>}</div>;
 }
 
 interface NoteEditorProps {

@@ -37,6 +37,15 @@ export const zhTW: Translations = {
     redo: '重做',
   },
 
+  startup: {
+    starting: '正在啟動應用程式核心...',
+    retrying: '正在啟動應用程式核心... ({count})',
+    preparingData: '正在準備本機資料...',
+    readingData: '正在讀取本機資料...',
+    initializing: '正在初始化...',
+    failed: '應用程式啟動失敗，請稍後重試或重新開啟應用程式：{error}',
+  },
+
   // 側邊欄
   sidebar: {
     notes: '筆記',
@@ -71,6 +80,8 @@ export const zhTW: Translations = {
     rename: '重新命名',
     moveTo: '移動到...',
     deleteNote: '刪除',
+    expandLeftList: '展開左側列表',
+    collapseLeftList: '收起左側列表',
     deleteNoteTitle: '刪除筆記？',
     deleteNoteDesc: '該筆記將移動到回收站，你可以稍後在回收站中還原。',
     deleteNotebookTitle: '刪除筆記本？',
@@ -125,6 +136,9 @@ export const zhTW: Translations = {
     tagsTooltip: '標籤',
     historyTooltip: '歷史版本',
     exportTooltip: '匯出',
+    tableOfContents: '目錄',
+    collapseTableOfContents: '收起目錄',
+    expandTableOfContents: '展開目錄',
     selectNote: '選擇一篇筆記開始編輯',
     selectNoteTip: '從左側列表選擇筆記，或建立新筆記',
     lastEdited: '最後編輯於',
@@ -320,6 +334,7 @@ export const zhTW: Translations = {
     importMarkdownDesc: '從 Markdown 檔案匯入筆記',
     backupSuccess: '備份成功',
     backupFailed: '備份失敗',
+    securityHint: '備份僅包含筆記、歷史版本和附件；「還原備份」僅適用於同一密碼庫。移轉到其他裝置或密碼庫，請使用復原金鑰匯入。',
     restoreSuccess: '還原成功',
     restoreFailed: '還原失敗',
     importSuccess: '匯入成功',

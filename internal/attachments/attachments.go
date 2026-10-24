@@ -37,6 +37,8 @@ type Service struct {
 
 const thumbnailMaxPixelSize = 384
 
+var maxImageBytes = 50 << 20
+
 type CreateImageInput struct {
 	OriginalName string
 	MIMEType     string
@@ -141,6 +143,9 @@ func ParseImageDataURL(dataURL string) (string, []byte, error) {
 	parts := strings.SplitN(strings.TrimPrefix(dataURL, "data:"), base64Marker, 2)
 	if len(parts) != 2 {
 		return "", nil, errors.New("invalid image data URL")
+	}
+	if len(parts[1]) > maxImageBytes*4/3+16 {
+		return "", nil, errors.New("image data exceeds 50 MiB limit")
 	}
 	mimeType := strings.ToLower(strings.TrimSpace(parts[0]))
 	if !strings.HasPrefix(mimeType, "image/") {
@@ -257,6 +262,9 @@ func (s *Service) CreateImage(input CreateImageInput) (*Attachment, error) {
 	}
 	if len(input.Data) == 0 {
 		return nil, errors.New("image data is required")
+	}
+	if len(input.Data) > maxImageBytes {
+		return nil, errors.New("image data exceeds 50 MiB limit")
 	}
 	mimeType, err := normalizeImageMIME(input.MIMEType)
 	if err != nil {
