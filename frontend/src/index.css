@@ -206,17 +206,13 @@ html[lang='en-US'] body {
   @apply border-l-4 border-primary-400 pl-4 italic text-gray-600 my-3;
 }
 
-.markdown-preview a {
+.markdown-preview article a {
   @apply text-accent hover:text-primary-700 underline;
 }
 
-.markdown-preview aside nav a {
-  color: #6b7280;
+/* 目录（aside）不在 article 内，链接样式交给组件里的 Tailwind class 控制 */
+.markdown-preview aside a {
   text-decoration: none;
-}
-
-.markdown-preview aside nav a:hover {
-  color: #374151;
 }
 
 .markdown-preview table {

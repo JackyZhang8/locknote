@@ -1,6 +1,6 @@
 import { indexMarkdownHeadings } from '../markdownHeadings';
 import { useId, useState, useLayoutEffect, useEffect, useCallback, useRef, type ClipboardEvent as ReactClipboardEvent, type DragEvent as ReactDragEvent, type ImgHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type ComponentProps, type UIEvent as ReactUIEvent } from 'react';
-import { Eye, Edit3, Columns, Tag, History, Download, X, Plus, Check, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Bold, Italic, Heading1, Heading2, List, ListOrdered, Quote, Code, Link2, Image as ImageIcon, Pilcrow, Copy, Scissors, Clipboard } from 'lucide-react';
+import { Eye, Edit3, Columns, Tag, History, Download, X, Plus, Check, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Bold, Italic, Heading1, Heading2, List, ListOrdered, Quote, Code, Link2, Image as ImageIcon, Pilcrow, Copy, Scissors, Clipboard, ListTree, PanelRightClose } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { Components, ExtraProps } from 'react-markdown';
 import { MermaidDiagram } from './MermaidDiagram';
@@ -175,11 +175,12 @@ const markdownComponents: Components = {
   pre: PreviewCodeBlock,
 };
 
-function PreviewMarkdown({ markdown, fontSize, collapsedByDefault = false }: { markdown: string; fontSize: string; collapsedByDefault?: boolean }) {
+function PreviewMarkdown({ markdown, fontSize, compact = false }: { markdown: string; fontSize: string; compact?: boolean }) {
   const { t } = useI18n();
   const headingPrefix = useId();
-  const [tocOpen, setTocOpen] = useState(!collapsedByDefault);
+  const [tocOpen, setTocOpen] = useState(!compact);
   const [tocMaxHeight, setTocMaxHeight] = useState(0);
+  const [activeHeadingId, setActiveHeadingId] = useState('');
   const previewRef = useRef<HTMLDivElement | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
   const [toc, setToc] = useState<Array<{ id: string; text: string; level: number; element: HTMLElement }>>([]);
@@ -201,6 +202,34 @@ function PreviewMarkdown({ markdown, fontSize, collapsedByDefault = false }: { m
     observer.observe(scrollContainer);
     return () => observer.disconnect();
   }, []);
+  // 滚动时高亮当前所在章节，目录才有"位置感"
+  useEffect(() => {
+    const scrollContainer = previewRef.current?.parentElement;
+    if (!scrollContainer || toc.length === 0) return;
+
+    let frame = 0;
+    const updateActiveHeading = () => {
+      frame = 0;
+      const containerTop = scrollContainer.getBoundingClientRect().top;
+      let nextId = toc[0]?.id ?? '';
+      for (const item of toc) {
+        if (item.element.getBoundingClientRect().top - containerTop > 24) break;
+        nextId = item.id;
+      }
+      setActiveHeadingId((current) => (current === nextId ? current : nextId));
+    };
+    const scheduleUpdate = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(updateActiveHeading);
+    };
+
+    updateActiveHeading();
+    scrollContainer.addEventListener('scroll', scheduleUpdate, { passive: true });
+    return () => {
+      scrollContainer.removeEventListener('scroll', scheduleUpdate);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [toc]);
   const jumpToHeading = (event: ReactMouseEvent<HTMLAnchorElement>, id: string) => {
     event.preventDefault();
     const headingElement = toc.find((item) => item.id === id)?.element;
@@ -219,7 +248,79 @@ function PreviewMarkdown({ markdown, fontSize, collapsedByDefault = false }: { m
       scrollContainer.scrollTo({ top: targetTop, behavior: 'instant' as ScrollBehavior });
     }
   };
-  return <div ref={previewRef} className="flex min-w-0 gap-6" style={{ fontSize }}><article ref={articleRef} className="min-w-0 flex-1"><ReactMarkdown remarkPlugins={[remarkGfm, remarkFlowchartFences]} components={markdownComponents} urlTransform={markdownUrlTransform}>{markdown}</ReactMarkdown></article>{toc.length > 0 && <aside className={`${tocOpen ? 'w-48 border-l pl-4' : 'w-8'} shrink-0 border-gray-100`}><div className="sticky top-4 flex flex-col" style={{ maxHeight: tocMaxHeight || undefined }}><button type="button" className="mb-2 shrink-0 self-start text-xs font-semibold text-gray-500" onClick={() => setTocOpen((open) => !open)} title={tocOpen ? t.editor.collapseTableOfContents : t.editor.expandTableOfContents}>{tocOpen ? `${t.editor.tableOfContents} ‹` : `${t.editor.tableOfContents} ›`}</button>{tocOpen && <nav className="min-h-0 space-y-1 overflow-y-auto">{toc.map((item) => <a key={item.id} href={`#${item.id}`} onClick={(event) => jumpToHeading(event, item.id)} className="block truncate text-sm text-gray-500 hover:text-gray-700" style={{ paddingLeft: `${(item.level - 1) * 10}px` }}>{item.text}</a>)}</nav>}</div></aside>}</div>;
+
+  return (
+    <div ref={previewRef} className={`flex min-w-0 ${compact ? 'gap-4' : 'gap-6'}`} style={{ fontSize }}>
+      <article ref={articleRef} className="min-w-0 flex-1">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkFlowchartFences]}
+          components={markdownComponents}
+          urlTransform={markdownUrlTransform}
+        >
+          {markdown}
+        </ReactMarkdown>
+      </article>
+      {toc.length > 0 && (
+        <aside
+          data-markdown-toc="true"
+          className={`shrink-0 border-l border-gray-100 bg-white ${
+            tocOpen
+              ? compact
+                ? 'w-[clamp(7.5rem,30%,11rem)] pl-2'
+                : 'w-44 pl-3'
+              : 'w-9'
+          }`}
+        >
+          <div className="sticky top-4 flex flex-col" style={{ maxHeight: tocMaxHeight || undefined }}>
+            <div className={`mb-2 flex items-center ${tocOpen ? 'justify-between gap-1 pr-1' : 'justify-center'}`}>
+              {tocOpen && (
+                <span className="flex min-w-0 items-center gap-1 text-[11px] font-semibold tracking-wide text-gray-400">
+                  <ListTree className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{t.editor.tableOfContents}</span>
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setTocOpen((open) => !open)}
+                className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                title={tocOpen ? t.editor.collapseTableOfContents : t.editor.expandTableOfContents}
+                aria-label={tocOpen ? t.editor.collapseTableOfContents : t.editor.expandTableOfContents}
+                aria-expanded={tocOpen}
+              >
+                {tocOpen ? <PanelRightClose className="h-3.5 w-3.5" /> : <ListTree className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+            {tocOpen && (
+              <nav className="min-h-0 space-y-0.5 overflow-y-auto pb-2 pr-1">
+                {toc.map((item) => {
+                  const isActive = item.id === activeHeadingId;
+                  return (
+                    <a
+                      key={item.id}
+                      href={`#${item.id}`}
+                      onClick={(event) => jumpToHeading(event, item.id)}
+                      title={item.text}
+                      aria-current={isActive ? 'location' : undefined}
+                      className={`block truncate rounded-md py-1 pr-1 transition-colors ${
+                        compact ? 'text-[12px]' : 'text-[13px]'
+                      } ${
+                        isActive
+                          ? 'bg-primary-50 font-medium text-accent'
+                          : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                      }`}
+                      style={{ paddingLeft: `${6 + (item.level - 1) * 10}px` }}
+                    >
+                      {item.text}
+                    </a>
+                  );
+                })}
+              </nav>
+            )}
+          </div>
+        </aside>
+      )}
+    </div>
+  );
 }
 
 interface NoteEditorProps {
@@ -1566,7 +1667,7 @@ export function NoteEditor({
               className="min-h-0 flex-1 px-6 py-4 markdown-preview overflow-y-auto"
               style={{ fontSize: previewFontSize }}
             >
-              <PreviewMarkdown key={editorMode} markdown={content || `*${t.noteList.noContent}*`} fontSize={previewFontSize} collapsedByDefault={editorMode === 'split'} />
+              <PreviewMarkdown key={editorMode} markdown={content || `*${t.noteList.noContent}*`} fontSize={previewFontSize} compact={editorMode === 'split'} />
             </div>
           </div>
         )}
