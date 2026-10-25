@@ -1,10 +1,9 @@
 // https://github.com/JackyZhang8/locknote
 // 一个简单、可靠、离线优先的桌面加密笔记软件。
 // A simple, reliable, offline-first encrypted note-taking desktop app.
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useStore } from './store';
 import { LockScreen } from './components/LockScreen';
-import { MainLayout } from './components/MainLayout';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { SetupScreen } from './components/SetupScreen';
 import { StartupProgressScreen } from './components/StartupProgressScreen';
@@ -12,6 +11,9 @@ import * as App from '../wailsjs/go/main/App';
 import { EventsEmit, EventsOn } from '../wailsjs/runtime/runtime';
 import { flushEditor } from './editorFlush';
 import { formatMessage, useI18n } from './i18n';
+
+const loadMainLayout = () => import('./components/MainLayout');
+const MainLayout = lazy(() => loadMainLayout().then((m) => ({ default: m.MainLayout })));
 
 // Extend Window interface for Wails runtime
 declare global {
@@ -62,6 +64,7 @@ async function waitForCoreReady(
   onStatus: ((message: string) => void) | undefined,
   messages: { preparingData: string; failed: string },
 ): Promise<void> {
+  let preparationMessageShown = false;
   while (true) {
     const ready = await App.IsCoreReady();
     if (ready) return;
@@ -70,8 +73,11 @@ async function waitForCoreReady(
       onStatus?.(formatMessage(messages.failed, { error: startupError }));
       throw new Error(startupError);
     }
-    onStatus?.(messages.preparingData);
-    await new Promise(resolve => setTimeout(resolve, 300));
+    if (!preparationMessageShown) {
+      onStatus?.(messages.preparingData);
+      preparationMessageShown = true;
+    }
+    await new Promise(resolve => setTimeout(resolve, 50));
   }
 }
 
@@ -109,6 +115,12 @@ function AppRoot() {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
+    if (!loading) {
+      void loadMainLayout();
+    }
+  }, [loading]);
+
+  useEffect(() => {
     const suppressDefaultContextMenu = (event: MouseEvent) => {
       event.preventDefault();
     };
@@ -141,14 +153,14 @@ function AppRoot() {
         setFirstRun(firstRun);
         setShowOnboarding(firstRun);
 
-        const unlocked = await App.IsUnlocked();
-        setUnlocked(unlocked);
-
         setStartupProgress(84);
-        const version = await App.GetVersion();
+        const [unlocked, version, dataDir] = await Promise.all([
+          App.IsUnlocked(),
+          App.GetVersion(),
+          App.GetDataDir(),
+        ]);
+        setUnlocked(unlocked);
         setVersion(version);
-
-        const dataDir = await App.GetDataDir();
         setDataDir(dataDir);
 
         if (firstRun) {
@@ -321,7 +333,11 @@ function AppRoot() {
     return <LockScreen />;
   }
 
-  return <MainLayout />;
+  return (
+    <Suspense fallback={<div className="h-screen bg-background" />}>
+      <MainLayout />
+    </Suspense>
+  );
 }
 
 export default AppRoot;
