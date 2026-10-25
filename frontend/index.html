@@ -149,7 +149,7 @@
         var emitted = false;
         function emitReady() {
           if (emitted) return;
-          if (typeof window.runtime?.EventsEmit !== 'function') {
+          if (!window.runtime || typeof window.runtime.EventsEmit !== 'function') {
             setTimeout(emitReady, 16);
             return;
           }

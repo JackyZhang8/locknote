@@ -16,7 +16,7 @@ test('index.html emits frontend readiness after the boot splash gets its first f
   assert.equal(splashStart >= 0 && readyScriptStart > splashStart && rootStart > readyScriptStart, true);
   assert.equal(/requestAnimationFrame\(function \(\) \{\s*requestAnimationFrame\(emitReady\);\s*\}\);/.test(readyScript), true);
   assert.equal(/window\.runtime\.EventsEmit\('frontend:ready'\)/.test(readyScript), true);
-  assert.equal(/typeof window\.runtime\?\.EventsEmit !== 'function'[\s\S]*setTimeout\(emitReady, 16\)/.test(readyScript), true);
+  assert.equal(/typeof window\.runtime\.EventsEmit !== 'function'[\s\S]*setTimeout\(emitReady, 16\)/.test(readyScript), true);
   assert.equal(/var emitted = false;[\s\S]*if \(emitted\) return;[\s\S]*emitted = true;/.test(readyScript), true);
   assert.equal(/try \{[\s\S]*\} catch \(error\) \{[\s\S]*setTimeout\(emitReady, 16\);/.test(readyScript), true);
 });
