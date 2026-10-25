@@ -234,3 +234,33 @@ html[lang='en-US'] body {
 .markdown-preview hr {
   @apply my-4 border-gray-300;
 }
+
+/* 启动页进度条上的流动高光，让分阶段跳变的进度看起来是"活的" */
+.startup-progress-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: translateX(-100%);
+  animation: startup-sheen 1.4s ease-in-out infinite;
+}
+
+@keyframes startup-sheen {
+  0% {
+    transform: translateX(-100%);
+  }
+  60%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .startup-progress-sheen {
+    animation: none;
+  }
+}

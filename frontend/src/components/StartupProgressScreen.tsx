@@ -28,10 +28,17 @@ export function StartupProgressScreen({ message, progress }: StartupProgressScre
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={boundedProgress}
-            className="h-full rounded-full bg-accent transition-all duration-300"
+            className="relative h-full overflow-hidden rounded-full bg-accent transition-[width] duration-500 ease-out"
             style={{ width: `${boundedProgress}%` }}
-          />
+          >
+            {/* 进度值是按阶段跳变的，用一条流动高光让它看起来一直在动，不会像卡住 */}
+            <span className="startup-progress-sheen" aria-hidden="true" />
+          </div>
         </div>
+
+        <p className="mt-3 text-center text-xs tabular-nums text-gray-400">
+          {Math.round(boundedProgress)}%
+        </p>
       </div>
     </div>
   );

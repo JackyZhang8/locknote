@@ -30,6 +30,7 @@ type App struct {
 	dataDir           string
 	windowWatcher     *time.Ticker
 	windowWatcherOnce sync.Once
+	windowShowOnce    sync.Once
 	watcherStop       chan struct{}
 	lastMinimized     bool
 	allowClose        atomic.Bool
@@ -62,11 +63,26 @@ func (a *App) startup(ctx context.Context) {
 	a.startCoreInitialization(ctx)
 
 	runtime.EventsOn(a.ctx, "frontend:ready", func(optionalData ...interface{}) {
+		// 前端首屏已经完成首次渲染，这时再显示窗口，用户看到的第一帧就是启动页。
+		a.showWindowOnce()
 		a.startWindowWatcherOnce()
 	})
 
+	// 兜底：前端脚本加载失败（或 WebView 极慢）时也要把窗口显示出来，
+	// 不能让用户对着一个"没有窗口"的应用干等。
+	// 此时 index.html 里的静态启动页已经能画出来了，不会是白屏。
 	time.AfterFunc(3*time.Second, func() {
+		a.showWindowOnce()
 		a.startWindowWatcherOnce()
+	})
+}
+
+func (a *App) showWindowOnce() {
+	a.windowShowOnce.Do(func() {
+		if a.ctx == nil {
+			return
+		}
+		runtime.WindowShow(a.ctx)
 	})
 }
 

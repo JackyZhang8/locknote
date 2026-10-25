@@ -10,9 +10,139 @@
         margin: 0;
         padding: 0;
       }
+
+      /* 首帧背景：先按主题上色，避免 WebView 渲染出白底 */
+      html {
+        background-color: #f4fbf6;
+        color-scheme: light;
+      }
+      html[data-theme='lobster'] { background-color: #fff2f2; }
+      html[data-theme='sunset'] { background-color: #fff6ef; }
+
+      body {
+        background-color: inherit;
+      }
+
+      /* 启动占位页：纯 HTML/CSS，不需要等 JS 加载，解析到就能画出来。
+         React 挂载完成后由 main.tsx 移除。 */
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 24px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+          'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+        background-color: inherit;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      #boot-splash .boot-card {
+        width: 100%;
+        max-width: 420px;
+        padding: 32px;
+        border: 1px solid #dcfce7;
+        border-radius: 16px;
+        background-color: #ffffff;
+        box-shadow: 0 10px 30px rgba(15, 23, 18, 0.08);
+        text-align: center;
+      }
+
+      #boot-splash .boot-logo {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 18px;
+        animation: boot-pulse 1.6s ease-in-out infinite;
+      }
+
+      #boot-splash .boot-title {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        color: #111827;
+      }
+
+      #boot-splash .boot-subtitle {
+        margin: 8px 0 0;
+        font-size: 13px;
+        color: #6b7280;
+      }
+
+      #boot-splash .boot-track {
+        position: relative;
+        height: 8px;
+        margin-top: 24px;
+        overflow: hidden;
+        border-radius: 999px;
+        background-color: #f0fdf4;
+      }
+
+      #boot-splash .boot-bar {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 40%;
+        border-radius: 999px;
+        background-color: #10b981;
+        animation: boot-slide 1.25s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      }
+
+      @keyframes boot-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.82; transform: scale(0.97); }
+      }
+
+      @keyframes boot-slide {
+        0% { left: -40%; }
+        100% { left: 100%; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #boot-splash .boot-logo,
+        #boot-splash .boot-bar {
+          animation: none;
+        }
+        #boot-splash .boot-bar {
+          left: 30%;
+        }
+      }
     </style>
+    <script>
+      // 在样式生效前同步套用用户上次选择的主题，避免启动瞬间闪一下默认色。
+      (function () {
+        try {
+          var theme = window.localStorage.getItem('locknote-theme');
+          if (theme === 'apple' || theme === 'lobster' || theme === 'sunset') {
+            document.documentElement.setAttribute('data-theme', theme);
+          }
+        } catch (error) {
+          /* localStorage 不可用时忽略 */
+        }
+      })();
+    </script>
   </head>
   <body>
+    <div id="boot-splash" aria-hidden="true">
+      <div class="boot-card">
+        <svg class="boot-logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M32 3 6 12.5v17.9C6 46 16.6 56.4 32 61c15.4-4.6 26-15 26-30.6V12.5L32 3Z"
+            fill="#d9f7e4"
+          />
+          <path
+            d="M32 17.5c-5.2 0-9.4 4.2-9.4 9.4v3.3h3.6v-3.3a5.8 5.8 0 0 1 11.6 0v3.3h3.6v-3.3c0-5.2-4.2-9.4-9.4-9.4Z"
+            fill="#22c55e"
+          />
+          <rect x="18.6" y="29.4" width="26.8" height="18.2" rx="4.2" fill="#22c55e" />
+        </svg>
+        <h1 class="boot-title">LockNote</h1>
+        <p class="boot-subtitle">正在启动应用核心...</p>
+        <div class="boot-track"><div class="boot-bar"></div></div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

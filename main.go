@@ -28,9 +28,12 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 244, G: 251, B: 246, A: 1},
-		OnStartup:        app.startup,
-		OnShutdown:       app.shutdown,
-		OnBeforeClose:    app.beforeClose,
+		// 启动时先隐藏窗口，等前端把首屏（启动进度页）绘制完成后再显示，
+		// 避免 WebView 尚未渲染时先露出一块白屏。
+		StartHidden:   true,
+		OnStartup:     app.startup,
+		OnShutdown:    app.shutdown,
+		OnBeforeClose: app.beforeClose,
 		Bind: []interface{}{
 			app,
 		},
