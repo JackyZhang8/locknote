@@ -45,6 +45,9 @@
     "src/todoFilters.ts",
     "src/calendar.test.ts",
     "src/calendar.ts",
+    "src/scrollSync.test.ts",
+    "src/scrollSync.ts",
+    "src/splitScrollSync.test.ts",
     "src/calendarViewIntegration.test.ts",
     "src/test-node-shims.d.ts"
   ]

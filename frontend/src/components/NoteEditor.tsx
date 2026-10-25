@@ -11,6 +11,7 @@ import { formatMessage, useI18n } from '../i18n';
 import { attachmentMarkdown, fileToDataURL, markdownUrlTransform, parseAttachmentId } from '../imageAttachments';
 import { registerEditorFlush } from '../editorFlush';
 import { decodeTextBytes, detectTextEncoding, getDroppedTextTitle, isSupportedTextFile, TEXT_FILE_ENCODINGS, type TextFileEncoding } from '../droppedTextFile';
+import { computeSyncedScrollTop, shouldIgnoreScrollEcho, type ScrollSyncSource } from '../scrollSync';
 import { notes, tags } from '../../wailsjs/go/models';
 import * as App from '../../wailsjs/go/main/App';
 import { BrowserOpenURL, ClipboardGetText, ClipboardSetText } from '../../wailsjs/runtime/runtime';
@@ -279,6 +280,8 @@ export function NoteEditor({
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const previewScrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollSyncRef = useRef<{ source: ScrollSyncSource | null; at: number }>({ source: null, at: 0 });
   const encodingTriggerRef = useRef<HTMLButtonElement | null>(null);
   const lineNumbersRef = useRef<HTMLDivElement | null>(null);
   const contextMenuTargetRef = useRef<EditableContextTarget | null>(null);
@@ -1178,11 +1181,41 @@ export function NoteEditor({
     setContent(value);
   };
 
+  // 分屏时把一侧的滚动位置按比例同步到另一侧。
+  // 源码栏是等宽纯文本、预览栏是排版后的富文本，两边高度对不上，
+  // 所以用"滚到可滚动范围的百分之几"来对齐，而不是逐行对齐。
+  const syncScrollFrom = (source: ScrollSyncSource) => {
+    const textarea = contentTextareaRef.current;
+    const preview = previewScrollRef.current;
+    if (!textarea || !preview) return;
+
+    const now = performance.now();
+    if (shouldIgnoreScrollEcho(scrollSyncRef.current, source, now)) return;
+
+    const from = source === 'editor' ? textarea : preview;
+    const to = source === 'editor' ? preview : textarea;
+    const nextScrollTop = computeSyncedScrollTop(from, to);
+    if (nextScrollTop === null || Math.abs(to.scrollTop - nextScrollTop) < 1) return;
+
+    scrollSyncRef.current = { source, at: now };
+    to.scrollTop = nextScrollTop;
+  };
+
   const handleContentScroll = () => {
     const textarea = contentTextareaRef.current;
     const lineNumbers = lineNumbersRef.current;
-    if (!textarea || !lineNumbers) return;
-    lineNumbers.scrollTop = textarea.scrollTop;
+    if (textarea && lineNumbers) {
+      lineNumbers.scrollTop = textarea.scrollTop;
+    }
+    if (editorMode === 'split') {
+      syncScrollFrom('editor');
+    }
+  };
+
+  const handlePreviewScroll = () => {
+    if (editorMode === 'split') {
+      syncScrollFrom('preview');
+    }
   };
 
   const handleRequestClose = async () => {
@@ -1527,7 +1560,12 @@ export function NoteEditor({
                 {title || t.noteList.untitled}
               </h1>
             </div>
-            <div className="min-h-0 flex-1 px-6 py-4 markdown-preview overflow-y-auto" style={{ fontSize: previewFontSize }}>
+            <div
+              ref={previewScrollRef}
+              onScroll={handlePreviewScroll}
+              className="min-h-0 flex-1 px-6 py-4 markdown-preview overflow-y-auto"
+              style={{ fontSize: previewFontSize }}
+            >
               <PreviewMarkdown key={editorMode} markdown={content || `*${t.noteList.noContent}*`} fontSize={previewFontSize} collapsedByDefault={editorMode === 'split'} />
             </div>
           </div>
