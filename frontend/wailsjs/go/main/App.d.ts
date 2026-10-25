@@ -103,9 +103,9 @@ export function ListNotebooks():Promise<Array<notebooks.Notebook>>;
 
 export function ListNotes():Promise<Array<notes.Note>>;
 
-export function ListNotesWithStatus():Promise<notes.ListResult>;
-
 export function ListNotesPaginated(arg1:number,arg2:number):Promise<notes.ListResult>;
+
+export function ListNotesWithStatus():Promise<notes.ListResult>;
 
 export function ListSmartViews():Promise<Array<smartviews.SmartView>>;
 

@@ -190,12 +190,12 @@ export function ListNotes() {
   return window['go']['main']['App']['ListNotes']();
 }
 
-export function ListNotesWithStatus() {
-  return window['go']['main']['App']['ListNotesWithStatus']();
-}
-
 export function ListNotesPaginated(arg1, arg2) {
   return window['go']['main']['App']['ListNotesPaginated'](arg1, arg2);
+}
+
+export function ListNotesWithStatus() {
+  return window['go']['main']['App']['ListNotesWithStatus']();
 }
 
 export function ListSmartViews() {
