@@ -158,8 +158,29 @@ jobs:
             --team-id "$APPLE_TEAM_ID" \
             --wait
 
-          xcrun stapler staple "$APP_PATH"
-          xcrun stapler validate "$APP_PATH"
+          # Apple notarization can be accepted while stapler's follow-up
+          # CloudKit validation intermittently fails due to a network error.
+          # Retry the stapling and validation steps; fail the job if retries
+          # are exhausted so a real signing/notarization problem is not hidden.
+          retry_stapler() {
+            local description="$1"
+            shift
+            local attempt
+            for attempt in 1 2 3; do
+              echo "$description (attempt $attempt/3)"
+              if "$@"; then
+                return 0
+              fi
+              if [ "$attempt" -lt 3 ]; then
+                sleep "$((attempt * 10))"
+              fi
+            done
+            echo "$description failed after 3 attempts." >&2
+            return 1
+          }
+
+          retry_stapler "Stapling notarization ticket" xcrun stapler staple "$APP_PATH"
+          retry_stapler "Validating stapled notarization ticket" xcrun stapler validate "$APP_PATH"
           spctl --assess --type execute --verbose "$APP_PATH"
 
       - name: Package (Windows)
