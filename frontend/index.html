@@ -143,6 +143,28 @@
         <div class="boot-track"><div class="boot-bar"></div></div>
       </div>
     </div>
+    <script>
+      // 首屏静态页绘制后立即显示窗口，不等待主界面 JS 加载。
+      (function () {
+        var emitted = false;
+        function emitReady() {
+          if (emitted) return;
+          if (typeof window.runtime?.EventsEmit !== 'function') {
+            setTimeout(emitReady, 16);
+            return;
+          }
+          try {
+            window.runtime.EventsEmit('frontend:ready');
+            emitted = true;
+          } catch (error) {
+            setTimeout(emitReady, 16);
+          }
+        }
+        requestAnimationFrame(function () {
+          requestAnimationFrame(emitReady);
+        });
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

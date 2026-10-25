@@ -3,8 +3,23 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const source = readFileSync('src/App.tsx', 'utf8');
+const htmlSource = readFileSync('index.html', 'utf8');
 const onboardingSource = readFileSync('src/components/OnboardingScreen.tsx', 'utf8');
 const startupProgressSource = readFileSync('src/components/StartupProgressScreen.tsx', 'utf8');
+
+test('index.html emits frontend readiness after the boot splash gets its first frames', () => {
+  const splashStart = htmlSource.indexOf('<div id="boot-splash"');
+  const rootStart = htmlSource.indexOf('<div id="root"></div>');
+  const readyScriptStart = htmlSource.indexOf('<script>', splashStart);
+  const readyScript = htmlSource.slice(readyScriptStart, rootStart);
+
+  assert.equal(splashStart >= 0 && readyScriptStart > splashStart && rootStart > readyScriptStart, true);
+  assert.equal(/requestAnimationFrame\(function \(\) \{\s*requestAnimationFrame\(emitReady\);\s*\}\);/.test(readyScript), true);
+  assert.equal(/window\.runtime\.EventsEmit\('frontend:ready'\)/.test(readyScript), true);
+  assert.equal(/typeof window\.runtime\?\.EventsEmit !== 'function'[\s\S]*setTimeout\(emitReady, 16\)/.test(readyScript), true);
+  assert.equal(/var emitted = false;[\s\S]*if \(emitted\) return;[\s\S]*emitted = true;/.test(readyScript), true);
+  assert.equal(/try \{[\s\S]*\} catch \(error\) \{[\s\S]*setTimeout\(emitReady, 16\);/.test(readyScript), true);
+});
 
 test('App waits for Wails runtime without falling through to the first-run screen on Windows cold start', () => {
   assert.equal(/async function waitForWailsRuntime/.test(source), true);
@@ -22,9 +37,23 @@ test('App waits for background core initialization before calling first-run APIs
   assert.equal(/App\.GetStartupError/.test(source), true);
   assert.equal(source.indexOf('await waitForCoreReady(setStartupMessage, t.startup);') < source.indexOf('const firstRun = await App.IsFirstRun();'), true);
   assert.equal(/while \(true\)/.test(coreReadySource), true);
-  assert.equal(/await new Promise\(resolve => setTimeout\(resolve, 300\)\)/.test(coreReadySource), true);
+  assert.equal(/await new Promise\(resolve => setTimeout\(resolve, 50\)\)/.test(coreReadySource), true);
+  assert.equal(/let preparationMessageShown = false/.test(coreReadySource), true);
+  assert.equal(/if \(!preparationMessageShown\) \{\s*onStatus\?\.\(messages\.preparingData\);\s*preparationMessageShown = true;\s*\}/.test(coreReadySource), true);
   assert.equal(/if \(startupError\) \{[\s\S]*onStatus\?\.\(formatMessage\(messages\.failed, \{ error: startupError \}\)\);[\s\S]*throw new Error\(startupError\);/.test(coreReadySource), true);
   assert.equal((coreReadySource.match(/throw new Error/g) || []).length, 1);
+  const metadataPromiseSource = source.match(/const \[unlocked, version, dataDir\] = await Promise\.all\(\[([\s\S]*?)\]\);/)?.[1] ?? '';
+  assert.equal(/App\.IsUnlocked\(\)/.test(metadataPromiseSource), true);
+  assert.equal(/App\.GetVersion\(\)/.test(metadataPromiseSource), true);
+  assert.equal(/App\.GetDataDir\(\)/.test(metadataPromiseSource), true);
+});
+
+test('App lazy-loads MainLayout and prefetches it after startup', () => {
+  assert.equal(/const loadMainLayout = \(\) => import\('\.\/components\/MainLayout'\);/.test(source), true);
+  assert.equal(/const MainLayout = lazy\(\(\) => loadMainLayout\(\)\.then\(\(m\) => \(\{ default: m\.MainLayout \}\)\)\);/.test(source), true);
+  assert.equal(/import\s+\{\s*MainLayout\s*\}\s+from\s+['"]\.\/components\/MainLayout['"]/.test(source), false);
+  assert.equal(/<Suspense fallback=\{<div className="h-screen bg-background" \/>}>\s*<MainLayout \/>/.test(source), true);
+  assert.equal(/if \(!loading\) \{\s*void loadMainLayout\(\);\s*\}/.test(source), true);
 });
 
 test('App shows a cold-start message while the Windows runtime is still warming up', () => {
