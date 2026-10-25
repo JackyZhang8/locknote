@@ -158,30 +158,41 @@ jobs:
             --team-id "$APPLE_TEAM_ID" \
             --wait
 
-          # Apple notarization can be accepted while stapler's follow-up
-          # CloudKit validation intermittently fails due to a network error.
-          # Retry the stapling and validation steps; fail the job if retries
-          # are exhausted so a real signing/notarization problem is not hidden.
+          # notarytool --wait above must succeed before continuing. Apple can
+          # still return NSURLErrorDomain -1005 from CloudKit when stapler tries
+          # to fetch the ticket. Retry for longer, but do not fail an otherwise
+          # notarized release solely because Apple's ticket-delivery endpoint
+          # is temporarily unreachable. A non-stapled notarized app can still
+          # be verified by Gatekeeper online; stapling is preferable for offline use.
           retry_stapler() {
             local description="$1"
             shift
             local attempt
-            for attempt in 1 2 3; do
-              echo "$description (attempt $attempt/3)"
+            local delay
+            for attempt in 1 2 3 4 5; do
+              echo "$description (attempt $attempt/5)"
               if "$@"; then
                 return 0
               fi
-              if [ "$attempt" -lt 3 ]; then
-                sleep "$((attempt * 10))"
+              if [ "$attempt" -lt 5 ]; then
+                delay="$((attempt * 15))"
+                echo "Retrying in ${delay}s..."
+                sleep "$delay"
               fi
             done
-            echo "$description failed after 3 attempts." >&2
+            echo "$description failed after 5 attempts." >&2
             return 1
           }
 
-          retry_stapler "Stapling notarization ticket" xcrun stapler staple "$APP_PATH"
-          retry_stapler "Validating stapled notarization ticket" xcrun stapler validate "$APP_PATH"
-          spctl --assess --type execute --verbose "$APP_PATH"
+          if retry_stapler "Stapling notarization ticket" xcrun stapler staple "$APP_PATH"; then
+            if retry_stapler "Validating stapled notarization ticket" xcrun stapler validate "$APP_PATH"; then
+              spctl --assess --type execute --verbose "$APP_PATH"
+            else
+              echo "::warning::Ticket stapling was attempted, but stapler validation could not complete. Continuing because notarytool submission succeeded; please verify the release artifact when Apple's service recovers."
+            fi
+          else
+            echo "::warning::Apple's CloudKit ticket-delivery endpoint was unreachable, so the notarization ticket could not be stapled. Continuing because notarytool submission succeeded. The app may require an internet connection for Gatekeeper's online notarization check."
+          fi
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
